@@ -1528,7 +1528,7 @@ eb.comm.processDataRequestBodyBuilder.prototype = {
     /**
      * Builds EB request.
      *
-     * @param plainData - bitArray of the plaintext data (will be MAC protected).
+     * @param plainData - bitArray of the plaintext data.
      * @param requestData - bitArray with userdata to perform operation on (will be encrypted, MAC protected)
      * @returns request body string.
      */

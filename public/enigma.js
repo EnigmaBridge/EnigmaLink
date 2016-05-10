@@ -429,7 +429,7 @@ eb.misc = {
         var base32string = sjcl.codec.base32.fromBits(hashOut);
         return base32string.substring(0, size);
     },
-    
+
     /**
      * Generates checksum value from the input.
      * @param x an arbitraty string
@@ -794,11 +794,11 @@ eb.padding.pkcs15 = {
                 }while(curByte == 0);
             }
 
-           tmp = tmp << 8 | curByte;
-           if ((i&3) === 3) {
-                 ps.push(tmp);
-                 tmp = 0;
-           }
+            tmp = tmp << 8 | curByte;
+            if ((i&3) === 3) {
+                ps.push(tmp);
+                tmp = 0;
+            }
         }
         if (i&3) {
             ps.push(sjcl.bitArray.partial(8*(i&3), tmp));
@@ -1013,7 +1013,7 @@ eb.comm = {
      */
     status: {
         ERROR_CLASS_SECURITY:           0x2000,
-        
+
         ERROR_CLASS_WRONGDATA:          0x8000,
         SW_INVALID_TLV_FORMAT:          0x8000 | 0x04c,
         SW_WRONG_PADDING:               0x8000 | 0x03d,
@@ -3389,7 +3389,7 @@ eb.comm.hotp.generalHotpParser.inheritsFrom(eb.comm.base, {
         // Check for the plainData length = 0 was here, but protected data does not contain plain data,
         // it was moved to a different field in the response message so we don't check it here,
         // while original code in processUserAuthResponse does.
-        
+
         // Check main tag value.
         var tag = ba.extract(data, offset, 8);
         offset += 8;
