@@ -204,6 +204,8 @@
             site1: 'site1.enigmabridge.com',
             site2: 'site2.enigmabridge.com'
         };
+
+        var isAdvancedUpload = false;
     </script>
 </head>
 <body>
@@ -352,6 +354,7 @@
     $('#endpoint').val(defaults.site);
     $('#divConfigHead').click(toggleCategory);
     $('#divConfigHead').click();
+    var uploadInitFnc;
 
     function log(msg){
         console.log(msg);
@@ -555,6 +558,16 @@
         sjcl.random.startCollectors();
         $('#redirBlock').hide();
 
+        // HTML5 support?
+        isAdvancedUpload = function()
+        {
+            var div = document.createElement( 'div' );
+            return ( ( 'draggable' in div ) || ( 'ondragstart' in div && 'ondrop' in div ) ) && 'FormData' in window && 'FileReader' in window;
+        }();
+
+        // Init upload
+        uploadInitFnc( jQuery, window, document );
+
         // Button click handling.
         $('#btnRegister').click(function(){
             requestSimple();
@@ -562,14 +575,8 @@
     });
 
     // feature detection for drag&drop upload
-    ( function( $, window, document, undefined )
+    uploadInitFnc = ( function( $, window, document, undefined )
     {
-        var isAdvancedUpload = function()
-        {
-            var div = document.createElement( 'div' );
-            return ( ( 'draggable' in div ) || ( 'ondragstart' in div && 'ondrop' in div ) ) && 'FormData' in window && 'FileReader' in window;
-        }();
-
         // applying the effect for every form
         $( '.box' ).each( function()
         {
@@ -584,10 +591,7 @@
                         $label.text( files.length > 1 ? ( $input.attr( 'data-multiple-caption' ) || '' ).replace( '{count}', files.length ) : files[ 0 ].name );
                     };
 
-            // letting the server side to know we are going to make an Ajax request
-            $form.append( '<input type="hidden" name="ajax" value="1" />' );
-
-            // automatically submit the form on file select
+            // On file change show file info.
             $input.on( 'change', function( e )
             {
                 showFiles( e.target.files );
@@ -618,7 +622,6 @@
                             showFiles( droppedFiles );
                         });
             }
-
 
             // if the form was submitted
             $form.on( 'submit', function( e )
@@ -700,7 +703,7 @@
                     .on( 'blur', function(){ $input.removeClass( 'has-focus' ); });
         });
 
-    })( jQuery, window, document );
+    });
 
 </script>
 <div class="modal"><div class="modal-wrap"></div></div>
