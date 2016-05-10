@@ -551,8 +551,17 @@
             content = content.slice(this.offset, end);
         }
 
+        // TODO: prepend file with text message
+        // TODO: prepend file with IV
+        // TODO: prepend file with encrypted file encryption key
         // TODO: encrypt this chunk with AES GCM.
         // ...
+
+        log("Upload chunk, offset: " + this.offset + ", end: " + end + ", lastBlock: " + lstBlock);
+        if (lstBlock){
+            this.onError("Upload aborted in testing mode");
+            return;
+        }
 
         var xhr = new XMLHttpRequest();
         xhr.open('PUT', this.url, true);
@@ -998,7 +1007,7 @@
                 token: accessToken,
                 encKey: encKey,
                 onComplete: function(data) {
-                    log(JSON.stringify(data));
+                    log("Upload complete: " + data);
                     $form.removeClass( 'is-uploading' );
 //                    var element = document.createElement("pre");
 //                    element.appendChild(document.createTextNode(data));
@@ -1042,8 +1051,6 @@
 //                foffset += toRead
 //            }
         }
-
-        log(JSON.stringify(ajaxData));
 
         return;
         // ajax request
