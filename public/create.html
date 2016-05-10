@@ -85,6 +85,7 @@
         {
             display: block;
             position: absolute;
+            margin: 0 15px 0 15px;
             top: 50%;
             right: 0;
             left: 0;
@@ -518,6 +519,8 @@
             if (e.target.status < 400) {
                 var location = e.target.getResponseHeader('Location');
                 this.url = location;
+                log("Upload session started. Url: " + this.url);
+
                 this.sendFile_();
             } else {
                 this.onUploadError_(e);
@@ -996,10 +999,17 @@
                 encKey: encKey,
                 onComplete: function(data) {
                     log(JSON.stringify(data));
+                    $form.removeClass( 'is-uploading' );
 //                    var element = document.createElement("pre");
 //                    element.appendChild(document.createTextNode(data));
 //                    document.getElementById('results').appendChild(element);
+                },
+                onError: function(data) {
+                    log("Critical error: " + JSON.stringify(data));
+                    $form.removeClass( 'is-uploading' ).addClass( data.success == true ? 'is-success' : 'is-error' );
+                    $fldErrorMsg.text( data );
                 }
+
             });
             uploader.upload();
 
