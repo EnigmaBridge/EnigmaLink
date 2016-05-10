@@ -208,6 +208,12 @@
         var isAdvancedUpload = false;
         var droppedFiles = false;
         var updForm;
+
+        // We have only one upload form.
+        var $fldInput;
+        var $fldLabel;
+        var $fldErrorMsg;
+        var $fldRestart;
     </script>
 </head>
 <body>
@@ -571,16 +577,16 @@
     }
 
     function initUploadDiv(form){
-        var $form = $(form),
-                $input		 = $form.find( 'input[type="file"]' ),
-                $label		 = $form.find( 'label' ),
-                $errorMsg	 = $form.find( '.box__error span' ),
-                $restart	 = $form.find( '.box__restart' );
+        var $form = $(form);
+        $fldInput		 = $form.find( 'input[type="file"]' );
+        $fldLabel		 = $form.find( 'label' );
+        $fldErrorMsg	 = $form.find( '.box__error span' );
+        $fldRestart	 = $form.find( '.box__restart' );
 
         // On file change show file info.
-        $input.on( 'change', function( e )
+        $fldInput.on( 'change', function( e )
         {
-            showFiles( e.target.files, $input, $label );
+            showFiles( e.target.files, $fldInput, $fldLabel );
         });
 
         // drag&drop files if the feature is available
@@ -609,31 +615,31 @@
             {
                 var newFiles = e.originalEvent.dataTransfer.files; // the files that were dropped
                 if (newFiles.length > 1){
-                    $label.text("Only one file is supported for now.");
+                    $fldLabel.text("Only one file is supported for now.");
+                    logFiles(newFiles);
                     return;
                 }
 
                 droppedFiles = newFiles;
-                showFiles( droppedFiles, $input, $label );
+                showFiles( droppedFiles, $fldInput, $fldLabel );
             });
 
         // restart the form if has a state of error/success
-        $restart.on( 'click', function( e )
+        $fldRestart.on( 'click', function( e )
         {
             e.preventDefault();
             $form.removeClass( 'is-error is-success' );
-            $input.trigger( 'click' );
+            $fldInput.trigger( 'click' );
         });
 
         // Firefox focus bug fix for file input
-        $input
+        $fldInput
                 .on( 'focus', function(){ $input.addClass( 'has-focus' ); })
                 .on( 'blur', function(){ $input.removeClass( 'has-focus' ); });
     }
 
     function processClicked(form){
         var $form = $(form);
-        var $input = $form.find( 'input[type="file"]' );
 
         // preventing the duplicate submissions if the current one is in progress
         if( $form.hasClass( 'is-uploading' ) ) return false;
@@ -652,7 +658,7 @@
             $.each( droppedFiles, function( i, file )
             {
                 log(JSON.stringify(file));
-                ajaxData.append( $input.attr( 'name' ), file );
+                ajaxData.append( $fldInput.attr( 'name' ), file );
             });
         }
 
