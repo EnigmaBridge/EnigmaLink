@@ -490,7 +490,6 @@
         this.chunkSize = options.chunkSize || 262144; // requirement by Google, minimal size of a chunk.
         this.retryHandler = new RetryHandler();
         this.encKey = options.encKey;
-        this.textMsg = options.textMsg || undefined;
 
         this.url = options.url;
         this.aes = new sjcl.cipher.aes(this.encKey);
@@ -723,17 +722,8 @@
         var plaintext = 0;
         base += 16; // IV for file encryption.
         base += 0;  // TODO: Key wrapped with UO key.
-
-        plaintext += 4;  // text message length, 4B field.
-        if (this.textMsg){
-            plaintext += eb.misc.strByteLength(this.textMsg);
-        }
-
-        if (this.file){
-            plaintext += this.file.size;
-        }
-
-        return base + eb.misc.padToBlockSize(plaintext, 16);
+        plaintext += this.file.size;
+        return base + eb.misc.padToBlockSize(plaintext, 16) + 16; // + GCM tag
     };
 
 
