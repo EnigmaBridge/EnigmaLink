@@ -408,6 +408,34 @@ eb.misc = {
     },
 
     /**
+     * Pads number x to full block size.
+     * Useful when computing total size after padding added.
+     * If x is multiple of bs, another block is added (pkcs7 works in this way).
+     *
+     * @param x number of units
+     * @param bs block size - same units as x
+     */
+    padToBlockSize: function(x, bs){
+        return x + (bs - (x % bs));
+    },
+
+    /**
+     * Returns the byte length of an utf8 string.
+     * @param str
+     * @returns {*}
+     */
+    strByteLength: function(str) {
+        var s = str.length;
+        for (var i=str.length-1; i>=0; i--) {
+            var code = str.charCodeAt(i);
+            if (code > 0x7f && code <= 0x7ff) s++;
+            else if (code > 0x7ff && code <= 0xffff) s+=2;
+            if (code >= 0xDC00 && code <= 0xDFFF) i--; //trail surrogate
+        }
+        return s;
+    },
+
+    /**
      * Generates checksum value from the input.
      * @param x hexcoded string or bitArray. If you want to checksum arbitrary string, hash it first.
      * @param size
@@ -933,7 +961,7 @@ sjcl.misc.hmac_cbc.prototype.encrypt = sjcl.misc.hmac_cbc.prototype.mac = functi
 };
 
 /**
- * CBC encryption mode.
+ * CBC encryption mode implementation.
  * @type {{name: string, encrypt: sjcl.mode.cbc.encrypt, decrypt: sjcl.mode.cbc.decrypt}}
  */
 sjcl.mode.cbc = {
