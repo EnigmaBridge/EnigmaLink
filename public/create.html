@@ -490,16 +490,19 @@
         this.chunkSize = options.chunkSize || 262144; // requirement by Google, minimal size of a chunk.
         this.retryHandler = new RetryHandler();
         this.encKey = options.encKey;
+        this.textMsg = options.textMsg || undefined;
 
         this.url = options.url;
         this.aes = new sjcl.cipher.aes(this.encKey);
         this.reader = new FileReader();
+        this.iv = sjcl.random.randomWords(4); // initialization vector for GCM, 1 block, 16B.
         if (!this.url) {
             var params = options.params || {};
             params.uploadType = 'resumable';
             this.url = this.buildUrl_(options.fileId, params, options.baseUrl);
         }
         this.httpMethod = options.fileId ? 'PUT' : 'POST';
+        this.totalSize = this.totalSize_();
     };
 
     /**
@@ -513,7 +516,7 @@
         xhr.open(this.httpMethod, this.url, true);
         xhr.setRequestHeader('Authorization', 'Bearer ' + this.token);
         xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('X-Upload-Content-Length', this.file.size);
+        xhr.setRequestHeader('X-Upload-Content-Length', this.totalSize);
         xhr.setRequestHeader('X-Upload-Content-Type', this.contentType);
 
         xhr.onload = function(e) {
@@ -546,6 +549,9 @@
         if (this.offset || this.chunkSize) {
             // Only bother to slice the file if we're either resuming or uploading in chunks
             if (this.chunkSize) {
+                // TODO: the beginning has special format - take IV, plaintext data, then file, still
+                // has to fit in 256k chunk.
+                //var curChunk = this.offset == 0 ? this.totalSize-this.file.size : this.chunkSize;
                 end = Math.min(this.offset + this.chunkSize, this.file.size);
                 lstBlock = end >= this.file.size
             }
@@ -559,9 +565,8 @@
                 var data = evt.target.result;
                 console.log(data);
 
-                log(['Read bytes: ', this.offset, ' - ', end,
-                            ' of ', this.file.size, ' byte file. ',
-                    'ArrayBuffer size: ', data.byteLength ].join(''));
+                log(sprintf("Read bytes: %s - %s of %s B file. TotalSize: %s B, ArrayBuffer: %s B",
+                        this.offset, end, this.file.size, this.totalSize, data.byteLength));
 
                 // Convert to SJCL bitArray
                 var w = sjcl.bitArray;
@@ -580,7 +585,7 @@
                 var xhr = new XMLHttpRequest();
                 xhr.open('PUT', this.url, true);
                 xhr.setRequestHeader('Content-Type', this.contentType);
-                xhr.setRequestHeader('Content-Range', "bytes " + this.offset + "-" + (end - 1) + "/" + this.file.size);
+                xhr.setRequestHeader('Content-Range', "bytes " + this.offset + "-" + (end - 1) + "/" + this.totalSize);
                 xhr.setRequestHeader('X-Upload-Content-Type', this.file.type);
                 if (xhr.upload) {
                     xhr.upload.addEventListener('progress', this.onProgress);
@@ -606,7 +611,7 @@
     MediaUploader.prototype.resume_ = function() {
         var xhr = new XMLHttpRequest();
         xhr.open('PUT', this.url, true);
-        xhr.setRequestHeader('Content-Range', "bytes */" + this.file.size);
+        xhr.setRequestHeader('Content-Range', "bytes */" + this.totalSize);
         xhr.setRequestHeader('X-Upload-Content-Type', this.file.type);
         if (xhr.upload) {
             xhr.upload.addEventListener('progress', this.onProgress);
@@ -705,6 +710,30 @@
             url += '?' + query;
         }
         return url;
+    };
+
+    /**
+     * Computes overall file size.
+     *
+     * @private
+     * @return {number} number of bytes of the final file.
+     */
+    MediaUploader.prototype.totalSize_ = function() {
+        var base = 0;
+        var plaintext = 0;
+        base += 16; // IV for file encryption.
+        base += 0;  // TODO: Key wrapped with UO key.
+
+        plaintext += 4;  // text message length, 4B field.
+        if (this.textMsg){
+            plaintext += eb.misc.strByteLength(this.textMsg);
+        }
+
+        if (this.file){
+            plaintext += this.file.size;
+        }
+
+        return base + eb.misc.padToBlockSize(plaintext, 16);
     };
 
 
