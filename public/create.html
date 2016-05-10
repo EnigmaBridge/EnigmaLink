@@ -205,6 +205,10 @@
             site2: 'site2.enigmabridge.com'
         };
 
+        // Google Drive access token.
+        var accessToken = null;
+
+        // Upload context.
         var isAdvancedUpload = false;
         var droppedFiles = false;
         var updForm;
@@ -252,8 +256,28 @@
 
         </div>
 
-        <div class="section" id="divConfigHead">
+        <div class="section" id="gDriveConfigHead">
             <span>2</span>
+            GoogleDrive
+            <div class="collapser">[-]</div>
+        </div>
+        <div class="inner-wrap" id="gDriveConfig">
+         <span id="signin">
+            <span
+                class="g-signin"
+                data-callback="signinCallback"
+                data-clientid="1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com"
+                data-cookiepolicy="single_host_origin"
+                data-scope="https://www.googleapis.com/auth/drive.file">
+            </span>
+          </span>
+            <span id="signedin" style="display: none;">
+                Already signed in
+            </span>
+        </div>
+
+        <div class="section" id="divConfigHead">
+            <span>3</span>
             Configuration
             <div class="collapser">[-]</div>
         </div>
@@ -307,7 +331,7 @@
             </label>
         </div>
 
-        <div class="section"><span>3</span>Response</div>
+        <div class="section"><span>4</span>Response</div>
         <div class="inner-wrap">
             <label>Status code
                 <input type="text" name="hotpStatus" id="hotpStatus" placeholder="HOTP status code" readonly="readonly"/>
@@ -366,6 +390,7 @@
     "use strict";
     $('#endpoint').val(defaults.site);
     $('#divConfigHead').click(toggleCategory);
+    $('#gDriveConfigHead').click(toggleCategory);
     $('#divConfigHead').click();
 
     /**
@@ -473,6 +498,7 @@
 
     /**
      * Initiate the upload.
+     * Store file metadata, start resumable upload to obtain upload ID.
      */
     MediaUploader.prototype.upload = function() {
         var self = this;
@@ -499,6 +525,8 @@
 
     /**
      * Send the actual file content.
+     * Subsequently called after previous chunk was uploaded successfully or to
+     * re-upload the same chunk in case of an error.
      *
      * @private
      */
@@ -516,8 +544,8 @@
             content = content.slice(this.offset, end);
         }
 
-        // TODO: encrypt this chunk.
-
+        // TODO: encrypt this chunk with AES GCM.
+        // ...
 
         var xhr = new XMLHttpRequest();
         xhr.open('PUT', this.url, true);
@@ -839,6 +867,18 @@
         request.doRequest();
     }
 
+    /**
+     * Callback for G+ Sign-in. Swaps views if login successful.
+     */
+    function signinCallback(result) {
+        if(result.access_token) {
+            accessToken = result.access_token;
+            document.getElementById('signin').style.display = 'none';
+            document.getElementById('signedin').style.display = null;
+            $('#gDriveConfigHead').click();
+        }
+    }
+
     function logFiles(files){
         $.each( files, function( i, file )
         {
@@ -948,7 +988,7 @@
             var fFile = droppedFiles[0];
             var uploader = new MediaUploader({
                 file: fFile,
-                token: 'NA',
+                token: accessToken,
                 encKey: encKey,
                 onComplete: function(data) {
                     log(JSON.stringify(data));
@@ -1043,6 +1083,7 @@
     });
 
 </script>
+<script src="https://apis.google.com/js/client:plusone.js"></script>
 <div class="modal"><div class="modal-wrap"></div></div>
 </body>
 </html>
