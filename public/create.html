@@ -262,15 +262,19 @@
             <div class="collapser">[-]</div>
         </div>
         <div class="inner-wrap" id="gDriveConfig">
-         <span id="signin">
-            <span
-                class="g-signin"
-                data-callback="signinCallback"
-                data-clientid="1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com"
-                data-cookiepolicy="single_host_origin"
-                data-scope="https://www.googleapis.com/auth/drive.file">
+            <!--
+            https://developers.google.com/drive/v3/web/quickstart/js#prerequisites
+            https://github.com/googledrive/cors-upload-sample/blob/master/index.html
+            -->
+            <span id="signin">
+                <span
+                        class="g-signin"
+                        data-callback="signinCallback"
+                        data-clientid="1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com"
+                        data-cookiepolicy="single_host_origin"
+                        data-scope="https://www.googleapis.com/auth/drive.file">
+                </span>
             </span>
-          </span>
             <span id="signedin" style="display: none;">
                 Already signed in
             </span>
