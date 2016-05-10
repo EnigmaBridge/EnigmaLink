@@ -554,7 +554,7 @@
 
         // If we use onloadend, we need to check the readyState.
         var onLoadFnc = function(evt) {
-            log("onLoaded: " + evt.target.readyState)
+            log("onLoaded: " + evt.target.readyState);
             if (evt.target.readyState == FileReader.DONE) { // DONE == 2
                 var data = evt.target.result;
                 console.log(data);
@@ -562,6 +562,10 @@
                 log(['Read bytes: ', this.offset, ' - ', end,
                             ' of ', this.file.size, ' byte file. ',
                     'ArrayBuffer size: ', data.byteLength ].join(''));
+
+                // Convert to SJCL bitArray
+                var w = sjcl.bitArray;
+                var ba = sjcl.codec.arrayBuffer.toBits(data);
 
                 // TODO: prepend file with text message
                 // TODO: prepend file with IV
@@ -1039,35 +1043,6 @@
 
             });
             uploader.upload();
-
-//            var ctx = {};
-//            ctx.fFile = droppedFiles[0];
-//            ctx.fsize = fFile.size;
-//            ctx.reader = new FileReader();
-//            ctx.baseChunk = 32*16; // 512B
-//            ctx.foffset = 0;
-//
-//            // If we use onloadend, we need to check the readyState.
-//            reader.onloadend = function(evt) {
-//                if (evt.target.readyState == FileReader.DONE) { // DONE == 2
-//
-//                    var abuff = evt.target.result;
-//                    log(['Read bytes: ', start + 1, ' - ', stop + 1,
-//                                ' of ', fFile.size, ' byte file'].join(''));
-//                }
-//            };
-//
-//            // Iterate over file chunks...
-//            for(; foffset + baseChunk >= fsize; ){
-//                var rem = fsize - foffset;
-//                var lastBlock = rem < baseChunk;
-//                var toRead = lastBlock ? rem : baseChunk;
-//
-//                var blob = fFile.slice(foffset, foffset + toRead + 1);
-//                reader.readAsArrayBuffer(blob);
-//
-//                foffset += toRead
-//            }
         }
     }
 
