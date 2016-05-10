@@ -493,6 +493,7 @@
 
         this.url = options.url;
         this.aes = new sjcl.cipher.aes(this.encKey);
+        this.reader = new FileReader();
         if (!this.url) {
             var params = options.params || {};
             params.uploadType = 'resumable';
@@ -551,29 +552,46 @@
             content = content.slice(this.offset, end);
         }
 
-        // TODO: prepend file with text message
-        // TODO: prepend file with IV
-        // TODO: prepend file with encrypted file encryption key
-        // TODO: encrypt this chunk with AES GCM.
-        // ...
+        // If we use onloadend, we need to check the readyState.
+        var onLoadFnc = function(evt) {
+            log("onLoaded: " + evt.target.readyState)
+            if (evt.target.readyState == FileReader.DONE) { // DONE == 2
+                var data = evt.target.result;
+                console.log(data);
+
+                log(['Read bytes: ', this.offset, ' - ', end,
+                            ' of ', this.file.size, ' byte file. ',
+                    'ArrayBuffer size: ', data.byteLength ].join(''));
+
+                // TODO: prepend file with text message
+                // TODO: prepend file with IV
+                // TODO: prepend file with encrypted file encryption key
+                // TODO: encrypt this chunk with AES GCM.
+                // ...
+                if (lstBlock){
+                    this.onError("Upload aborted in testing mode");
+                    return;
+                }
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('PUT', this.url, true);
+                xhr.setRequestHeader('Content-Type', this.contentType);
+                xhr.setRequestHeader('Content-Range', "bytes " + this.offset + "-" + (end - 1) + "/" + this.file.size);
+                xhr.setRequestHeader('X-Upload-Content-Type', this.file.type);
+                if (xhr.upload) {
+                    xhr.upload.addEventListener('progress', this.onProgress);
+                }
+                xhr.onload = this.onContentUploadSuccess_.bind(this);
+                xhr.onerror = this.onContentUploadError_.bind(this);
+                xhr.send(content);
+            }
+        };
 
         log("Upload chunk, offset: " + this.offset + ", end: " + end + ", lastBlock: " + lstBlock);
-        if (lstBlock){
-            this.onError("Upload aborted in testing mode");
-            return;
-        }
+        console.log(content);
 
-        var xhr = new XMLHttpRequest();
-        xhr.open('PUT', this.url, true);
-        xhr.setRequestHeader('Content-Type', this.contentType);
-        xhr.setRequestHeader('Content-Range', "bytes " + this.offset + "-" + (end - 1) + "/" + this.file.size);
-        xhr.setRequestHeader('X-Upload-Content-Type', this.file.type);
-        if (xhr.upload) {
-            xhr.upload.addEventListener('progress', this.onProgress);
-        }
-        xhr.onload = this.onContentUploadSuccess_.bind(this);
-        xhr.onerror = this.onContentUploadError_.bind(this);
-        xhr.send(content);
+        this.reader.onloadend = onLoadFnc.bind(this);
+        this.reader.readAsArrayBuffer(content);
     };
 
     /**
@@ -1051,32 +1069,6 @@
 //                foffset += toRead
 //            }
         }
-
-        return;
-        // ajax request
-//        $.ajax(
-//                {
-//                    url: 			$form.attr( 'action' ),
-//                    type:			$form.attr( 'method' ),
-//                    data: 			ajaxData,
-//                    dataType:		'json',
-//                    cache:			false,
-//                    contentType:	false,
-//                    processData:	false,
-//                    complete: function()
-//                    {
-//                        $form.removeClass( 'is-uploading' );
-//                    },
-//                    success: function( data )
-//                    {
-//                        $form.addClass( data.success == true ? 'is-success' : 'is-error' );
-//                        if( !data.success ) $errorMsg.text( data.error );
-//                    },
-//                    error: function()
-//                    {
-//                        alert( 'Error. Please, contact the webmaster!' );
-//                    }
-//                });
     }
 
     $(function(){
