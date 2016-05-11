@@ -1081,7 +1081,7 @@ sjcl.mode.gcm2.prototype = {
 
         // Calculate the final tag block
         // Tag computation including bitlengths
-        this.tag = this._ghash(H, this.tag, last);
+        this.tag = this._ghash(this.H, this.tag, last);
         // XORing with the first counter value to obtain final auth tag.
         enc = this.prf.encrypt(this.J0);
         this.tag[0] ^= enc[0];
@@ -1232,6 +1232,8 @@ sjcl.mode.gcm2.prototype = {
             this.tag = this._ghash(this.H, this.tag, inp);
         }
 
+        // TODO: remove, DEBUGGING.
+        console.log(sprintf("inp size: %sb, buff: %sb, buffTag: %sb", w.bitLength(inp), w.bitLength(this.buff), w.bitLength(this.buffTag)));
         return inp;
     },
 
