@@ -488,7 +488,7 @@
         this.onProgress = options.onProgress || noop;
         this.onError = options.onError || noop;
         this.offset = options.offset || 0;
-        this.chunkSize = options.chunkSize || 262144; // requirement by Google, minimal size of a chunk.
+        this.chunkSize = options.chunkSize || 262144*2; // requirement by Google, minimal size of a chunk.
         this.retryHandler = new RetryHandler();
         this.url = options.url;
 
