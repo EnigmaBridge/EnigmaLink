@@ -584,11 +584,13 @@
         // But for the simplicity, pad it to the block size - easier state manipulation, size computation.
         //
         // Filename
+        log("FileName in meta block: " + this.fname);
         var baName = sjcl.codec.utf8String.toBits(this.fname);
         toEnc = w.concat(toEnc, h.toBits(sprintf("%02d%08d", MediaUploader.TAG_FNAME, w.bitLength(baName)/8)));
         toEnc = w.concat(toEnc, baName);
 
         // Mime type
+        log("MimeType in meta block: " + this.contentType);
         var baMime = sjcl.codec.utf8String.toBits(this.contentType);
         toEnc = w.concat(toEnc, h.toBits(sprintf("%02d%08d", MediaUploader.TAG_MIME, w.bitLength(baMime)/8)));
         toEnc = w.concat(toEnc, baMime);
@@ -616,8 +618,7 @@
         block = w.concat(block, encrypted);
         log(sprintf("FBlockSize: %s, encPartSize: %s", w.bitLength(block)/8, w.bitLength(toEnc)/8));
 
-        // TODO: enable. Disabled just for an underflow avoidance debugging.
-        // For easy encryption with aligning, add padding bytes to the plaintext so the whole fstBlock is multiple of 16.
+        // For easy/fast encryption with aligning, add padding bytes to the plaintext so the whole fstBlock is multiple of 16.
         var fstLenNoPadded = w.bitLength(block)/8;
         if ((fstLenNoPadded % 16) != 0){
             var afterPad = fstLenNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
