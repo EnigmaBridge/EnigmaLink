@@ -622,7 +622,9 @@
             result = w.concat(result, w.bitSlice(this.fstBlock, offset*8, Math.max(end*8, this.preFileSize*8)));
         }
 
-        // TODO: padding
+        // TODO: padding, message length concealing.
+        // TODO: if it is a text message, always pad to 128k. If it is bigger than 128k, pad to 256k.
+        // TODO: in case of files > 2MB, pad to whole megabytes. Otherwise pad to 256k multiple...
         // ...
 
         // File loading not needed.
@@ -636,8 +638,6 @@
         var fEnd = Math.min(this.dataSize + this.preFileSize, end - this.preFileSize);
 
         var content = this.file;
-        var lstBlock = false;
-
         content = content.slice(fOffset, fEnd);
 
         // If we use onloadend, we need to check the readyState.
@@ -672,7 +672,7 @@
             loadedCb(result);
         };
 
-        // Initiate file read.
+        // Initiate file/blob read.
         console.log(content);
         this.reader.onloadend = onLoadFnc.bind(this);
         this.reader.readAsArrayBuffer(content);
