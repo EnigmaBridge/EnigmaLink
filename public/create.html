@@ -674,7 +674,7 @@
             throw new sjcl.exception.invalid("Data requested were deleted.");
         }
 
-        // Drop old processed chunks.
+        // Drop old processed chunks from the processed buffer. Won't be needed anymore.
         if (this.cached.end != -1 && this.cached.end <= fOffset){
             log(sprintf("Dropping old chunk (end) %s - %s. fOffset - fEnd: %s - %s", this.cached.offset, this.cached.end, fOffset, fEnd));
             this.cached.offset = -1;
@@ -682,7 +682,7 @@
             this.cached.buff = [];
         }
 
-        // Keep only last chunk in the buffer, avoid memleaks.
+        // Keep only last chunk in the buffer, avoid memleaks. Won't be needed anymore.
         if (this.cached.offset != -1 && (this.cached.offset+this.chunkSize) < fOffset){
             log(sprintf("Dropping old chunk %s - %s. fOffset - fEnd: %s - %s, FromPos: %s",
                     this.cached.offset, this.cached.end, fOffset, fEnd, fOffset - this.chunkSize - this.cached.offset));
@@ -739,7 +739,6 @@
 
         // If we use onloadend, we need to check the readyState.
         var onLoadFnc = function(evt) {
-            log("onLoaded: " + evt.target.readyState);
             if (evt.target.readyState != FileReader.DONE) { // DONE == 2
                 return;
             }
@@ -784,7 +783,9 @@
             this.cached.buff = w.concat(this.cached.buff, ba);
 
             // Add appropriate amount of bytes from cres to result.
-            result = w.concat(result, w.bitSlice(cres, 0, (fEndOrig-fOffset) * 8));
+            var resultBl = w.bitLength(result);
+            var cresBl = w.bitLength(cres);
+            result = w.concat(result, w.bitSlice(cres, 0, Math.min(cresBl, 8*(end-offset) - resultBl) ) );
             loadedCb(result);
         };
 
@@ -817,7 +818,7 @@
         // If we use onloadend, we need to check the readyState.
         var onLoadFnc = function(ba) {
             log(sprintf("BytesToSend: %s B", w.bitLength(ba)/8));
-            var finalBuffer = sjcl.codec.arrayBuffer.fromBits(ba);
+            var finalBuffer = sjcl.codec.arrayBuffer.fromBits(ba, 0, 0);
 
             if (lstBlock){
                 //this.onError("Upload aborted in testing mode");
@@ -834,6 +835,8 @@
             }
             xhr.onload = this.onContentUploadSuccess_.bind(this);
             xhr.onerror = this.onContentUploadError_.bind(this);
+            log(sprintf("Uploading %s - %s / %s, len: %s, bufferSize: %s",
+                    this.offset, end-1, this.totalSize, end-this.offset, finalBuffer.byteLength));
             xhr.send(finalBuffer);
 
         };
