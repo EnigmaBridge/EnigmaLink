@@ -1,0 +1,599 @@
+/**
+ * Created by dusanklinec on 12.05.16.
+ */
+if (typeof(log) === 'undefined') {
+    (function(globals){
+        "use strict";
+        globals.log = function(x){console.log(x);};
+    }(this));
+}
+
+/**
+ * Helper for implementing retries with backoff. Initial retry
+ * delay is 1 second, increasing by 2x (+jitter) for subsequent retries
+ *
+ * @constructor
+ */
+var RetryHandler = function() {
+    this.interval = 1000; // Start at one second
+    this.maxInterval = 60 * 1000; // Don't wait longer than a minute
+};
+
+/**
+ * Invoke the function after waiting
+ *
+ * @param {function} fn Function to invoke
+ */
+RetryHandler.prototype.retry = function(fn) {
+    setTimeout(fn, this.interval);
+    this.interval = this.nextInterval_();
+};
+
+/**
+ * Reset the counter (e.g. after successful request.)
+ */
+RetryHandler.prototype.reset = function() {
+    this.interval = 1000;
+};
+
+/**
+ * Calculate the next wait time.
+ * @return {number} Next wait interval, in milliseconds
+ *
+ * @private
+ */
+RetryHandler.prototype.nextInterval_ = function() {
+    var interval = this.interval * 2 + this.getRandomInt_(0, 1000);
+    return Math.min(interval, this.maxInterval);
+};
+
+/**
+ * Get a random int in the range of min to max. Used to add jitter to wait times.
+ *
+ * @param {number} min Lower bounds
+ * @param {number} max Upper bounds
+ * @private
+ */
+RetryHandler.prototype.getRandomInt_ = function(min, max) {
+    return Math.floor(Math.random() * (max - min + 1) + min);
+};
+
+/**
+ * Helper class for resumable uploads using XHR/CORS. Can upload any Blob-like item, whether
+ * files or in-memory constructs.
+ *
+ * @example
+ * var content = new Blob(["Hello world"], {"type": "text/plain"});
+ * var uploader = new MediaUploader({
+     *   file: content,
+     *   token: accessToken,
+     *   onComplete: function(data) { ... }
+     *   onError: function(data) { ... }
+     * });
+ * uploader.upload();
+ *
+ * @constructor
+ * @param {object} options Hash of options
+ * @param {string} options.token Access token
+ * @param {blob} options.file Blob-like item to upload
+ * @param {string} [options.fileId] ID of file if replacing
+ * @param {object} [options.params] Additional query parameters
+ * @param {string} [options.contentType] Content-type, if overriding the type of the blob.
+ * @param {object} [options.metadata] File metadata
+ * @param {function} [options.onComplete] Callback for when upload is complete
+ * @param {function} [options.onProgress] Callback for status for the in-progress upload
+ * @param {function} [options.onError] Callback if upload fails
+ */
+var MediaUploader = function(options) {
+    var noop = function() {};
+    this.file = options.file;
+    this.contentType = options.contentType || this.file.type || 'application/octet-stream';
+    this.fname = options.fname || this.file.name || 'note';
+    this.metadata = options.metadata || {
+            'title': this.fname,
+            'mimeType': this.contentType
+        };
+    this.token = options.token;
+    this.onComplete = options.onComplete || noop;
+    this.onProgress = options.onProgress || noop;
+    this.onError = options.onError || noop;
+    this.offset = options.offset || 0;
+    this.chunkSize = options.chunkSize || 262144*2; // requirement by Google, minimal size of a chunk.
+    this.retryHandler = new RetryHandler();
+    this.url = options.url;
+
+    if (!this.url) {
+        var params = options.params || {};
+        params.uploadType = 'resumable';
+        this.url = this.buildUrl_(options.fileId, params, options.baseUrl);
+    }
+    this.httpMethod = options.fileId ? 'PUT' : 'POST';
+
+    // Encryption related fields.
+    this.encKey = options.encKey;                   // bitArray with encryption key for AES-256-GCM.
+    this.secCtx = options.secCtx || [];             // bitArray with security context, result of UO application.
+    this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
+    this.reader = new FileReader();                 // Reader of data/file contents.
+    this.iv = sjcl.random.randomWords(4);           // initialization vector for GCM, 1 block, 16B.
+    this.gcm = new sjcl.mode.gcm2(this.aes, true, [], this.iv, 128); // GCM encryption mode, initialized now.
+
+    // Construct first meta block now, compute file sizes.
+    this.buildFstBlock_();
+    this.preFileSize = this.preFileSize_();         // Number of bytes in the upload stream before file contents.
+    this.dataSize = this.file.size;
+    this.totalSize = this.totalSize_();             // Total size of the upload stream.
+    this.paddingToAdd = 0;                          // TODO: implement.
+
+    // Underflow avoidance.
+    this.cached = {};         // Data processing cache object.
+    this.cached.offset = -1;  // Data start offset that is cached in the buff. Absolute data offset address of the first buff byte.
+    this.cached.end = -1;     // Data end offset that is cached in the buff. Absolute data offset address of the last buff byte.
+    this.cached.buff = [];    // Cached buffer. Size = cached.end - cached.offset.
+    this.cached.tag = [];     // Computed final auth tag for the data.
+};
+
+MediaUploader.TAG_SEC = 0x1;      // security context part. Contains IV, encrypted file encryption key.
+MediaUploader.TAG_FNAME = 0x2;    // record with the data/file name.
+MediaUploader.TAG_MIME = 0x3;     // record with the data/file mime type.
+MediaUploader.TAG_ENC = 0x4;      // record with the encrypted data/file. Last record in the message (no length field).
+MediaUploader.TAG_ENCWRAP = 0x5;  // record with the encrypted container (fname+mime+data). Last unencrypted record.
+MediaUploader.TAG_PADDING = 0x6;  // padding record. Null bytes (skipped in parsing), may be used to conceal true file size or align blocks.
+MediaUploader.LENGTH_BYTES = 0x4;
+
+/**
+ * Initiate the upload.
+ * Store file metadata, start resumable upload to obtain upload ID.
+ */
+MediaUploader.prototype.upload = function() {
+    var self = this;
+    var xhr = new XMLHttpRequest();
+
+    xhr.open(this.httpMethod, this.url, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + this.token);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('X-Upload-Content-Length', this.totalSize);
+    xhr.setRequestHeader('X-Upload-Content-Type', this.contentType);
+
+    xhr.onload = function(e) {
+        if (e.target.status < 400) {
+            var location = e.target.getResponseHeader('Location');
+            this.url = location;
+            log("Upload session started. Url: " + this.url);
+
+            this.sendFile_();
+        } else {
+            this.onUploadError_(e);
+        }
+    }.bind(this);
+    xhr.onerror = this.onUploadError_.bind(this);
+    xhr.send(JSON.stringify(this.metadata));
+};
+
+/**
+ * Bytes to send.
+ * Uniform access to file structure before sending.
+ */
+MediaUploader.prototype.buildFstBlock_ = function() {
+    var block = [];
+    var toEnc = [];
+    var h = sjcl.codec.hex;
+    var w = sjcl.bitArray;
+    var padBytesToAdd;
+
+    // Secure context block, tag | len-4B | IV | secCtx
+    var secLen = w.bitLength(this.iv)/8 + w.bitLength(this.secCtx)/8;
+    block = w.concat(block, h.toBits(sprintf("%02d%08d", MediaUploader.TAG_SEC, secLen)));
+    block = w.concat(block, this.iv);
+    block = w.concat(block, this.secCtx);
+
+    // Encryption wrap - the end of the message is encrypted with AES-256-GCM.
+    block = w.concat(block, h.toBits(sprintf("%02d", MediaUploader.TAG_ENCWRAP)));
+
+    // toEnc does not need to be aligned with block length as GCM is a stream mode.
+    // But for the simplicity, pad it to the block size - easier state manipulation, size computation.
+    //
+    // Filename
+    log("FileName in meta block: " + this.fname);
+    var baName = sjcl.codec.utf8String.toBits(this.fname);
+    toEnc = w.concat(toEnc, h.toBits(sprintf("%02d%08d", MediaUploader.TAG_FNAME, w.bitLength(baName)/8)));
+    toEnc = w.concat(toEnc, baName);
+
+    // Mime type
+    log("MimeType in meta block: " + this.contentType);
+    var baMime = sjcl.codec.utf8String.toBits(this.contentType);
+    toEnc = w.concat(toEnc, h.toBits(sprintf("%02d%08d", MediaUploader.TAG_MIME, w.bitLength(baMime)/8)));
+    toEnc = w.concat(toEnc, baMime);
+
+    // Align to one AES block with padding record.
+    var metaBlockSizeNoPadded = w.bitLength(toEnc)/8 + 1;
+    if ((metaBlockSizeNoPadded % 16) != 0){
+        var numBytesAfterPadBlock = metaBlockSizeNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
+        var totalFblockSize = eb.misc.padToBlockSize(numBytesAfterPadBlock, 16); // length after padding to the whole block.
+        padBytesToAdd = totalFblockSize - numBytesAfterPadBlock;
+
+        toEnc = w.concat(toEnc, h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, padBytesToAdd)));
+        if (padBytesToAdd > 0){
+            toEnc = w.concat(toEnc, h.toBits('00'.repeat(padBytesToAdd)));
+        }
+    }
+
+    // Encryption block, the last tag in the message - without length
+    toEnc = w.concat(toEnc, h.toBits(sprintf("%02d", MediaUploader.TAG_ENC)));
+
+    // Encryption.
+    var encrypted = this.gcm.update(toEnc);
+    log(sprintf("Encrypted size: %s B, before enc: %s B", w.bitLength(encrypted)/8, w.bitLength(toEnc)/8));
+
+    block = w.concat(block, encrypted);
+    log(sprintf("FBlockSize: %s, encPartSize: %s", w.bitLength(block)/8, w.bitLength(toEnc)/8));
+
+    // For easy/fast encryption with aligning, add padding bytes to the plaintext so the whole fstBlock is multiple of 16.
+    var fstLenNoPadded = w.bitLength(block)/8;
+    if ((fstLenNoPadded % 16) != 0){
+        var afterPad = fstLenNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
+        var totalSize = eb.misc.padToBlockSize(afterPad, 16); // length after padding to the whole block.
+        padBytesToAdd = totalSize - afterPad;
+
+        var padBlock = h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, padBytesToAdd));
+        if (padBytesToAdd > 0){
+            padBlock = w.concat(padBlock, h.toBits('00'.repeat(padBytesToAdd)));
+        }
+
+        block = w.concat(padBlock, block);
+    }
+
+    log(sprintf("Total after pad: %s", w.bitLength(block)/8));
+    this.fstBlock = block;
+    return block;
+};
+
+/**
+ * Bytes to send.
+ * Uniform access to file structure before sending.
+ */
+MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
+    var needContent = end > this.preFileSize; // end is exclusive border. TODO: reflect padding
+    var result = []; // result will be placed here, given to loadedCb.
+    var w = sjcl.bitArray;
+
+    // If data from the first block is needed, pass the correct chunk.
+    if (offset < this.preFileSize){
+        result = w.concat(result, w.bitSlice(this.fstBlock, offset*8, Math.max(end*8, this.preFileSize*8)));
+    }
+
+    // TODO: padding, message length concealing.
+    // TODO: if it is a text message, always pad to 128k. If it is bigger than 128k, pad to 256k.
+    // TODO: in case of files > 2MB, pad to whole megabytes. Otherwise pad to 256k multiple...
+    // ...
+
+    // File loading not needed.
+    if (!needContent){
+        loadedCb(result);
+        return;
+    }
+
+    // File data loading.
+    var fOffset = Math.max(0, offset - this.preFileSize);
+    var fEnd = Math.min(this.dataSize, end - this.preFileSize);
+    var fEndOrig = fEnd;
+    var fChunkLen = fEnd - fOffset;
+    var aheadBytes = 0;
+
+    // If old chunk is requested - error, should not happen.
+    // We already discarded processed data in the cache cleanup and it cannot be computed again as
+    // GCM state already moved forward.
+    if (this.cached.offset != -1 && fOffset < this.cached.offset){
+        throw new sjcl.exception.invalid("Data requested were deleted.");
+    }
+
+    // Drop old processed chunks from the processed buffer. Won't be needed anymore.
+    if (this.cached.end != -1 && this.cached.end <= fOffset){
+        log(sprintf("Dropping old chunk (end). Cached: %s - %s. FileReq: %s - %s", this.cached.offset, this.cached.end, fOffset, fEnd));
+        this.cached.offset = -1;
+        this.cached.end = -1;
+        this.cached.buff = [];
+    }
+
+    // Cleanup. Keep only last chunk in the buffer just in case a weird reupload request comes.
+    // We assume we won't need more data from the past than 1 upload chunk size. If we do, it is a critical error.
+    if (this.cached.offset != -1 && (this.cached.offset+this.chunkSize) < fOffset){
+        log(sprintf("Dropping old chunk. Cached: %s - %s. FileReq: %s - %s, newCachedOffset: %s, DropFromPos: %s",
+            this.cached.offset, this.cached.end, fOffset, fEnd, fOffset - this.chunkSize,
+            fOffset - this.chunkSize - this.cached.offset));
+
+        this.cached.buff = w.bitSlice(this.cached.buff, (fOffset - this.chunkSize - this.cached.offset)*8);
+        this.cached.offset = fOffset - this.chunkSize;
+        assert(w.bitLength(this.cached.buff) == 8*(this.cached.end - this.cached.offset), "Invariant broken");
+    }
+
+    // If we have some data already prepared in the buffer - provide it. (fOffset is in the cached buffer range).
+    if (this.cached.offset <= fOffset && this.cached.end >= fOffset){
+        var curStart = fOffset - this.cached.offset;
+        var curStop = Math.min(this.cached.end - this.cached.offset, curStart + (fEnd - fOffset));
+        var toUse = w.bitSlice(this.cached.buff, curStart*8, curStop*8);
+        result = w.concat(result, toUse);
+
+        // Update fOffset, fEnd, reflect loaded data from buffer.
+        // It may be still needed to load & process (encrypt) additional data.
+        fOffset += curStop - curStart;
+        fChunkLen = fEnd - fOffset;
+
+        log(sprintf("Partially provided from the buffer, provided: %s B, newDataOffset: %s B, dataToLoad: %s B",
+            w.bitLength(toUse)/8, fOffset, fChunkLen));
+    }
+
+    // If enough is loaded, do not load data blob.
+    if (fOffset >= fEnd){
+        log(sprintf("Everything served from the internal buffer"));
+
+        // Check if tag needs to be provided
+        if (end >= this.preFileSize + this.dataSize){
+            if (w.bitLength(this.cached.tag) != 16){
+                throw new sjcl.exception.invalid("Tag not ready when it should be");
+            }
+
+            result = w.concat(result, w.clamp(this.cached.tag, (end-this.preFileSize-this.dataSize)*8));
+        }
+
+        loadedCb(result);
+        return;
+    }
+
+    // To prevent underflow, read more data than requested (align to block size).
+    // If end is in the unaligned position, GCM won't output it and underflow happens as we get fewer data than
+    // we are supposed to in the upload request.
+    if (fEnd < this.dataSize && (fChunkLen % 16) != 0){
+        fEnd = Math.min(this.dataSize, fOffset + eb.misc.padToBlockSize(fChunkLen, 16));
+        aheadBytes = fEnd - fEndOrig;
+        log(sprintf("Possible underflow, read ahead, oldLen: %s, newLen: %s, oldEnd: %s, newEnd: %s, extra bytes: %s",
+            fChunkLen, fEnd-fOffset, fEndOrig, fEnd, aheadBytes));
+    }
+
+    // Read & process fOffset - fEnd. Store to internal buffer.
+    var content = this.file;
+    content = content.slice(fOffset, fEnd);
+
+    // Event handler called when data is loaded from the blob/file.
+    var onLoadFnc = function(evt) {
+        if (evt.target.readyState != FileReader.DONE) { // DONE == 2
+            return;
+        }
+
+        var data = evt.target.result;
+        console.log(data);
+
+        // Convert to SJCL bitArray
+        var ba = sjcl.codec.arrayBuffer.toBits(data);
+
+        log(sprintf("Read bytes: %s - %s of %s B file. TotalSize: %s B, PreFileSize: %s, ArrayBuffer: %s B, bitArray: %s B",
+            fOffset, fEnd, this.dataSize, this.totalSize, this.preFileSize, data.byteLength, w.bitLength(ba)/8));
+
+        // Encrypt this chunk with GCM mode.
+        // Output length is cipher-block aligned, this can cause underflows in certain situations. To make it easier
+        // padding records are inserted to the first block so it is all blocksize aligned (16B).
+        ba = this.gcm.update(ba);
+        var cres = ba;
+
+        // Includes tag?
+        // Due to pre-buffering it should not happen end ends up in the unaligned part of the buffer.
+        // It is either aligned or the final byte of the file.
+        if (end >= this.preFileSize + this.dataSize){
+            var res = this.gcm.doFinal();
+            this.cached.tag = res.tag;
+
+            // Ad the last data block.
+            ba = w.concat(ba, res.data);
+
+            // Result - current.
+            cres = w.concat(cres, res.data);
+            cres = w.concat(cres, res.tag);
+        }
+
+        // Update cached prepared data. If reupload happens, data is taken from buffer, no encryption of the same
+        // data. It would break tag & counters in GCM.
+        if (this.cached.offset == -1) {
+            this.cached.offset = fOffset;
+        }
+        this.cached.end = fEnd;
+        this.cached.buff = w.concat(this.cached.buff, ba);
+
+        // Add appropriate amount of bytes from cres to result.
+        var resultBl = w.bitLength(result);
+        var cresBl = w.bitLength(cres);
+        result = w.concat(result, w.bitSlice(cres, 0, Math.min(cresBl, 8*(end-offset) - resultBl) ) );
+        loadedCb(result);
+    };
+
+    // Initiate file/blob read.
+    console.log(content);
+    this.reader.onloadend = onLoadFnc.bind(this);
+    this.reader.readAsArrayBuffer(content);
+};
+
+/**
+ * Send the actual file content.
+ * Subsequently called after previous chunk was uploaded successfully or to
+ * re-upload the same chunk in case of an error.
+ *
+ * @private
+ */
+MediaUploader.prototype.sendFile_ = function() {
+    var w = sjcl.bitArray;
+    var end = this.totalSize;
+    var lstBlock = false;
+    var preBuff = [];
+
+    if (this.offset || this.chunkSize) {
+        if (this.chunkSize) {
+            end = Math.min(this.offset + this.chunkSize, this.totalSize);
+            lstBlock = end >= this.totalSize;
+        }
+    }
+
+    // Handler for uploading requested data range.
+    var onLoadFnc = function(ba) {
+        var finalBuffer = sjcl.codec.arrayBuffer.fromBits(ba, 0, 0);
+
+        if (lstBlock){
+            //this.onError("Upload aborted in testing mode");
+            //return;
+        }
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('PUT', this.url, true);
+        xhr.setRequestHeader('Content-Type', this.contentType); //TODO: protect original one
+        xhr.setRequestHeader('Content-Range', "bytes " + this.offset + "-" + (end - 1) + "/" + this.totalSize);
+        xhr.setRequestHeader('X-Upload-Content-Type', this.file.type); //TODO: protect original one
+        if (xhr.upload) {
+            xhr.upload.addEventListener('progress', this.onProgress);
+        }
+        xhr.onload = this.onContentUploadSuccess_.bind(this);
+        xhr.onerror = this.onContentUploadError_.bind(this);
+        log(sprintf("Uploading %s - %s / %s, len: %s, bufferSize: %s",
+            this.offset, end-1, this.totalSize, end-this.offset, finalBuffer.byteLength));
+        xhr.send(finalBuffer);
+    };
+
+    this.getBytesToSend_(this.offset, end, onLoadFnc.bind(this));
+};
+
+/**
+ * Query for the state of the file for resumption.
+ *
+ * @private
+ */
+MediaUploader.prototype.resume_ = function() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('PUT', this.url, true);
+    xhr.setRequestHeader('Content-Range', "bytes */" + this.totalSize);
+    xhr.setRequestHeader('X-Upload-Content-Type', this.file.type);
+    if (xhr.upload) {
+        xhr.upload.addEventListener('progress', this.onProgress);
+    }
+    xhr.onload = this.onContentUploadSuccess_.bind(this);
+    xhr.onerror = this.onContentUploadError_.bind(this);
+    xhr.send();
+};
+
+/**
+ * Extract the last saved range if available in the request.
+ *
+ * @param {XMLHttpRequest} xhr Request object
+ */
+MediaUploader.prototype.extractRange_ = function(xhr) {
+    var range = xhr.getResponseHeader('Range');
+    if (range) {
+        this.offset = parseInt(range.match(/\d+/g).pop(), 10) + 1;
+    }
+};
+
+/**
+ * Handle successful responses for uploads. Depending on the context,
+ * may continue with uploading the next chunk of the file or, if complete,
+ * invokes the caller's callback.
+ *
+ * @private
+ * @param {object} e XHR event
+ */
+MediaUploader.prototype.onContentUploadSuccess_ = function(e) {
+    if (e.target.status == 200 || e.target.status == 201) {
+        this.onComplete(e.target.response);
+    } else if (e.target.status == 308) {
+        this.extractRange_(e.target);
+        this.retryHandler.reset();
+        this.sendFile_();
+    } else {
+        this.onContentUploadError_(e);
+    }
+};
+
+/**
+ * Handles errors for uploads. Either retries or aborts depending
+ * on the error.
+ *
+ * @private
+ * @param {object} e XHR event
+ */
+MediaUploader.prototype.onContentUploadError_ = function(e) {
+    if (e.target.status && e.target.status < 500) {
+        this.onError(e.target.response);
+    } else {
+        this.retryHandler.retry(this.resume_.bind(this));
+    }
+};
+
+/**
+ * Handles errors for the initial request.
+ *
+ * @private
+ * @param {object} e XHR event
+ */
+MediaUploader.prototype.onUploadError_ = function(e) {
+    this.onError(e.target.response); // TODO - Retries for initial upload
+};
+
+/**
+ * Construct a query string from a hash/object
+ *
+ * @private
+ * @param {object} [params] Key/value pairs for query string
+ * @return {string} query string
+ */
+MediaUploader.prototype.buildQuery_ = function(params) {
+    params = params || {};
+    return Object.keys(params).map(function(key) {
+        return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+    }).join('&');
+};
+
+/**
+ * Build the drive upload URL
+ *
+ * @private
+ * @param {string} [id] File ID if replacing
+ * @param {object} [params] Query parameters
+ * @return {string} URL
+ */
+MediaUploader.prototype.buildUrl_ = function(id, params, baseUrl) {
+    var url = baseUrl || 'https://www.googleapis.com/upload/drive/v3/files/';
+    if (id) {
+        url += id;
+    }
+    var query = this.buildQuery_(params);
+    if (query) {
+        url += '?' + query;
+    }
+    return url;
+};
+
+/**
+ * Computes metadata sent before file contents.
+ *
+ * @private
+ * @return {number} number of bytes of the final file.
+ */
+MediaUploader.prototype.preFileSize_ = function() {
+    if (this.fstBlock === undefined){
+        throw new sjcl.exception.invalid("First block not computed");
+    }
+
+    var ln = sjcl.bitArray.bitLength(this.fstBlock)/8;
+    if (ln == 0){
+        throw new sjcl.exception.invalid("First block not computed");
+    }
+
+    return ln;
+};
+
+/**
+ * Computes overall file size.
+ *
+ * @private
+ * @return {number} number of bytes of the final file.
+ */
+MediaUploader.prototype.totalSize_ = function() {
+    var base = this.preFileSize_();
+    base += this.dataSize; // GCM is a streaming mode.
+    base += 16; // GCM tag
+    return base;
+};
