@@ -617,20 +617,20 @@
         log(sprintf("FBlockSize: %s, encPartSize: %s", w.bitLength(block)/8, w.bitLength(toEnc)/8));
 
         // TODO: enable. Disabled just for an underflow avoidance debugging.
-//        // For easy encryption with aligning, add padding bytes to the plaintext so the whole fstBlock is multiple of 16.
-//        var fstLenNoPadded = w.bitLength(block)/8;
-//        if ((fstLenNoPadded % 16) != 0){
-//            var afterPad = fstLenNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
-//            var totalSize = eb.misc.padToBlockSize(afterPad, 16); // length after padding to the whole block.
-//            padBytesToAdd = totalSize - afterPad;
-//
-//            var padBlock = h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, padBytesToAdd));
-//            if (padBytesToAdd > 0){
-//                padBlock = w.concat(padBlock, h.toBits('00'.repeat(padBytesToAdd)));
-//            }
-//
-//            block = w.concat(padBlock, block);
-//        }
+        // For easy encryption with aligning, add padding bytes to the plaintext so the whole fstBlock is multiple of 16.
+        var fstLenNoPadded = w.bitLength(block)/8;
+        if ((fstLenNoPadded % 16) != 0){
+            var afterPad = fstLenNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
+            var totalSize = eb.misc.padToBlockSize(afterPad, 16); // length after padding to the whole block.
+            padBytesToAdd = totalSize - afterPad;
+
+            var padBlock = h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, padBytesToAdd));
+            if (padBytesToAdd > 0){
+                padBlock = w.concat(padBlock, h.toBits('00'.repeat(padBytesToAdd)));
+            }
+
+            block = w.concat(padBlock, block);
+        }
 
         log(sprintf("Total after pad: %s", w.bitLength(block)/8));
         this.fstBlock = block;
