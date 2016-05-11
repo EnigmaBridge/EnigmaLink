@@ -514,6 +514,13 @@
         this.dataSize = this.file.size;
         this.totalSize = this.totalSize_();             // Total size of the upload stream.
         this.paddingToAdd = 0;                          // TODO: implement.
+
+        // Underflow avoidance.
+        this.cached = {};
+        this.cached.offset = -1;
+        this.cached.end = -1;
+        this.cached.buff = [];
+        this.cached.tag = [];
     };
 
     MediaUploader.TAG_SEC = 0x1;
@@ -609,20 +616,21 @@
         block = w.concat(block, encrypted);
         log(sprintf("FBlockSize: %s, encPartSize: %s", w.bitLength(block)/8, w.bitLength(toEnc)/8));
 
-        // For easy encryption with aligning, add padding bytes to the plaintext so the whole fstBlock is multiple of 16.
-        var fstLenNoPadded = w.bitLength(block)/8;
-        if ((fstLenNoPadded % 16) != 0){
-            var afterPad = fstLenNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
-            var totalSize = eb.misc.padToBlockSize(afterPad, 16); // length after padding to the whole block.
-            padBytesToAdd = totalSize - afterPad;
-
-            var padBlock = h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, padBytesToAdd));
-            if (padBytesToAdd > 0){
-                padBlock = w.concat(padBlock, h.toBits('00'.repeat(padBytesToAdd)));
-            }
-
-            block = w.concat(padBlock, block);
-        }
+        // TODO: enable. Disabled just for an underflow avoidance debugging.
+//        // For easy encryption with aligning, add padding bytes to the plaintext so the whole fstBlock is multiple of 16.
+//        var fstLenNoPadded = w.bitLength(block)/8;
+//        if ((fstLenNoPadded % 16) != 0){
+//            var afterPad = fstLenNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
+//            var totalSize = eb.misc.padToBlockSize(afterPad, 16); // length after padding to the whole block.
+//            padBytesToAdd = totalSize - afterPad;
+//
+//            var padBlock = h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, padBytesToAdd));
+//            if (padBytesToAdd > 0){
+//                padBlock = w.concat(padBlock, h.toBits('00'.repeat(padBytesToAdd)));
+//            }
+//
+//            block = w.concat(padBlock, block);
+//        }
 
         log(sprintf("Total after pad: %s", w.bitLength(block)/8));
         this.fstBlock = block;
@@ -656,8 +664,76 @@
 
         // File data
         var fOffset = Math.max(0, offset - this.preFileSize);
-        var fEnd = Math.min(this.dataSize + this.preFileSize, end - this.preFileSize);
+        var fEnd = Math.min(this.dataSize, end - this.preFileSize);
+        var fEndOrig = fEnd;
+        var fChunkLen = fEnd - fOffset;
+        var aheadBytes = 0;
 
+        // If old chunk is requested - error, should not happen.
+        if (this.cached.offset != -1 && fOffset < this.cached.offset){
+            throw new sjcl.exception.invalid("Data requested were deleted.");
+        }
+
+        // Drop old processed chunks.
+        if (this.cached.end != -1 && this.cached.end <= fOffset){
+            log(sprintf("Dropping old chunk (end) %s - %s. fOffset - fEnd: %s - %s", this.cached.offset, this.cached.end, fOffset, fEnd));
+            this.cached.offset = -1;
+            this.cached.end = -1;
+            this.cached.buff = [];
+        }
+
+        // Keep only last chunk in the buffer, avoid memleaks.
+        if (this.cached.offset != -1 && (this.cached.offset+this.chunkSize) < fOffset){
+            log(sprintf("Dropping old chunk %s - %s. fOffset - fEnd: %s - %s, FromPos: %s",
+                    this.cached.offset, this.cached.end, fOffset, fEnd, fOffset - this.chunkSize - this.cached.offset));
+
+            this.cached.buff = w.bitSlice(this.cached.buff, (fOffset - this.chunkSize - this.cached.offset)*8);
+            this.cached.offset = fOffset - this.chunkSize;
+            assert(w.bitLength(this.cached.buff) == 8*(this.cached.end - this.cached.offset), "Invariant broken");
+        }
+
+        // If we have some data already prepared in the buffer - provide it.
+        if (this.cached.offset <= fOffset && this.cached.end >= fOffset){
+            var curStart = fOffset - this.cached.offset;
+            var curStop = Math.min(this.cached.end - this.cached.offset, curStart + (fEnd - fOffset));
+            var toUse = w.bitSlice(this.cached.buff, curStart*8, curStop*8);
+            result = w.concat(result, toUse);
+
+            // Update fOffset, fEnd, reflect loaded data.
+            fOffset += curStop - curStart;
+            fChunkLen = fEnd - fOffset;
+
+            log(sprintf("Partially provided from the buffer, provided: %s B, new offset: %s B, dataToLoad: %s B",
+                    w.bitLength(toUse)/8, fOffset, fChunkLen));
+        }
+
+        // If enough is loaded, provide data.
+        if (fOffset >= fEnd){
+            log(sprintf("Everything served from the internal buffer"));
+
+            // Check if tag needs to be provided
+            if (end >= this.preFileSize + this.dataSize){
+                if (w.bitLength(this.cached.tag) != 16){
+                    throw new sjcl.exception.invalid("Tag not ready when it should be");
+                }
+
+                result = w.concat(result, w.clamp(this.cached.tag, (end-this.preFileSize-this.dataSize)*8));
+            }
+
+            loadedCb(result);
+            return;
+        }
+
+        // To prevent underflow, read more data than requested.
+        // If end is in the unaligned position, GCM won't output it and underflow happens.
+        if (fEnd < this.dataSize && (fChunkLen % 16) != 0){
+            fEnd = Math.min(this.dataSize, fOffset + eb.misc.padToBlockSize(fChunkLen, 16));
+            aheadBytes = fEnd - fEndOrig;
+            log(sprintf("Possible underflow, read ahead, oldLen: %s, newLen: %s, oldEnd: %s, newEnd: %s, extra bytes: %s",
+                    fChunkLen, fEnd-fOffset, fEndOrig, fEnd, aheadBytes));
+        }
+
+        // Read & process fOffset - fEnd. Store to internal buffer.
         var content = this.file;
         content = content.slice(fOffset, fEnd);
 
@@ -678,23 +754,37 @@
                     fOffset, fEnd, this.dataSize, this.totalSize, this.preFileSize, data.byteLength, w.bitLength(ba)/8));
 
             // Encrypt this chunk with GCM mode.
-            // TODO: watch out for incomplete block, underflow.
-            // TODO: upload retry? update can be made only once for the given block.
+            // Output length is cipher-block aligned, this can cause underflows in certain situations. To make it easier
+            // padding records are inserted to the first block so it is all blocksize aligned (16B).
             ba = this.gcm.update(ba);
-
-            // Prepend with first block data, pass to the handler.
-            result = w.concat(result, ba);
+            var cres = ba;
 
             // Includes tag?
+            // Due to pre-buffering it should not happen end ends up in the unaligned part of the buffer.
+            // It is either aligned or the final byte of the file.
             // TODO: fix properly. Block align -> do final to local buffer, end might be in the last unpadded block...
             if (end >= this.preFileSize + this.dataSize){
                 var res = this.gcm.doFinal();
-                result = w.concat(result, res.data);
+                this.tag = res.tag;
 
-                // Output tag.
-                result = w.concat(result, res.tag);
+                // Ad the last data block.
+                ba = w.concat(ba, res.data);
+
+                // Result - current.
+                cres = w.concat(cres, res.data);
+                cres = w.concat(cres, res.tag);
             }
 
+            // Update cached prepared data. If reupload happens, data is taken from buffer, no encryption of the same
+            // data. It would break tag & counters in GCM.
+            if (this.cached.offset == -1) {
+                this.cached.offset = fOffset;
+            }
+            this.cached.end = fEnd;
+            this.cached.buff = w.concat(this.cached.buff, ba);
+
+            // Add appropriate amount of bytes from cres to result.
+            result = w.concat(result, w.bitSlice(cres, 0, (fEndOrig-fOffset) * 8));
             loadedCb(result);
         };
 
@@ -730,8 +820,8 @@
             var finalBuffer = sjcl.codec.arrayBuffer.fromBits(ba);
 
             if (lstBlock){
-                this.onError("Upload aborted in testing mode");
-                return;
+                //this.onError("Upload aborted in testing mode");
+                //return;
             }
 
             var xhr = new XMLHttpRequest();
