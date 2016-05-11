@@ -480,7 +480,7 @@
         this.contentType = options.contentType || this.file.type || 'application/octet-stream';
         this.fname = options.fname || this.file.name || 'note';
         this.metadata = options.metadata || {
-                    'title': this.file.name,
+                    'title': this.fname,
                     'mimeType': this.contentType
                 };
         this.token = options.token;
@@ -502,13 +502,12 @@
         // Encryption related fields.
         this.encKey = options.encKey;                   // bitArray with encryption key for AES-256-GCM.
         this.secCtx = options.secCtx || [];             // bitArray with security context, result of UO application.
-        this.resultPad = options.resultPad || 0;        // length to pad resulting encrypted message.
-        this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM
-        this.reader = new FileReader();                 // Reader of tile contents
+        this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
+        this.reader = new FileReader();                 // Reader of data/file contents.
         this.iv = sjcl.random.randomWords(4);           // initialization vector for GCM, 1 block, 16B.
         this.gcm = new sjcl.mode.gcm2(this.aes, true, [], this.iv, 128); // GCM encryption mode, initialized now.
 
-        // Construct first block now, for better file size
+        // Construct first meta block now, compute file sizes.
         this.buildFstBlock_();
         this.preFileSize = this.preFileSize_();         // Number of bytes in the upload stream before file contents.
         this.dataSize = this.file.size;
@@ -523,12 +522,12 @@
         this.cached.tag = [];     // Computed final auth tag for the data.
     };
 
-    MediaUploader.TAG_SEC = 0x1;
-    MediaUploader.TAG_FNAME = 0x2;
-    MediaUploader.TAG_MIME = 0x3;
-    MediaUploader.TAG_ENC = 0x4;
-    MediaUploader.TAG_ENCWRAP = 0x5;
-    MediaUploader.TAG_PADDING = 0x6; // padding to be skipped, may be used to hide true file size
+    MediaUploader.TAG_SEC = 0x1;      // security context part. Contains IV, encrypted file encryption key.
+    MediaUploader.TAG_FNAME = 0x2;    // record with the data/file name.
+    MediaUploader.TAG_MIME = 0x3;     // record with the data/file mime type.
+    MediaUploader.TAG_ENC = 0x4;      // record with the encrypted data/file. Last record in the message (no length field).
+    MediaUploader.TAG_ENCWRAP = 0x5;  // record with the encrypted container (fname+mime+data). Last unencrypted record.
+    MediaUploader.TAG_PADDING = 0x6;  // padding record. Null bytes (skipped in parsing), may be used to conceal true file size or align blocks.
     MediaUploader.LENGTH_BYTES = 0x4;
 
     /**
@@ -821,9 +820,8 @@
             }
         }
 
-        // If we use onloadend, we need to check the readyState.
+        // Handler for uploading requested data range.
         var onLoadFnc = function(ba) {
-            log(sprintf("BytesToSend: %s B", w.bitLength(ba)/8));
             var finalBuffer = sjcl.codec.arrayBuffer.fromBits(ba, 0, 0);
 
             if (lstBlock){
@@ -844,7 +842,6 @@
             log(sprintf("Uploading %s - %s / %s, len: %s, bufferSize: %s",
                     this.offset, end-1, this.totalSize, end-this.offset, finalBuffer.byteLength));
             xhr.send(finalBuffer);
-
         };
 
         this.getBytesToSend_(this.offset, end, onLoadFnc.bind(this));
