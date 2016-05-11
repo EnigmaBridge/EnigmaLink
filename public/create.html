@@ -505,7 +505,8 @@
         this.resultPad = options.resultPad || 0;        // length to pad resulting encrypted message.
         this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM
         this.reader = new FileReader();                 // Reader of tile contents
-        this.iv = sjcl.random.randomWords(4);           // initialization vector for GCM, 1 block, 16B.\
+        this.iv = sjcl.random.randomWords(4);           // initialization vector for GCM, 1 block, 16B.
+        this.gcm = new sjcl.mode.gcm2(this.aes, true, [], this.iv, 128); // GCM encryption mode, initialized now.
 
         // Construct first block now, for better file size
         this.buildFstBlock_();
@@ -561,6 +562,7 @@
         var toEnc = [];
         var h = sjcl.codec.hex;
         var w = sjcl.bitArray;
+        var padBytesToAdd;
 
         // Secure context block, tag | len-4B | IV | secCtx
         var secLen = w.bitLength(this.iv)/8 + w.bitLength(this.secCtx)/8;
@@ -589,7 +591,7 @@
         if ((metaBlockSizeNoPadded % 16) != 0){
             var numBytesAfterPadBlock = metaBlockSizeNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
             var totalFblockSize = eb.misc.padToBlockSize(numBytesAfterPadBlock, 16); // length after padding to the whole block.
-            var padBytesToAdd = totalFblockSize - numBytesAfterPadBlock;
+            padBytesToAdd = totalFblockSize - numBytesAfterPadBlock;
 
             toEnc = w.concat(toEnc, h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, padBytesToAdd)));
             if (padBytesToAdd > 0){
@@ -600,10 +602,29 @@
         // Encryption block, the last tag in the message - without length
         toEnc = w.concat(toEnc, h.toBits(sprintf("%02d", MediaUploader.TAG_ENC)));
 
-        // TODO: encrypt the rest of this buffer.
-        block = w.concat(block, toEnc); // TODO: meanwhile encryption in a streaming fashion works.
+        // Encryption.
+        var encrypted = this.gcm.update(toEnc);
+        log(sprintf("Encrypted size: %s B, before enc: %s B", w.bitLength(encrypted)/8, w.bitLength(toEnc)/8));
+
+        block = w.concat(block, encrypted);
         log(sprintf("FBlockSize: %s, encPartSize: %s", w.bitLength(block)/8, w.bitLength(toEnc)/8));
 
+        // For easy encryption with aligning, add padding bytes to the plaintext so the whole fstBlock is multiple of 16.
+        var fstLenNoPadded = w.bitLength(block)/8;
+        if ((fstLenNoPadded % 16) != 0){
+            var afterPad = fstLenNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
+            var totalSize = eb.misc.padToBlockSize(afterPad, 16); // length after padding to the whole block.
+            padBytesToAdd = totalSize - afterPad;
+
+            var padBlock = h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, padBytesToAdd));
+            if (padBytesToAdd > 0){
+                padBlock = w.concat(padBlock, h.toBits('00'.repeat(padBytesToAdd)));
+            }
+
+            block = w.concat(padBlock, block);
+        }
+
+        log(sprintf("Total after pad: %s", w.bitLength(block)/8));
         this.fstBlock = block;
         return block;
     };
@@ -656,17 +677,22 @@
             log(sprintf("Read bytes: %s - %s of %s B file. TotalSize: %s B, PreFileSize: %s, ArrayBuffer: %s B, bitArray: %s B",
                     fOffset, fEnd, this.dataSize, this.totalSize, this.preFileSize, data.byteLength, w.bitLength(ba)/8));
 
+            // Encrypt this chunk with GCM mode.
+            // TODO: watch out for incomplete block, underflow.
+            // TODO: upload retry? update can be made only once for the given block.
+            ba = this.gcm.update(ba);
 
-            // TODO: encrypt this chunk with AES GCM.
-            // TODO: if lstBlock, finalize encryption, add GCM tag.
-
-            // Prepend with first block data, pass to handler.
+            // Prepend with first block data, pass to the handler.
             result = w.concat(result, ba);
 
             // Includes tag?
+            // TODO: fix properly. Block align -> do final to local buffer, end might be in the last unpadded block...
             if (end >= this.preFileSize + this.dataSize){
-                // TODO: finalize encryption, output tag.
-                result = w.concat(result, sjcl.codec.hex.toBits('00'.repeat(16))); // mocking tag, zero value.
+                var res = this.gcm.doFinal();
+                result = w.concat(result, res.data);
+
+                // Output tag.
+                result = w.concat(result, res.tag);
             }
 
             loadedCb(result);
