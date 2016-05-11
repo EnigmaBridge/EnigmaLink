@@ -765,7 +765,7 @@
             // TODO: fix properly. Block align -> do final to local buffer, end might be in the last unpadded block...
             if (end >= this.preFileSize + this.dataSize){
                 var res = this.gcm.doFinal();
-                this.tag = res.tag;
+                this.cached.tag = res.tag;
 
                 // Ad the last data block.
                 ba = w.concat(ba, res.data);
