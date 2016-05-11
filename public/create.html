@@ -516,11 +516,11 @@
         this.paddingToAdd = 0;                          // TODO: implement.
 
         // Underflow avoidance.
-        this.cached = {};
-        this.cached.offset = -1;
-        this.cached.end = -1;
-        this.cached.buff = [];
-        this.cached.tag = [];
+        this.cached = {};         // Data processing cache object.
+        this.cached.offset = -1;  // Data start offset that is cached in the buff. Absolute data offset address of the first buff byte.
+        this.cached.end = -1;     // Data end offset that is cached in the buff. Absolute data offset address of the last buff byte.
+        this.cached.buff = [];    // Cached buffer. Size = cached.end - cached.offset.
+        this.cached.tag = [];     // Computed final auth tag for the data.
     };
 
     MediaUploader.TAG_SEC = 0x1;
@@ -662,7 +662,7 @@
             return;
         }
 
-        // File data
+        // File data loading.
         var fOffset = Math.max(0, offset - this.preFileSize);
         var fEnd = Math.min(this.dataSize, end - this.preFileSize);
         var fEndOrig = fEnd;
@@ -670,44 +670,49 @@
         var aheadBytes = 0;
 
         // If old chunk is requested - error, should not happen.
+        // We already discarded processed data in the cache cleanup and it cannot be computed again as
+        // GCM state already moved forward.
         if (this.cached.offset != -1 && fOffset < this.cached.offset){
             throw new sjcl.exception.invalid("Data requested were deleted.");
         }
 
         // Drop old processed chunks from the processed buffer. Won't be needed anymore.
         if (this.cached.end != -1 && this.cached.end <= fOffset){
-            log(sprintf("Dropping old chunk (end) %s - %s. fOffset - fEnd: %s - %s", this.cached.offset, this.cached.end, fOffset, fEnd));
+            log(sprintf("Dropping old chunk (end). Cached: %s - %s. FileReq: %s - %s", this.cached.offset, this.cached.end, fOffset, fEnd));
             this.cached.offset = -1;
             this.cached.end = -1;
             this.cached.buff = [];
         }
 
-        // Keep only last chunk in the buffer, avoid memleaks. Won't be needed anymore.
+        // Cleanup. Keep only last chunk in the buffer just in case a weird reupload request comes.
+        // We assume we won't need more data from the past than 1 upload chunk size. If we do, it is a critical error.
         if (this.cached.offset != -1 && (this.cached.offset+this.chunkSize) < fOffset){
-            log(sprintf("Dropping old chunk %s - %s. fOffset - fEnd: %s - %s, FromPos: %s",
-                    this.cached.offset, this.cached.end, fOffset, fEnd, fOffset - this.chunkSize - this.cached.offset));
+            log(sprintf("Dropping old chunk. Cached: %s - %s. FileReq: %s - %s, newCachedOffset: %s, DropFromPos: %s",
+                    this.cached.offset, this.cached.end, fOffset, fEnd, fOffset - this.chunkSize,
+                    fOffset - this.chunkSize - this.cached.offset));
 
             this.cached.buff = w.bitSlice(this.cached.buff, (fOffset - this.chunkSize - this.cached.offset)*8);
             this.cached.offset = fOffset - this.chunkSize;
             assert(w.bitLength(this.cached.buff) == 8*(this.cached.end - this.cached.offset), "Invariant broken");
         }
 
-        // If we have some data already prepared in the buffer - provide it.
+        // If we have some data already prepared in the buffer - provide it. (fOffset is in the cached buffer range).
         if (this.cached.offset <= fOffset && this.cached.end >= fOffset){
             var curStart = fOffset - this.cached.offset;
             var curStop = Math.min(this.cached.end - this.cached.offset, curStart + (fEnd - fOffset));
             var toUse = w.bitSlice(this.cached.buff, curStart*8, curStop*8);
             result = w.concat(result, toUse);
 
-            // Update fOffset, fEnd, reflect loaded data.
+            // Update fOffset, fEnd, reflect loaded data from buffer.
+            // It may be still needed to load & process (encrypt) additional data.
             fOffset += curStop - curStart;
             fChunkLen = fEnd - fOffset;
 
-            log(sprintf("Partially provided from the buffer, provided: %s B, new offset: %s B, dataToLoad: %s B",
+            log(sprintf("Partially provided from the buffer, provided: %s B, newDataOffset: %s B, dataToLoad: %s B",
                     w.bitLength(toUse)/8, fOffset, fChunkLen));
         }
 
-        // If enough is loaded, provide data.
+        // If enough is loaded, do not load data blob.
         if (fOffset >= fEnd){
             log(sprintf("Everything served from the internal buffer"));
 
@@ -724,8 +729,9 @@
             return;
         }
 
-        // To prevent underflow, read more data than requested.
-        // If end is in the unaligned position, GCM won't output it and underflow happens.
+        // To prevent underflow, read more data than requested (align to block size).
+        // If end is in the unaligned position, GCM won't output it and underflow happens as we get fewer data than
+        // we are supposed to in the upload request.
         if (fEnd < this.dataSize && (fChunkLen % 16) != 0){
             fEnd = Math.min(this.dataSize, fOffset + eb.misc.padToBlockSize(fChunkLen, 16));
             aheadBytes = fEnd - fEndOrig;
@@ -737,7 +743,7 @@
         var content = this.file;
         content = content.slice(fOffset, fEnd);
 
-        // If we use onloadend, we need to check the readyState.
+        // Event handler called when data is loaded from the blob/file.
         var onLoadFnc = function(evt) {
             if (evt.target.readyState != FileReader.DONE) { // DONE == 2
                 return;
@@ -761,7 +767,6 @@
             // Includes tag?
             // Due to pre-buffering it should not happen end ends up in the unaligned part of the buffer.
             // It is either aligned or the final byte of the file.
-            // TODO: fix properly. Block align -> do final to local buffer, end might be in the last unpadded block...
             if (end >= this.preFileSize + this.dataSize){
                 var res = this.gcm.doFinal();
                 this.cached.tag = res.tag;
