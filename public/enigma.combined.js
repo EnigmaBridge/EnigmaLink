@@ -1472,7 +1472,7 @@ sjcl.mode.gcm2.prototype = {
      * @private
      */
     _update: function(data, finalize){
-        var enc, bl, i, inp, w=sjcl.bitArray;
+        var enc, bl, i, l, inp, w=sjcl.bitArray;
 
         inp = [];
         // Data to process = unprocessed buffer from the last update call + current data so
@@ -1534,7 +1534,7 @@ sjcl.mode.gcm2.prototype = {
 
         // Encrypt all the data
         // Last 32bits of the ctr is actual counter.
-        for (i=0; i<l; i+=4) {
+        for (i=0, l=inp.length; i<l; i+=4) {
             this.ctr[3]++;
             enc = this.prf.encrypt(this.ctr);
             inp[i]   ^= enc[0];
@@ -1551,13 +1551,15 @@ sjcl.mode.gcm2.prototype = {
         if (this.enc) {
             this.tag = this._ghash(this.H, this.tag, inp);
         }
+
+        return inp;
     },
 
     /* Compute the galois multiplication of X and Y
      * @private
      */
     _galoisMultiply: function (x, y) {
-        var i, j, xi, Zi, Vi, lsb_Vi, w=sjcl.bitArray, xor=w._xor4;
+        var i, j, xi, Zi, Vi, lsb_Vi, w=sjcl.bitArray, xor=eb.misc.xor;
 
         Zi = [0,0,0,0];
         Vi = y.slice(0);
