@@ -219,6 +219,9 @@
         var $fldLabel;
         var $fldErrorMsg;
         var $fldRestart;
+
+        // Other fields.
+        var fldMsg;
     </script>
 </head>
 <body>
@@ -1301,42 +1304,45 @@
 
         // gathering the form data
         var ajaxData = new FormData( $form.get( 0 ) );
-        if( droppedFiles && droppedFiles.length > 0 )
+
+        logFiles(droppedFiles);
+        $.each( droppedFiles, function( i, file )
         {
-            logFiles(droppedFiles);
-            $.each( droppedFiles, function( i, file )
-            {
-                ajaxData.append( $fldInput.attr( 'name' ), file );
-            });
+            ajaxData.append( $fldInput.attr( 'name' ), file );
+        });
 
-            // Generate a new encryption key, random.
-            var encKey = sjcl.random.randomWords(8);
+        // Generate a new encryption key, random.
+        var encKey = sjcl.random.randomWords(8);
 
-            // TODO: encrypt encKey with UO.
-            // ...
+        // TODO: encrypt encKey with UO.
+        // ...
 
-            // Encrypt file in the browser, upload to drive.
-            var fFile = droppedFiles[0];
-            var uploader = new MediaUploader({
-                file: fFile,
-                token: accessToken,
-                encKey: encKey,
-                onComplete: function(data) {
-                    log("Upload complete: " + data);
-                    $form.removeClass( 'is-uploading' );
+        // Encrypt file in the browser, upload to drive.
+        var fFile = droppedFiles && droppedFiles.length > 0 ? droppedFiles[0] : undefined;
+        if (fFile === undefined){
+            log("File not provided, using text message only");
+            fFile = new Blob(["" + fldMsg.val()], {"type": "text/plain"});
+        }
+
+        var uploader = new MediaUploader({
+            file: fFile,
+            token: accessToken,
+            encKey: encKey,
+            onComplete: function(data) {
+                log("Upload complete: " + data);
+                $form.removeClass( 'is-uploading' );
 //                    var element = document.createElement("pre");
 //                    element.appendChild(document.createTextNode(data));
 //                    document.getElementById('results').appendChild(element);
-                },
-                onError: function(data) {
-                    log("Critical error: " + JSON.stringify(data));
-                    $form.removeClass( 'is-uploading' ).addClass( data.success == true ? 'is-success' : 'is-error' );
-                    $fldErrorMsg.text( data );
-                }
+            },
+            onError: function(data) {
+                log("Critical error: " + JSON.stringify(data));
+                $form.removeClass( 'is-uploading' ).addClass( data.success == true ? 'is-success' : 'is-error' );
+                $fldErrorMsg.text( data );
+            }
 
-            });
-            uploader.upload();
-        }
+        });
+        uploader.upload();
     }
 
     $(function(){
@@ -1346,6 +1352,7 @@
 
         // Init
         updForm = $('.box')[0];
+        fldMsg = $('#message');
 
         // HTML5 support?
         isAdvancedUpload = function() {
