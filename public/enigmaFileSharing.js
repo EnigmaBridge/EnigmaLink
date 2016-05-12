@@ -320,7 +320,7 @@ MediaUploader.TAG_SEC = 0x1;      // security context part. Contains IV, encrypt
 MediaUploader.TAG_FNAME = 0x2;    // record with the data/file name.
 MediaUploader.TAG_MIME = 0x3;     // record with the data/file mime type.
 MediaUploader.TAG_ENC = 0x4;      // record with the encrypted data/file. Last record in the message (no length field).
-MediaUploader.TAG_ENCWRAP = 0x5;  // record with the encrypted container (fname+mime+data). Last unencrypted record.
+MediaUploader.TAG_ENCWRAP = 0x5;  // record with the encrypted container (fname+mime+data). Last unencrypted record (no length field).
 MediaUploader.TAG_PADDING = 0x6;  // padding record. Null bytes (skipped in parsing), may be used to conceal true file size or align blocks.
 MediaUploader.LENGTH_BYTES = 0x4;
 
@@ -376,9 +376,10 @@ MediaUploader.prototype.buildFstBlock_ = function() {
     block = w.concat(block, this.iv);
     block = w.concat(block, this.secCtx);
 
-    // Encryption wrap - the end of the message is encrypted with AES-256-GCM.
+    // Encryption wrap tag - the end of the message is encrypted with AES-256-GCM. Last tag in unencrypted part. No length.
     block = w.concat(block, h.toBits(sprintf("%02x", MediaUploader.TAG_ENCWRAP)));
 
+    // Encrypted meta data block.
     // toEnc does not need to be aligned with block length as GCM is a stream mode.
     // But for the simplicity, pad it to the block size - easier state manipulation, size computation.
     //
@@ -394,7 +395,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
     toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", MediaUploader.TAG_MIME, w.bitLength(baMime)/8)));
     toEnc = w.concat(toEnc, baMime);
 
-    // Align to one AES block with padding record.
+    // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
     var metaBlockSizeNoPadded = w.bitLength(toEnc)/8;
     if ((metaBlockSizeNoPadded % 16) != 0){
         var numBytesAfterPadBlock = metaBlockSizeNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
@@ -407,7 +408,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
         }
     }
 
-    // Encryption.
+    // Encrypt padded meta data block.
     var encrypted = this.gcm.update(toEnc);
     log(sprintf("Encrypted size: %s B, before enc: %s B", w.bitLength(encrypted)/8, w.bitLength(toEnc)/8));
 
@@ -432,9 +433,9 @@ MediaUploader.prototype.buildFstBlock_ = function() {
     log(sprintf("Total after pad: %s", w.bitLength(block)/8));
     this.fstBlock = block;
 
-    // Prepare data sources for encryption & fetching. Processing engine fetches data from the data source
-    // querying portions of overall data. This abstraction helps to access multiple different sources under
-    // as it was only one continuous data source.
+    // Prepare data sources for encryption & fetching data. Processing engine fetches data from the data source
+    // querying fragments of data. This abstraction helps to access multiple different sources
+    // as it was only one continuous data source (underflow buffering logic is simpler).
     //
     // If padding is disabled, data source consists of a static tag source + blob source.
     var paddingEnabled = this.paddingToAdd > 0 || this.paddingFnc !== undefined;
@@ -477,7 +478,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
  * Uniform access to file structure before sending.
  */
 MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
-    var needContent = end > this.preFileSize; // end is exclusive border. TODO: reflect padding
+    var needContent = end > this.preFileSize; // end is exclusive border.
     var result = []; // result will be placed here, given to loadedCb.
     var w = sjcl.bitArray;
 
@@ -485,17 +486,6 @@ MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
     if (offset < this.preFileSize){
         result = w.concat(result, w.bitSlice(this.fstBlock, offset*8, Math.max(end*8, this.preFileSize*8)));
     }
-
-    // TODO: padding, message length concealing.
-    // TODO: if it is a text message, always pad to 128k. If it is bigger than 128k, pad to 256k.
-    // TODO: in case of files > 2MB, pad to whole megabytes. Otherwise pad to 256k multiple...
-    // Padding implementation: implement merged data source (stream). It could be initialized with
-    // several data generators, e.g., merged = [paddingGenerator(size), static(TAG_ENC), inputBlob];
-    // Underflow buffering would be done over this merged data stream (similar to merged input stream combining
-    // several different input streams to one, reading it one by one).
-    // merged.read(offsetStart, offsetFinished, handler); Handler would be called on read finished.
-    // Would output data as array buffer. Plaintext. It would be processed in the same way read data from the file are
-    // processed now.
 
     // File loading not needed.
     if (!needContent){
@@ -553,7 +543,7 @@ MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
             w.bitLength(toUse)/8, fOffset, fChunkLen));
     }
 
-    // If enough is loaded, do not load data blob.
+    // If enough is loaded, do not load data from source. Provide just processed data from the buffer.
     if (fOffset >= fEnd){
         log(sprintf("Everything served from the internal buffer"));
 
@@ -573,7 +563,7 @@ MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
         return;
     }
 
-    // To prevent underflow, read more data than requested (align to block size).
+    // To prevent underflow, read more data than requested (align to the cipher block size).
     // If end is in the unaligned position, GCM won't output it and underflow happens as we get fewer data than
     // we are supposed to in the upload request.
     if (fEnd < this.dataSize && (fChunkLen % 16) != 0){
@@ -651,11 +641,6 @@ MediaUploader.prototype.sendFile_ = function() {
     // Handler for uploading requested data range.
     var onLoadFnc = function(ba) {
         var finalBuffer = sjcl.codec.arrayBuffer.fromBits(ba, 0, 0);
-
-        if (lstBlock){
-            //this.onError("Upload aborted in testing mode");
-            //return;
-        }
 
         var xhr = new XMLHttpRequest();
         xhr.open('PUT', this.url, true);
