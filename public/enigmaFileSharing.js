@@ -362,12 +362,12 @@ MediaUploader.prototype.buildFstBlock_ = function() {
 
     // Secure context block, tag | len-4B | IV | secCtx
     var secLen = w.bitLength(this.iv)/8 + w.bitLength(this.secCtx)/8;
-    block = w.concat(block, h.toBits(sprintf("%02d%08d", MediaUploader.TAG_SEC, secLen)));
+    block = w.concat(block, h.toBits(sprintf("%02x%08x", MediaUploader.TAG_SEC, secLen)));
     block = w.concat(block, this.iv);
     block = w.concat(block, this.secCtx);
 
     // Encryption wrap - the end of the message is encrypted with AES-256-GCM.
-    block = w.concat(block, h.toBits(sprintf("%02d", MediaUploader.TAG_ENCWRAP)));
+    block = w.concat(block, h.toBits(sprintf("%02x", MediaUploader.TAG_ENCWRAP)));
 
     // toEnc does not need to be aligned with block length as GCM is a stream mode.
     // But for the simplicity, pad it to the block size - easier state manipulation, size computation.
@@ -375,13 +375,13 @@ MediaUploader.prototype.buildFstBlock_ = function() {
     // Filename
     log("FileName in meta block: " + this.fname);
     var baName = sjcl.codec.utf8String.toBits(this.fname);
-    toEnc = w.concat(toEnc, h.toBits(sprintf("%02d%08d", MediaUploader.TAG_FNAME, w.bitLength(baName)/8)));
+    toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", MediaUploader.TAG_FNAME, w.bitLength(baName)/8)));
     toEnc = w.concat(toEnc, baName);
 
     // Mime type
     log("MimeType in meta block: " + this.contentType);
     var baMime = sjcl.codec.utf8String.toBits(this.contentType);
-    toEnc = w.concat(toEnc, h.toBits(sprintf("%02d%08d", MediaUploader.TAG_MIME, w.bitLength(baMime)/8)));
+    toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", MediaUploader.TAG_MIME, w.bitLength(baMime)/8)));
     toEnc = w.concat(toEnc, baMime);
 
     // Align to one AES block with padding record.
@@ -391,7 +391,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
         var totalFblockSize = eb.misc.padToBlockSize(numBytesAfterPadBlock, 16); // length after padding to the whole block.
         padBytesToAdd = totalFblockSize - numBytesAfterPadBlock;
 
-        toEnc = w.concat(toEnc, h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, padBytesToAdd)));
+        toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", MediaUploader.TAG_PADDING, padBytesToAdd)));
         if (padBytesToAdd > 0){
             toEnc = w.concat(toEnc, h.toBits('00'.repeat(padBytesToAdd)));
         }
@@ -411,7 +411,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
         var totalSize = eb.misc.padToBlockSize(afterPad, 16); // length after padding to the whole block.
         padBytesToAdd = totalSize - afterPad;
 
-        var padBlock = h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, padBytesToAdd));
+        var padBlock = h.toBits(sprintf("%02x%08x", MediaUploader.TAG_PADDING, padBytesToAdd));
         if (padBytesToAdd > 0){
             padBlock = w.concat(padBlock, h.toBits('00'.repeat(padBytesToAdd)));
         }
@@ -423,7 +423,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
     this.fstBlock = block;
 
     // Encryption block, the last tag in the message - without length
-    var encSc = new ConstDataSource(h.toBits(sprintf("%02d", MediaUploader.TAG_ENC)));
+    var encSc = new ConstDataSource(h.toBits(sprintf("%02x", MediaUploader.TAG_ENC)));
     var blobSc = new BlobDataSource(this.file);
     if (this.paddingToAdd === undefined || this.paddingToAdd == 0){
         this.dataSource = new MergedDataSource([encSc, blobSc]);
@@ -433,7 +433,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
             handler(sjcl.codec.hex.toBits("00".repeat(offsetEnd-offsetStart)));
         };
 
-        var padConst = new ConstDataSource(h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, this.paddingToAdd)));
+        var padConst = new ConstDataSource(h.toBits(sprintf("%02x%08x", MediaUploader.TAG_PADDING, this.paddingToAdd)));
         var padGen = new WrappedDataSource(padGenerator, this.paddingToAdd);
         this.dataSource = new MergedDataSource([padConst, padGen, encSc, blobSc]);
         log("Concealing padding added: " + this.paddingToAdd);
