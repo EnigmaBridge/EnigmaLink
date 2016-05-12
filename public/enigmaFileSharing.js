@@ -60,7 +60,7 @@ RetryHandler.prototype.getRandomInt_ = function(min, max) {
 
 /**
  * General data source object. Abstract.
- * Provider async access to the provided data. Simple API.
+ * Provides async access to the underlying data.
  * @constructor
  */
 var DataSource = function(){
@@ -76,7 +76,7 @@ DataSource.prototype = {
 };
 
 /**
- * Data source with blob. Can be static blob or a file.
+ * Data source with blob. Can be a static blob or a file.
  * Data is read with FileReader.
  * @param blob
  * @constructor
@@ -254,27 +254,34 @@ MergedDataSource.inheritsFrom(DataSource, {
  * @param {blob} options.file Blob-like item to upload
  * @param {string} [options.fileId] ID of file if replacing
  * @param {object} [options.params] Additional query parameters
- * @param {string} [options.contentType] Content-type, if overriding the type of the blob.
+ * @param {string} [options.contentType] Content-type, if overriding the type of the blob. Public info (non-protected).
  * @param {object} [options.metadata] File metadata
+ * @param {object} [options.fname] Filename to use.
  * @param {function} [options.onComplete] Callback for when upload is complete
  * @param {function} [options.onProgress] Callback for status for the in-progress upload
  * @param {function} [options.onError] Callback if upload fails
+ * @param {number} [options.chunkSize] Upload chunk size in bytes.
+ * @param {bitArray} options.encKey AES-256 file encryption key.
+ * @param {bitArray} options.secCtx security context for the file (encrypted form of encKey)
+ * @param {number} [options.padding] Number of bytes to add to the file. Size concealing.
+ * @param {function} [options.padFnc] If set, takes precedence over options.padding. Determines number of bytes to add to the message.
  */
 var MediaUploader = function(options) {
     var noop = function() {};
     this.file = options.file;
     this.contentType = options.contentType || this.file.type || 'application/octet-stream';
+    this.contentTypeOrig = this.file.type || 'application/octet-stream';
     this.fname = options.fname || this.file.name || 'note';
     this.metadata = options.metadata || {
-            'title': this.fname,
+            'name': this.fname,
             'mimeType': this.contentType
         };
     this.token = options.token;
     this.onComplete = options.onComplete || noop;
     this.onProgress = options.onProgress || noop;
     this.onError = options.onError || noop;
-    this.offset = options.offset || 0;
     this.chunkSize = options.chunkSize || 262144*2; // requirement by Google, minimal size of a chunk.
+    this.offset = 0;
     this.retryHandler = new RetryHandler();
     this.url = options.url;
 
@@ -294,17 +301,18 @@ var MediaUploader = function(options) {
     this.gcm = new sjcl.mode.gcm2(this.aes, true, [], this.iv, 128); // GCM encryption mode, initialized now.
 
     // Construct first meta block now, compute file sizes.
-    this.paddingToAdd = 0;                          // Concealing padding size.
+    this.paddingToAdd = options.padding || 0;       // Concealing padding size.
+    this.paddingFnc = options.padFnc;               // Padding size function. If set, determines the padding length.
     this.dataSource = undefined;                    // Data source for data/file/padding...
     this.buildFstBlock_();
     this.preFileSize = this.preFileSize_();         // Number of bytes in the upload stream before file contents.
     this.totalSize = this.totalSize_();             // Total size of the upload stream.
 
-    // Underflow avoidance.
+    // Encrypted data buffering - already processed data. Underflow avoidance.
     this.cached = {};         // Data processing cache object.
     this.cached.offset = -1;  // Data start offset that is cached in the buff. Absolute data offset address of the first buff byte.
     this.cached.end = -1;     // Data end offset that is cached in the buff. Absolute data offset address of the last buff byte.
-    this.cached.buff = [];    // Cached buffer. Size = cached.end - cached.offset.
+    this.cached.buff = [];    // Cached processed data buffer. Size = cached.end - cached.offset.
     this.cached.tag = [];     // Computed final auth tag for the data.
 };
 
@@ -342,6 +350,8 @@ MediaUploader.prototype.upload = function() {
         }
     }.bind(this);
     xhr.onerror = this.onUploadError_.bind(this);
+
+    log("Starting session with metadata: " + JSON.stringify(this.metadata));
     xhr.send(JSON.stringify(this.metadata));
 };
 
@@ -379,8 +389,8 @@ MediaUploader.prototype.buildFstBlock_ = function() {
     toEnc = w.concat(toEnc, baName);
 
     // Mime type
-    log("MimeType in meta block: " + this.contentType);
-    var baMime = sjcl.codec.utf8String.toBits(this.contentType);
+    log("MimeType in meta block: " + this.contentTypeOrig);
+    var baMime = sjcl.codec.utf8String.toBits(this.contentTypeOrig);
     toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", MediaUploader.TAG_MIME, w.bitLength(baMime)/8)));
     toEnc = w.concat(toEnc, baMime);
 
@@ -422,21 +432,40 @@ MediaUploader.prototype.buildFstBlock_ = function() {
     log(sprintf("Total after pad: %s", w.bitLength(block)/8));
     this.fstBlock = block;
 
+    // Prepare data sources for encryption & fetching. Processing engine fetches data from the data source
+    // querying portions of overall data. This abstraction helps to access multiple different sources under
+    // as it was only one continuous data source.
+    //
+    // If padding is disabled, data source consists of a static tag source + blob source.
+    var paddingEnabled = this.paddingToAdd > 0 || this.paddingFnc !== undefined;
+
     // Encryption block, the last tag in the message - without length
     var encSc = new ConstDataSource(h.toBits(sprintf("%02x", MediaUploader.TAG_ENC)));
     var blobSc = new BlobDataSource(this.file);
-    if (this.paddingToAdd === undefined || this.paddingToAdd == 0){
+    if (!paddingEnabled){
         this.dataSource = new MergedDataSource([encSc, blobSc]);
 
     } else {
+        // Simple padding data source generator - stream of zero bytes, generated on demand.
         var padGenerator = function(offsetStart, offsetEnd, handler){
             handler(sjcl.codec.hex.toBits("00".repeat(offsetEnd-offsetStart)));
         };
 
+        // If function is defined, gen number of padding bytes to add.
+        // FstBlock + TAG_PADDING + len4B + TAG_ENC + len(message) + GCM-TAG-16B
+        var curTotalSize = this.preFileSize_() + 1 + 4 + 1 + blobSc.length() + 16;
+        if (this.paddingFnc){
+            this.paddingToAdd = this.paddingFnc(curTotalSize);
+        }
+        if (this.paddingToAdd < 0){
+            throw new eb.exception.invalid("Padding cannot be negative");
+        }
+
+        // Padding tag source + padding generator.
         var padConst = new ConstDataSource(h.toBits(sprintf("%02x%08x", MediaUploader.TAG_PADDING, this.paddingToAdd)));
         var padGen = new WrappedDataSource(padGenerator, this.paddingToAdd);
         this.dataSource = new MergedDataSource([padConst, padGen, encSc, blobSc]);
-        log("Concealing padding added: " + this.paddingToAdd);
+        log("Concealing padding added: " + this.paddingToAdd + ", total file size: " + (curTotalSize+this.paddingToAdd));
     }
 
     this.dataSize = this.dataSource.length();
@@ -630,9 +659,9 @@ MediaUploader.prototype.sendFile_ = function() {
 
         var xhr = new XMLHttpRequest();
         xhr.open('PUT', this.url, true);
-        xhr.setRequestHeader('Content-Type', this.contentType); //TODO: protect original one
+        xhr.setRequestHeader('Content-Type', this.contentType);
         xhr.setRequestHeader('Content-Range', "bytes " + this.offset + "-" + (end - 1) + "/" + this.totalSize);
-        xhr.setRequestHeader('X-Upload-Content-Type', this.file.type); //TODO: protect original one
+        xhr.setRequestHeader('X-Upload-Content-Type', this.contentType);
         if (xhr.upload) {
             xhr.upload.addEventListener('progress', this.onProgress);
         }
