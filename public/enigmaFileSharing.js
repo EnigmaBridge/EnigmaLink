@@ -530,11 +530,14 @@ MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
 
         // Check if tag needs to be provided
         if (end >= this.preFileSize + this.dataSize){
-            if (w.bitLength(this.cached.tag) != 16){
+            if (w.bitLength(this.cached.tag)/8 != 16){
                 throw new sjcl.exception.invalid("Tag not ready when it should be");
             }
 
-            result = w.concat(result, w.clamp(this.cached.tag, (end-this.preFileSize-this.dataSize)*8));
+            var tagStart = Math.max(0, fOffset-this.dataSize);
+            var tagEnd = end-this.preFileSize-this.dataSize;
+            result = w.concat(result, w.bitSlice(this.cached.tag, tagStart*8, tagEnd*8));
+            log(sprintf("Stored tag served. %s - %s pos", tagStart, tagEnd));
         }
 
         loadedCb(result);
