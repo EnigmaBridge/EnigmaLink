@@ -18,6 +18,9 @@
         .qrWrap {
             /*overflow: auto;*/
         }
+        input[disabled]{
+            background-color: #F8F8F8;
+        }
 
     </style>
     <link href='css/googleapi-FamilyBitter.css' rel='stylesheet' type='text/css'/>
@@ -57,6 +60,9 @@
 
         // Other fields.
         var fldMsg;
+        var fldFname;
+        var fldFnameOrig;
+        var chkMask;
     </script>
 </head>
 <body>
@@ -75,14 +81,19 @@
         <div class="inner-wrap">
             <label>Message
                 <input type="text" name="message" id="message" value="" placeholder="Message to encrypt & share"/>
-                <span>Message to be encrypted and shared in a secure way, using simple unsecure storage, such as Google Drive.</span>
+                <span>Message to be encrypted and shared in a secure way, using simple insecure storage, such as Google Drive.
+                In case a file is selected, message is not used.</span>
             </label>
 
             <label>File name
-                <input type="text" name="filename" id="filename" value="" placeholder="New filename for the file (TODO)"/>
-                <span>TODO: random link, default = current file name. <br/>
-                    TODO: mask file in storage. <br/>
-                    TODO: mask file size (padding). </span>
+                <input type="text" name="filename" id="filename" value="" placeholder="New filename for the file"/>
+                <input type="hidden" name="filenameOrig" id="filenameOrig" value=""/>
+                <span><a onclick="fldFname.val(genRandomName())">Random name</a><br/></span>
+            </label>
+
+            <label>Mask file
+                <input type="checkbox" name="chkMask" id="chkMask" value="1"/>
+                <span>Masks file in the storage (random name, hide mime type, conceals file size)</span>
             </label>
 
             <label>Password
@@ -251,6 +262,10 @@
     function log(msg){
         console.log(msg);
         append_message(msg);
+    }
+
+    function genRandomName(){
+        return eb.misc.genAlphaNonce(12);
     }
 
     /**
@@ -467,6 +482,15 @@
     function showFiles(files, $input, $label){
         logFiles(files);
         $label.text( files.length > 1 ? ( $input.attr( 'data-multiple-caption' ) || '' ).replace( '{count}', files.length ) : files[ 0 ].name );
+
+        // Set default file name.
+        if (files.length == 1) {
+            fldFname.val(files[0].name);
+            fldFnameOrig.val(files[0].name);
+        }
+
+        // Text message not allowed if file is provided.
+        setDisabled(fldMsg, files.length > 0);
     }
 
     function initUploadDiv(form){
@@ -546,32 +570,84 @@
             return
         }
 
-        // gathering the form data
-        var ajaxData = new FormData( $form.get( 0 ) );
-
-        logFiles(droppedFiles);
-        $.each( droppedFiles, function( i, file )
-        {
-            ajaxData.append( $fldInput.attr( 'name' ), file );
-        });
-
-        // Generate a new encryption key, random.
+        // Generate a new file encryption key, random.
         var encKey = sjcl.random.randomWords(8);
 
         // TODO: encrypt encKey with UO.
         // ...
 
-        // Encrypt file in the browser, upload to drive.
+        // Encrypt file in the browser, upload to drive, first file.
         var fFile = droppedFiles && droppedFiles.length > 0 ? droppedFiles[0] : undefined;
+        // If file is not provided, use text message.
         if (fFile === undefined){
             log("File not provided, using text message only");
             fFile = new Blob(["" + fldMsg.val()], {"type": "text/plain"});
         }
 
+        // File size concealing - padding.
+        var sizeConcealPadFnc = function(curSize){
+            var nSize = curSize;
+
+            // At least 1k.
+            if (curSize < 1024){
+                return 1024-curSize;
+            }
+
+            // Pad to 4kB multiple.
+            if ((nSize % (1024*4)) != 0){
+                nSize += 1024*4 - (nSize % (1024*4));
+            }
+
+            // > 64kb ? pad to 32kb
+            if (nSize > 1024*64 && (nSize % (1024*32)) != 0){
+                nSize += 1024*32 - (nSize % (1024*32));
+            }
+
+            // (128,256) -> 256
+            if (nSize > 1024*128 && nSize < 1024*256){
+                nSize = 1024*256;
+            }
+
+            // (256,512) -> 512
+            if (nSize > 1024*256 && nSize < 1024*512){
+                nSize = 1024*512;
+            }
+
+            // If > 256, pad to 128k multiple
+            if (nSize > 1024*256 && (nSize % (1024*128)) != 0){
+                nSize += 1024*128 - (nSize % (1024*128));
+            }
+
+            // If > 512, pad to 256kB multiple.
+            if (nSize > 1024*512 && (nSize % (1024*256)) != 0){
+                nSize += 1024*256 - (nSize % (1024*256));
+            }
+
+            // If > 1M, pad to 512k multiple.
+            if (nSize > 1024*1024 && (nSize % (1024*512)) != 0){
+                nSize += 1024*512 - (nSize % (1024*512));
+            }
+
+            // If > 1.5M, pad to 1M multiple.
+            if (nSize > 1024*1024*1.5 && (nSize % (1024*1024)) != 0){
+                nSize += 1024*1024 - (nSize % (1024*1024));
+            }
+
+            // If > 10M, pad to 5M multiple.
+            if (nSize > 1024*1024*10 && (nSize % (1024*1024*5)) != 0){
+                nSize += 1024*1024*5 - (nSize % (1024*1024*5));
+            }
+
+            return nSize - curSize;
+        };
+
         var uploader = new MediaUploader({
             file: fFile,
             token: accessToken,
             encKey: encKey,
+            fname: fldFname.val(),
+            contentType: isChecked(chkMask) ? 'application/octet-stream' : undefined,
+            padFnc: isChecked(chkMask) ? sizeConcealPadFnc : undefined,
             onComplete: function(data) {
                 log("Upload complete: " + data);
                 $form.removeClass( 'is-uploading' );
@@ -597,6 +673,9 @@
         // Init
         updForm = $('.box')[0];
         fldMsg = $('#message');
+        fldFname = $('#filename');
+        fldFnameOrig = $('#filenameOrig');
+        chkMask = $('#chkMask');
 
         // HTML5 support?
         isAdvancedUpload = function() {
@@ -610,6 +689,11 @@
         // Button click handling.
         $('#btnShare').click(function(){
             processClicked();
+        });
+
+        chkMask.click(function(){
+            var checked = isChecked(chkMask);
+            fldFname.val(checked ? genRandomName() : fldFnameOrig.val());
         });
     });
 

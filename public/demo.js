@@ -54,6 +54,24 @@ function getURLParameter(name) {
     return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(location.search)||[,""])[1].replace(/\+/g, '%20'))||null;
 }
 
+/**
+ * Sets given element as disabled.
+ * @param elem
+ * @param disabled
+ */
+function setDisabled(elem, disabled){
+    elem.prop('disabled', disabled);
+}
+
+/**
+ * Returns true if given radio button / checkbox is checked.
+ * @param elem
+ * @returns {*}
+ */
+function isChecked(elem){
+    return elem.is(':checked');
+}
+
 function toggleCategory(){
     var header = $(this);
     var collapser = header.find('.collapser');
