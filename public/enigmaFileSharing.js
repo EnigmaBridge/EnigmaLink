@@ -294,11 +294,11 @@ var MediaUploader = function(options) {
     this.gcm = new sjcl.mode.gcm2(this.aes, true, [], this.iv, 128); // GCM encryption mode, initialized now.
 
     // Construct first meta block now, compute file sizes.
+    this.paddingToAdd = 0;                          // Concealing padding size.
+    this.dataSource = undefined;                    // Data source for data/file/padding...
     this.buildFstBlock_();
     this.preFileSize = this.preFileSize_();         // Number of bytes in the upload stream before file contents.
-    this.dataSize = this.file.size;
     this.totalSize = this.totalSize_();             // Total size of the upload stream.
-    this.paddingToAdd = 0;                          // TODO: implement.
 
     // Underflow avoidance.
     this.cached = {};         // Data processing cache object.
@@ -385,7 +385,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
     toEnc = w.concat(toEnc, baMime);
 
     // Align to one AES block with padding record.
-    var metaBlockSizeNoPadded = w.bitLength(toEnc)/8 + 1;
+    var metaBlockSizeNoPadded = w.bitLength(toEnc)/8;
     if ((metaBlockSizeNoPadded % 16) != 0){
         var numBytesAfterPadBlock = metaBlockSizeNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
         var totalFblockSize = eb.misc.padToBlockSize(numBytesAfterPadBlock, 16); // length after padding to the whole block.
@@ -396,9 +396,6 @@ MediaUploader.prototype.buildFstBlock_ = function() {
             toEnc = w.concat(toEnc, h.toBits('00'.repeat(padBytesToAdd)));
         }
     }
-
-    // Encryption block, the last tag in the message - without length
-    toEnc = w.concat(toEnc, h.toBits(sprintf("%02d", MediaUploader.TAG_ENC)));
 
     // Encryption.
     var encrypted = this.gcm.update(toEnc);
@@ -424,6 +421,25 @@ MediaUploader.prototype.buildFstBlock_ = function() {
 
     log(sprintf("Total after pad: %s", w.bitLength(block)/8));
     this.fstBlock = block;
+
+    // Encryption block, the last tag in the message - without length
+    var encSc = new ConstDataSource(h.toBits(sprintf("%02d", MediaUploader.TAG_ENC)));
+    var blobSc = new BlobDataSource(this.file);
+    if (this.paddingToAdd === undefined || this.paddingToAdd == 0){
+        this.dataSource = new MergedDataSource([encSc, blobSc]);
+
+    } else {
+        var padGenerator = function(offsetStart, offsetEnd, handler){
+            handler(sjcl.codec.hex.toBits("00".repeat(offsetEnd-offsetStart)));
+        };
+
+        var padConst = new ConstDataSource(h.toBits(sprintf("%02d%08d", MediaUploader.TAG_PADDING, this.paddingToAdd)));
+        var padGen = new WrappedDataSource(padGenerator, this.paddingToAdd);
+        this.dataSource = new MergedDataSource([padConst, padGen, encSc, blobSc]);
+        log("Concealing padding added: " + this.paddingToAdd);
+    }
+
+    this.dataSize = this.dataSource.length();
     return block;
 };
 
@@ -535,24 +551,10 @@ MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
             fChunkLen, fEnd-fOffset, fEndOrig, fEnd, aheadBytes));
     }
 
-    // Read & process fOffset - fEnd. Store to internal buffer.
-    var content = this.file;
-    content = content.slice(fOffset, fEnd);
-
     // Event handler called when data is loaded from the blob/file.
-    var onLoadFnc = function(evt) {
-        if (evt.target.readyState != FileReader.DONE) { // DONE == 2
-            return;
-        }
-
-        var data = evt.target.result;
-        console.log(data);
-
-        // Convert to SJCL bitArray
-        var ba = sjcl.codec.arrayBuffer.toBits(data);
-
-        log(sprintf("Read bytes: %s - %s of %s B file. TotalSize: %s B, PreFileSize: %s, ArrayBuffer: %s B, bitArray: %s B",
-            fOffset, fEnd, this.dataSize, this.totalSize, this.preFileSize, data.byteLength, w.bitLength(ba)/8));
+    var onLoadFnc = function(ba) {
+        log(sprintf("Read bytes: %s - %s of %s B file. TotalSize: %s B, PreFileSize: %s, bitArray: %s B",
+            fOffset, fEnd, this.dataSize, this.totalSize, this.preFileSize, w.bitLength(ba)/8));
 
         // Encrypt this chunk with GCM mode.
         // Output length is cipher-block aligned, this can cause underflows in certain situations. To make it easier
@@ -591,9 +593,7 @@ MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
     };
 
     // Initiate file/blob read.
-    console.log(content);
-    this.reader.onloadend = onLoadFnc.bind(this);
-    this.reader.readAsArrayBuffer(content);
+    this.dataSource.read(fOffset, fEnd, onLoadFnc.bind(this));
 };
 
 /**
