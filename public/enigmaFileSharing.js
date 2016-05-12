@@ -59,6 +59,182 @@ RetryHandler.prototype.getRandomInt_ = function(min, max) {
 };
 
 /**
+ * General data source object. Abstract.
+ * Provider async access to the provided data. Simple API.
+ * @constructor
+ */
+var DataSource = function(){
+
+};
+DataSource.prototype = {
+    read: function(offsetStart, offsetEnd, handler){
+        throw new eb.exception.invalid("Acessing abstract method");
+    },
+    length: function(){
+        throw new eb.exception.invalid("Acessing abstract method");
+    }
+};
+
+/**
+ * Data source with blob. Can be static blob or a file.
+ * Data is read with FileReader.
+ * @param blob
+ * @constructor
+ */
+var BlobDataSource = function(blob){
+    this.blob = blob;
+    this.reader = new FileReader();
+};
+
+/**
+ * Constant data source.
+ * @param {bitArray} data
+ * @constructor
+ */
+var ConstDataSource = function(data){
+    this.data = data;
+};
+
+/**
+ * Data source wrapping a generator.
+ * @param generator
+ * @param length
+ * @constructor
+ */
+var WrappedDataSource = function(generator, length){
+    this.generator = generator;
+    this.len = length;
+};
+
+/**
+ * Data source combining multiple different data sources to one.
+ * @param sources array of data sources.
+ * @constructor
+ */
+var MergedDataSource = function(sources){
+    this.sources = sources;
+    this.len = 0;
+    this.incLenList = [0]; // incremental size list. ith object = sum(0..i-1).
+    var i, ln;
+    for (i=0, ln=sources.length; i<ln; i++) {
+        var src = sources[i];
+        var cln = src.length();
+        this.len += cln;
+        this.incLenList.push(this.incLenList[i] + cln);
+    }
+};
+BlobDataSource.inheritsFrom(DataSource, {
+    read: function(offsetStart, offsetEnd, handler){
+        var content = this.blob.slice(offsetStart, offsetEnd);
+
+        // Event handler called when data is loaded from the blob/file.
+        var onLoadFnc = function(evt) {
+            if (evt.target.readyState != FileReader.DONE) { // DONE == 2
+                log("State not done");
+                return;
+            }
+
+            var data = evt.target.result;
+            var ba = sjcl.codec.arrayBuffer.toBits(data);
+            handler(ba);
+        };
+
+        // Initiate file/blob read.
+        this.reader.onloadend = onLoadFnc.bind(this);
+        this.reader.readAsArrayBuffer(content);
+    },
+    length: function(){
+        return this.blob.size;
+    }
+});
+ConstDataSource.inheritsFrom(DataSource, {
+    read: function(offsetStart, offsetEnd, handler){
+        var w = sjcl.bitArray;
+        var bl = w.bitLength(this.data);
+        var cStart = offsetStart*8;
+        var cEnd = offsetEnd*8;
+        if (cStart>cEnd || cEnd-cStart > bl){
+            throw new eb.exception.invalid("Invalid argument");
+        }
+
+        handler(w.bitSlice(this.data, cStart, cEnd));
+    },
+    length: function(){
+        return sjcl.bitArray.bitLength(this.data)/8;
+    }
+});
+WrappedDataSource.inheritsFrom(DataSource, {
+    read: function(offsetStart, offsetEnd, handler){
+        this.generator(offsetStart, offsetEnd, function(x){
+            handler(x);
+        });
+    },
+    length: function(){
+        return this.len;
+    }
+});
+MergedDataSource.inheritsFrom(DataSource, {
+    read: function(offsetStart, offsetEnd, handler){
+        var w = sjcl.bitArray;
+        var sl = this.sources.length;
+        var i;
+        var res = [];
+        var cShift = 0, cLen = 0, cOffsetStart, cOffsetEnd, desiredLen = offsetEnd-offsetStart;
+
+        var cHandler = function(x){
+            var bl = w.bitLength(x);
+            if (cOffsetEnd-cOffsetStart != bl/8){
+                throw new eb.exception.invalid("Read invalid number of bytes!");
+            }
+
+            // Append current data to the result.
+            res = w.concat(res, x);
+            offsetStart+=bl/8;
+
+            // Everything read?
+            if (offsetStart>=offsetEnd){
+                if (w.bitLength(res)/8 != desiredLen){
+                    throw new eb.exception.invalid("Reading returned invalid number of bytes from sub data sources");
+                }
+                handler(res);
+                return;
+            }
+
+            // Start next load.
+            (startRead.bind(this))(offsetStart, offsetEnd);
+        };
+
+        var startRead = function(ofStart, ofEnd){
+            for(i=0, cShift = 0; i<sl; i++){
+                // Offset starts on the next streams - skip previous ones.
+                if (ofStart >= this.incLenList[i+1]){
+                    continue;
+                }
+
+                cShift += this.incLenList[i];
+                cLen = this.sources[i].length();
+                cOffsetStart = ofStart-cShift;
+                cOffsetEnd = (ofEnd-cShift);
+                if (cOffsetEnd > cOffsetStart+cLen){
+                    cOffsetEnd = cOffsetStart+cLen;
+                }
+
+                this.sources[i].read(cOffsetStart, cOffsetEnd, cHandler.bind(this));
+
+                // Break iteration, wait for handler to return data.
+                break;
+            }
+        };
+
+        // Initial kickoff.
+        (startRead.bind(this))(offsetStart, offsetEnd);
+    },
+    length: function(){
+        return this.len;
+    }
+});
+
+/**
  * Helper class for resumable uploads using XHR/CORS. Can upload any Blob-like item, whether
  * files or in-memory constructs.
  *
@@ -170,8 +346,12 @@ MediaUploader.prototype.upload = function() {
 };
 
 /**
- * Bytes to send.
- * Uniform access to file structure before sending.
+ * Builds meta info block. File is prepended with this information.
+ * Contains information required for decryption and encrypted meta data block.
+ * Meta data block contains e.g., original file name, mime type, ...
+ *
+ * First block is padded on a cipher block size with TLV padding so the further
+ * data/file processing is faster and aligned on blocks.
  */
 MediaUploader.prototype.buildFstBlock_ = function() {
     var block = [];
@@ -264,7 +444,13 @@ MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
     // TODO: padding, message length concealing.
     // TODO: if it is a text message, always pad to 128k. If it is bigger than 128k, pad to 256k.
     // TODO: in case of files > 2MB, pad to whole megabytes. Otherwise pad to 256k multiple...
-    // ...
+    // Padding implementation: implement merged data source (stream). It could be initialized with
+    // several data generators, e.g., merged = [paddingGenerator(size), static(TAG_ENC), inputBlob];
+    // Underflow buffering would be done over this merged data stream (similar to merged input stream combining
+    // several different input streams to one, reading it one by one).
+    // merged.read(offsetStart, offsetFinished, handler); Handler would be called on read finished.
+    // Would output data as array buffer. Plaintext. It would be processed in the same way read data from the file are
+    // processed now.
 
     // File loading not needed.
     if (!needContent){
