@@ -626,10 +626,8 @@ MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
  * @private
  */
 MediaUploader.prototype.sendFile_ = function() {
-    var w = sjcl.bitArray;
     var end = this.totalSize;
     var lstBlock = false;
-    var preBuff = [];
 
     if (this.offset || this.chunkSize) {
         if (this.chunkSize) {
