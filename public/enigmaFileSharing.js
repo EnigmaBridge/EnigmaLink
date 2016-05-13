@@ -830,45 +830,29 @@ EnigmaSharingUpload.sizeConcealPadFnc = function(curSize){
         return 1024-curSize;
     }
 
-    // Pad to 4kB multiple.
-    if ((nSize % (1024*4)) != 0){
-        nSize += 1024*4 - (nSize % (1024*4));
-    }
+    // Helper function;
+    var ifGrAlignTo = function(n, threshold, align){
+        return n <= threshold || (n % align) == 0 ? n : n + align - (n % align);
+    };
 
-    // > 64k ? pad to 32k
-    if (nSize > 1024*64 && (nSize % (1024*32)) != 0){
-        nSize += 1024*32 - (nSize % (1024*32));
-    }
+    // Simple aligning algorithm:
+    // if x > 2^i then align x to 2^{i-1}
+    for(var cur=1024 ; cur <= 1024*1024; cur*=2){
+        if (nSize < cur*2){
+            break;
+        }
 
-    // If > 128k, pad to 64k multiple
-    if (nSize > 1024*128 && (nSize % (1024*64)) != 0){
-        nSize += 1024*64 - (nSize % (1024*64));
-    }
-
-    // If > 256k, pad to 128k multiple
-    if (nSize > 1024*256 && (nSize % (1024*128)) != 0){
-        nSize += 1024*128 - (nSize % (1024*128));
-    }
-
-    // If > 512k, pad to 256kB multiple.
-    if (nSize > 1024*512 && (nSize % (1024*256)) != 0){
-        nSize += 1024*256 - (nSize % (1024*256));
-    }
-
-    // If > 1M, pad to 512k multiple.
-    if (nSize > 1024*1024 && (nSize % (1024*512)) != 0){
-        nSize += 1024*512 - (nSize % (1024*512));
+        nSize = ifGrAlignTo(nSize, cur*2, cur);
     }
 
     // If > 1.5M, pad to 1M multiple.
-    if (nSize > 1024*1024*1.5 && (nSize % (1024*1024)) != 0){
-        nSize += 1024*1024 - (nSize % (1024*1024));
-    }
+    nSize = ifGrAlignTo(nSize, 1024*1024*1.5, 1024*1024);
 
     // If > 10M, pad to 5M multiple.
-    if (nSize > 1024*1024*10 && (nSize % (1024*1024*5)) != 0){
-        nSize += 1024*1024*5 - (nSize % (1024*1024*5));
-    }
+    nSize = ifGrAlignTo(nSize, 1024*1024*10, 1024*1024*5);
+
+    // If > 100M, pad to 10M multiple.
+    nSize = ifGrAlignTo(nSize, 1024*1024*100, 1024*1024*10);
 
     return nSize - curSize;
 };
