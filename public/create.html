@@ -37,6 +37,7 @@
     <script src="enigma.js"></script>
     <script src="demo.js"></script>
     <script src="enigmaFileSharing.js"></script>
+    <script type="text/javascript" src="https://apis.google.com/js/api.js"></script>
     <script>
         "use strict";
         var defaults = {
@@ -48,7 +49,8 @@
         // configuration
         var shareConfig = {
             baseUrl: 'https://expert.enigmabridge.com/sharing',
-            shareFolderName: 'EnigmaShares'
+            shareFolderName: 'EnigmaShares',
+            clientId: '1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com'
         };
 
         // Google Drive access token.
@@ -61,6 +63,8 @@
         var isAdvancedUpload = false;
         var droppedFiles = false;
         var updForm;
+        var lastUploadedFileId;
+        var driveShareDialog;
 
         // We have only one upload form.
         var $fldInput;
@@ -244,7 +248,10 @@
 
             <label>Share link
                 <input type="text" name="qrLink" id="qrLink" placeholder="Share link" readonly="readonly"/>
-                <span>Link to share this file, <a onclick="copyElementToClipboard(fldShareLink)">copy to clipboard.</a></span>
+                <span>
+                    Link to share this file, <a onclick="copyElementToClipboard(fldShareLink)">copy to clipboard.</a><br/>
+                    <a onclick="changeSharingPermissions()">Change sharing settings</a>
+                </span>
             </label>
 
             <div id="redirBlock">
@@ -590,9 +597,25 @@
                 .on( 'blur', function(){ $input.removeClass( 'has-focus' ); });
     }
 
+    function changeSharingPermissions(){
+        if (!driveShareDialog){
+            alert("No file has been uploaded yet");
+            return;
+        }
+        driveShareDialog.showSettingsDialog();
+    }
+
     function onFileUploaded(data){
         setDisabled(btnDownload, false);
+        lastUploadedFileId = data.id;
 
+        // Initialize sharing dialog if user wants to change sharing settings.
+        driveShareDialog = new gapi.drive.share.ShareClient();
+        driveShareDialog.setOAuthToken(accessToken);
+        driveShareDialog.setItemIds([data.id]);
+
+        // TODO: share with general public by default.
+        
         var settings = getSettings();
         var link = eb.sh.misc.buildUrl("/download", {
             uoid: settings.userObjectId,
@@ -694,7 +717,11 @@
      * Loads Google Drive library, after load fetches share folder.
      */
     function loadDrive(){
+        // Google drive API
         gapi.client.load('drive', 'v3', driveLoaded);
+
+        // Load share logic
+        gapi.load('drive-share');
     }
 
     /**
