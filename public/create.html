@@ -637,11 +637,11 @@
             var permId;
             if (resp && resp.id) {
                 permId = resp.id;
-                log("File shared with public, permission id:" + permId);
+                log("File shared with public, permissionId:" + permId + ", resp:" + JSON.stringify(resp));
             } else {
-                log("Error: Could not share file with public!");
+                log("Error: Could not share file with public! Resp: " + JSON.stringify(resp));
             }
-            
+
             data.permId = permId;
             onFileShared(data);
         });
