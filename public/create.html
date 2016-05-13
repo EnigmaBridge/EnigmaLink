@@ -76,6 +76,7 @@
         var spnUploadPcnt;
         var fldShareLink;
         var divQrCode;
+        var spnBtnShare;
         var btnShare;
         var btnDownload;
     </script>
@@ -707,6 +708,8 @@
      * Find share folder ID, if does not exist, create it.
      */
     function fetchShareFolder() {
+        spnBtnShare.text("Please wait until Google Drive is loaded");
+
         // Search the share folder.
         var request = gapi.client.drive.files.list({
             'q': "mimeType='application/vnd.google-apps.folder'" +
@@ -749,12 +752,21 @@
         });
     }
 
+    /**
+     * Share folder fetching finished.
+     * @param err
+     */
     function onShareFolderFetched(err){
+        if (err){
+            log("Creating share folder failed. Please, try again later.");
+            return;
+        }
+
         log("Share folder fetched");
 
         // Now sharing can be enabled.
         setDisabled(btnShare, false);
-        $('#spnBtnShare').hide('fast');
+        spnBtnShare.hide('fast');
     }
 
     $(function(){
@@ -771,6 +783,7 @@
         spnUploadPcnt = $('#uploadPcnt');
         fldShareLink = $('#qrLink');
         divQrCode = $('#qrcode');
+        spnBtnShare = $('#spnBtnShare');
         btnShare = $('#btnShare');
         btnDownload = $('#btnDownload');
 
