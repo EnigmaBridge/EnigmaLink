@@ -591,9 +591,10 @@
         var settings = getSettings();
         var link = eb.sh.misc.buildUrl("/download", {
             uoid: settings.userObjectId,
-            encKey: settings.aesKey,
-            macKey: settings.macKey,
-            fid: data.id
+            encKey: eb.misc.inputToHex(settings.aesKey),
+            macKey: eb.misc.inputToHex(settings.macKey),
+            fid: data.id,
+            fkeyREMOVE: eb.misc.inputToHex(data.encKey)         // TODO: only for testing! remove!!! BUGBUG SECBUG
         }, shareConfig.baseUrl);
 
         log(link);
@@ -673,6 +674,14 @@
 
     function downloadClicked(){
         var link = fldShareLink.val();
+        var linkCfg = {
+            uoid: eb.sh.misc.getURLParameter('uoid', link),
+            aesKey: eb.sh.misc.getURLParameter('encKey', link),
+            macKey: eb.sh.misc.getURLParameter('macKey', link),
+            fid: eb.sh.misc.getURLParameter('fid', link),
+            fkeyREMOVE: eb.sh.misc.getURLParameter('fkeyREMOVE', link)
+        };
+        log("Parsed link data: " + JSON.stringify(linkCfg));
 
     }
 
