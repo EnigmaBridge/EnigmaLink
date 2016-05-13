@@ -63,6 +63,7 @@
         var fldFname;
         var fldFnameOrig;
         var chkMask;
+        var spnUploadPcnt;
     </script>
 </head>
 <body>
@@ -111,9 +112,9 @@
                     <!--<button type="button" class="box__button">Upload</button>-->
                 </div>
 
-                <div class="box__uploading">Uploading&hellip;</div>
-                <div class="box__success">Done! <a href="https://css-tricks.com/examples/DragAndDropFileUploading//?submit-on-demand" class="box__restart" role="button">Upload more?</a></div>
-                <div class="box__error">Error! <span></span>. <a href="https://css-tricks.com/examples/DragAndDropFileUploading//?submit-on-demand" class="box__restart" role="button">Try again!</a></div>
+                <div class="box__uploading">Uploading&hellip; &nbsp;<span id="uploadPcnt">0%</span></div>
+                <div class="box__success">Done! <a href="." class="box__restart" role="button">Upload more?</a></div>
+                <div class="box__error">Error! <span></span>. <a href="." class="box__restart" role="button">Try again!</a></div>
             </div>
 
         </div>
@@ -555,6 +556,10 @@
                 .on( 'blur', function(){ $input.removeClass( 'has-focus' ); });
     }
 
+    function onUploadProgress(progress){
+        spnUploadPcnt.text(sprintf("%02.2f%%", progress*100));
+    }
+
     function processClicked(){
         var $form = $(updForm);
 
@@ -588,9 +593,16 @@
             file: fFile,
             token: accessToken,
             encKey: encKey,
+            chunkSize: 262144*5,
             fname: fldFname.val(),
             contentType: isChecked(chkMask) ? 'application/octet-stream' : undefined,
             padFnc: isChecked(chkMask) ? EnigmaSharingUpload.sizeConcealPadFnc : undefined,
+            onProgress: function(oEvent, aux){
+                if (oEvent.lengthComputable) {
+                    var totalPercent = (aux.offset+oEvent.loaded) / aux.total;
+                    onUploadProgress(totalPercent);
+                }
+            },
             onComplete: function(data) {
                 log("Upload complete: " + data);
                 $form.removeClass( 'is-uploading' );
@@ -619,6 +631,7 @@
         fldFname = $('#filename');
         fldFnameOrig = $('#filenameOrig');
         chkMask = $('#chkMask');
+        spnUploadPcnt = $('#uploadPcnt');
 
         // HTML5 support?
         isAdvancedUpload = function() {
