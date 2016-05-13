@@ -9,6 +9,61 @@ if (typeof(log) === 'undefined') {
 }
 
 /**
+ * Main EB sharing namespace.
+ */
+eb.sh = {
+
+};
+
+/**
+ * Misc file sharing functions
+ */
+eb.sh.misc = {
+    /**
+     * Simple helper for building query string from hash map.
+     *
+     * @param {object} [params] Key/value pairs for query string
+     * @return {string} query string
+     */
+    buildQuery: function(params) {
+        params = params || {};
+        return Object.keys(params).map(function (key) {
+            return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+        }).join('&');
+    },
+
+    /**
+     * Build the url
+     *
+     * @param {string} [path] File ID if replacing
+     * @param {object} [params] Query parameters
+     * @param {object} [baseUrl] Base url
+     * @return {string} URL
+     */
+    buildUrl: function(path, params, baseUrl) {
+        var url = baseUrl || '';
+        if (path) {
+            url += path;
+        }
+        var query = eb.sh.misc.buildQuery(params);
+        if (query) {
+            url += '?' + query;
+        }
+        return url;
+    },
+
+    /**
+     * Extracts URL parameter from the given link.
+     * @param {string} name of the URL parameter
+     * @param {string} [url] optional URL which to analyze. If undefined, location.search is used (current).
+     * @returns {string|null}
+     */
+    getURLParameter: function(name, url) {
+        return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(url || location.search) || [, ""])[1].replace(/\+/g, '%20')) || null;
+    }
+};
+
+/**
  * Helper for implementing retries with backoff. Initial retry
  * delay is 1 second, increasing by 2x (+jitter) for subsequent retries
  *
@@ -744,25 +799,12 @@ EnigmaUploader.prototype.progressHandler_ = function(meta, evt){
 };
 
 /**
- * Construct a query string from a hash/object
- *
- * @private
- * @param {object} [params] Key/value pairs for query string
- * @return {string} query string
- */
-EnigmaUploader.prototype.buildQuery_ = function(params) {
-    params = params || {};
-    return Object.keys(params).map(function(key) {
-        return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
-    }).join('&');
-};
-
-/**
  * Build the drive upload URL
  *
  * @private
  * @param {string} [id] File ID if replacing
  * @param {object} [params] Query parameters
+ * @param {object} [baseUrl] base url
  * @return {string} URL
  */
 EnigmaUploader.prototype.buildUrl_ = function(id, params, baseUrl) {
@@ -770,7 +812,7 @@ EnigmaUploader.prototype.buildUrl_ = function(id, params, baseUrl) {
     if (id) {
         url += id;
     }
-    var query = this.buildQuery_(params);
+    var query = eb.sh.misc.buildQuery(params);
     if (query) {
         url += '?' + query;
     }
