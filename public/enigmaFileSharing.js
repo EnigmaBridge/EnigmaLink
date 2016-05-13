@@ -266,7 +266,7 @@ MergedDataSource.inheritsFrom(DataSource, {
  * @param {number} [options.padding] Number of bytes to add to the file. Size concealing.
  * @param {function} [options.padFnc] If set, takes precedence over options.padding. Determines number of bytes to add to the message.
  */
-var MediaUploader = function(options) {
+var EnigmaUploader = function(options) {
     var noop = function() {};
     this.file = options.file;
     this.contentType = options.contentType || this.file.type || 'application/octet-stream';
@@ -316,19 +316,19 @@ var MediaUploader = function(options) {
     this.cached.tag = [];     // Computed final auth tag for the data.
 };
 
-MediaUploader.TAG_SEC = 0x1;      // security context part. Contains IV, encrypted file encryption key.
-MediaUploader.TAG_FNAME = 0x2;    // record with the data/file name.
-MediaUploader.TAG_MIME = 0x3;     // record with the data/file mime type.
-MediaUploader.TAG_ENC = 0x4;      // record with the encrypted data/file. Last record in the message (no length field).
-MediaUploader.TAG_ENCWRAP = 0x5;  // record with the encrypted container (fname+mime+data). Last unencrypted record (no length field).
-MediaUploader.TAG_PADDING = 0x6;  // padding record. Null bytes (skipped in parsing), may be used to conceal true file size or align blocks.
-MediaUploader.LENGTH_BYTES = 0x4;
+EnigmaUploader.TAG_SEC = 0x1;      // security context part. Contains IV, encrypted file encryption key.
+EnigmaUploader.TAG_FNAME = 0x2;    // record with the data/file name.
+EnigmaUploader.TAG_MIME = 0x3;     // record with the data/file mime type.
+EnigmaUploader.TAG_ENC = 0x4;      // record with the encrypted data/file. Last record in the message (no length field).
+EnigmaUploader.TAG_ENCWRAP = 0x5;  // record with the encrypted container (fname+mime+data). Last unencrypted record (no length field).
+EnigmaUploader.TAG_PADDING = 0x6;  // padding record. Null bytes (skipped in parsing), may be used to conceal true file size or align blocks.
+EnigmaUploader.LENGTH_BYTES = 0x4;
 
 /**
  * Initiate the upload.
  * Store file metadata, start resumable upload to obtain upload ID.
  */
-MediaUploader.prototype.upload = function() {
+EnigmaUploader.prototype.upload = function() {
     var self = this;
     var xhr = new XMLHttpRequest();
 
@@ -363,7 +363,7 @@ MediaUploader.prototype.upload = function() {
  * First block is padded on a cipher block size with TLV padding so the further
  * data/file processing is faster and aligned on blocks.
  */
-MediaUploader.prototype.buildFstBlock_ = function() {
+EnigmaUploader.prototype.buildFstBlock_ = function() {
     var block = [];
     var toEnc = [];
     var h = sjcl.codec.hex;
@@ -372,12 +372,12 @@ MediaUploader.prototype.buildFstBlock_ = function() {
 
     // Secure context block, tag | len-4B | IV | secCtx
     var secLen = w.bitLength(this.iv)/8 + w.bitLength(this.secCtx)/8;
-    block = w.concat(block, h.toBits(sprintf("%02x%08x", MediaUploader.TAG_SEC, secLen)));
+    block = w.concat(block, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_SEC, secLen)));
     block = w.concat(block, this.iv);
     block = w.concat(block, this.secCtx);
 
     // Encryption wrap tag - the end of the message is encrypted with AES-256-GCM. Last tag in unencrypted part. No length.
-    block = w.concat(block, h.toBits(sprintf("%02x", MediaUploader.TAG_ENCWRAP)));
+    block = w.concat(block, h.toBits(sprintf("%02x", EnigmaUploader.TAG_ENCWRAP)));
 
     // Encrypted meta data block.
     // toEnc does not need to be aligned with block length as GCM is a stream mode.
@@ -386,13 +386,13 @@ MediaUploader.prototype.buildFstBlock_ = function() {
     // Filename
     log("FileName in meta block: " + this.fname);
     var baName = sjcl.codec.utf8String.toBits(this.fname);
-    toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", MediaUploader.TAG_FNAME, w.bitLength(baName)/8)));
+    toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_FNAME, w.bitLength(baName)/8)));
     toEnc = w.concat(toEnc, baName);
 
     // Mime type
     log("MimeType in meta block: " + this.contentTypeOrig);
     var baMime = sjcl.codec.utf8String.toBits(this.contentTypeOrig);
-    toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", MediaUploader.TAG_MIME, w.bitLength(baMime)/8)));
+    toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_MIME, w.bitLength(baMime)/8)));
     toEnc = w.concat(toEnc, baMime);
 
     // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
@@ -402,7 +402,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
         var totalFblockSize = eb.misc.padToBlockSize(numBytesAfterPadBlock, 16); // length after padding to the whole block.
         padBytesToAdd = totalFblockSize - numBytesAfterPadBlock;
 
-        toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", MediaUploader.TAG_PADDING, padBytesToAdd)));
+        toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_PADDING, padBytesToAdd)));
         if (padBytesToAdd > 0){
             toEnc = w.concat(toEnc, h.toBits('00'.repeat(padBytesToAdd)));
         }
@@ -422,7 +422,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
         var totalSize = eb.misc.padToBlockSize(afterPad, 16); // length after padding to the whole block.
         padBytesToAdd = totalSize - afterPad;
 
-        var padBlock = h.toBits(sprintf("%02x%08x", MediaUploader.TAG_PADDING, padBytesToAdd));
+        var padBlock = h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_PADDING, padBytesToAdd));
         if (padBytesToAdd > 0){
             padBlock = w.concat(padBlock, h.toBits('00'.repeat(padBytesToAdd)));
         }
@@ -441,7 +441,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
     var paddingEnabled = this.paddingToAdd > 0 || this.paddingFnc !== undefined;
 
     // Encryption block, the last tag in the message - without length
-    var encSc = new ConstDataSource(h.toBits(sprintf("%02x", MediaUploader.TAG_ENC)));
+    var encSc = new ConstDataSource(h.toBits(sprintf("%02x", EnigmaUploader.TAG_ENC)));
     var blobSc = new BlobDataSource(this.file);
     if (!paddingEnabled){
         this.dataSource = new MergedDataSource([encSc, blobSc]);
@@ -463,7 +463,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
         }
 
         // Padding tag source + padding generator.
-        var padConst = new ConstDataSource(h.toBits(sprintf("%02x%08x", MediaUploader.TAG_PADDING, this.paddingToAdd)));
+        var padConst = new ConstDataSource(h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_PADDING, this.paddingToAdd)));
         var padGen = new WrappedDataSource(padGenerator, this.paddingToAdd);
         this.dataSource = new MergedDataSource([padConst, padGen, encSc, blobSc]);
         log("Concealing padding added: " + this.paddingToAdd + ", total file size: " + (curTotalSize+this.paddingToAdd));
@@ -477,7 +477,7 @@ MediaUploader.prototype.buildFstBlock_ = function() {
  * Bytes to send.
  * Uniform access to file structure before sending.
  */
-MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
+EnigmaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
     var needContent = end > this.preFileSize; // end is exclusive border.
     var result = []; // result will be placed here, given to loadedCb.
     var w = sjcl.bitArray;
@@ -625,7 +625,7 @@ MediaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
  *
  * @private
  */
-MediaUploader.prototype.sendFile_ = function() {
+EnigmaUploader.prototype.sendFile_ = function() {
     var end = this.totalSize;
     var lstBlock = false;
 
@@ -663,7 +663,7 @@ MediaUploader.prototype.sendFile_ = function() {
  *
  * @private
  */
-MediaUploader.prototype.resume_ = function() {
+EnigmaUploader.prototype.resume_ = function() {
     var xhr = new XMLHttpRequest();
     xhr.open('PUT', this.url, true);
     xhr.setRequestHeader('Content-Range', "bytes */" + this.totalSize);
@@ -681,7 +681,7 @@ MediaUploader.prototype.resume_ = function() {
  *
  * @param {XMLHttpRequest} xhr Request object
  */
-MediaUploader.prototype.extractRange_ = function(xhr) {
+EnigmaUploader.prototype.extractRange_ = function(xhr) {
     var range = xhr.getResponseHeader('Range');
     if (range) {
         this.offset = parseInt(range.match(/\d+/g).pop(), 10) + 1;
@@ -696,7 +696,7 @@ MediaUploader.prototype.extractRange_ = function(xhr) {
  * @private
  * @param {object} e XHR event
  */
-MediaUploader.prototype.onContentUploadSuccess_ = function(e) {
+EnigmaUploader.prototype.onContentUploadSuccess_ = function(e) {
     if (e.target.status == 200 || e.target.status == 201) {
         this.onComplete(e.target.response);
     } else if (e.target.status == 308) {
@@ -715,7 +715,7 @@ MediaUploader.prototype.onContentUploadSuccess_ = function(e) {
  * @private
  * @param {object} e XHR event
  */
-MediaUploader.prototype.onContentUploadError_ = function(e) {
+EnigmaUploader.prototype.onContentUploadError_ = function(e) {
     if (e.target.status && e.target.status < 500) {
         this.onError(e.target.response);
     } else {
@@ -729,7 +729,7 @@ MediaUploader.prototype.onContentUploadError_ = function(e) {
  * @private
  * @param {object} e XHR event
  */
-MediaUploader.prototype.onUploadError_ = function(e) {
+EnigmaUploader.prototype.onUploadError_ = function(e) {
     this.onError(e.target.response); // TODO - Retries for initial upload
 };
 
@@ -740,7 +740,7 @@ MediaUploader.prototype.onUploadError_ = function(e) {
  * @param {object} [params] Key/value pairs for query string
  * @return {string} query string
  */
-MediaUploader.prototype.buildQuery_ = function(params) {
+EnigmaUploader.prototype.buildQuery_ = function(params) {
     params = params || {};
     return Object.keys(params).map(function(key) {
         return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
@@ -755,7 +755,7 @@ MediaUploader.prototype.buildQuery_ = function(params) {
  * @param {object} [params] Query parameters
  * @return {string} URL
  */
-MediaUploader.prototype.buildUrl_ = function(id, params, baseUrl) {
+EnigmaUploader.prototype.buildUrl_ = function(id, params, baseUrl) {
     var url = baseUrl || 'https://www.googleapis.com/upload/drive/v3/files/';
     if (id) {
         url += id;
@@ -773,7 +773,7 @@ MediaUploader.prototype.buildUrl_ = function(id, params, baseUrl) {
  * @private
  * @return {number} number of bytes of the final file.
  */
-MediaUploader.prototype.preFileSize_ = function() {
+EnigmaUploader.prototype.preFileSize_ = function() {
     if (this.fstBlock === undefined){
         throw new sjcl.exception.invalid("First block not computed");
     }
@@ -792,7 +792,7 @@ MediaUploader.prototype.preFileSize_ = function() {
  * @private
  * @return {number} number of bytes of the final file.
  */
-MediaUploader.prototype.totalSize_ = function() {
+EnigmaUploader.prototype.totalSize_ = function() {
     var base = this.preFileSize_();
     base += this.dataSize; // GCM is a streaming mode.
     base += 16; // GCM tag
