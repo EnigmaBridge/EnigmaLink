@@ -239,7 +239,7 @@
 
             <label>Share link
                 <input type="text" name="qrLink" id="qrLink" placeholder="Share link" readonly="readonly"/>
-                <span>Link to share this file</span>
+                <span>Link to share this file, <a onclick="copyElementToClipboard(fldShareLink)">copy to clipboard.</a></span>
             </label>
 
             <div id="redirBlock">
@@ -280,6 +280,15 @@
 
     function genRandomName(){
         return eb.misc.genAlphaNonce(12);
+    }
+
+    function copyElementToClipboard(elem){
+        elem.select();
+        try {
+            document.execCommand('copy');
+        } catch (err) {
+            log("Unable to copy");
+        }
     }
 
     /**
