@@ -646,7 +646,12 @@ EnigmaUploader.prototype.sendFile_ = function() {
         xhr.setRequestHeader('Content-Range', "bytes " + this.offset + "-" + (end - 1) + "/" + this.totalSize);
         xhr.setRequestHeader('X-Upload-Content-Type', this.contentType);
         if (xhr.upload) {
-            xhr.upload.addEventListener('progress', this.onProgress);
+            xhr.upload.addEventListener('progress',
+                this.progressHandler_.bind(this, {
+                    offset:this.offset,
+                    chunkSize:(end-this.offset),
+                    total:this.totalSize
+                }));
         }
         xhr.onload = this.onContentUploadSuccess_.bind(this);
         xhr.onerror = this.onContentUploadError_.bind(this);
@@ -668,9 +673,10 @@ EnigmaUploader.prototype.resume_ = function() {
     xhr.open('PUT', this.url, true);
     xhr.setRequestHeader('Content-Range', "bytes */" + this.totalSize);
     xhr.setRequestHeader('X-Upload-Content-Type', this.file.type);
-    if (xhr.upload) {
-        xhr.upload.addEventListener('progress', this.onProgress);
-    }
+    // Progress disabled for state query.
+    //if (xhr.upload) {
+    //    xhr.upload.addEventListener('progress', this.progressHandler_.bind(this));
+    //}
     xhr.onload = this.onContentUploadSuccess_.bind(this);
     xhr.onerror = this.onContentUploadError_.bind(this);
     xhr.send();
@@ -731,6 +737,10 @@ EnigmaUploader.prototype.onContentUploadError_ = function(e) {
  */
 EnigmaUploader.prototype.onUploadError_ = function(e) {
     this.onError(e.target.response); // TODO - Retries for initial upload
+};
+
+EnigmaUploader.prototype.progressHandler_ = function(meta, evt){
+    this.onProgress(evt, meta);
 };
 
 /**
