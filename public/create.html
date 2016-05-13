@@ -584,70 +584,13 @@
             fFile = new Blob(["" + fldMsg.val()], {"type": "text/plain"});
         }
 
-        // File size concealing - padding.
-        var sizeConcealPadFnc = function(curSize){
-            var nSize = curSize;
-
-            // At least 1k.
-            if (curSize < 1024){
-                return 1024-curSize;
-            }
-
-            // Pad to 4kB multiple.
-            if ((nSize % (1024*4)) != 0){
-                nSize += 1024*4 - (nSize % (1024*4));
-            }
-
-            // > 64kb ? pad to 32kb
-            if (nSize > 1024*64 && (nSize % (1024*32)) != 0){
-                nSize += 1024*32 - (nSize % (1024*32));
-            }
-
-            // (128,256) -> 256
-            if (nSize > 1024*128 && nSize < 1024*256){
-                nSize = 1024*256;
-            }
-
-            // (256,512) -> 512
-            if (nSize > 1024*256 && nSize < 1024*512){
-                nSize = 1024*512;
-            }
-
-            // If > 256, pad to 128k multiple
-            if (nSize > 1024*256 && (nSize % (1024*128)) != 0){
-                nSize += 1024*128 - (nSize % (1024*128));
-            }
-
-            // If > 512, pad to 256kB multiple.
-            if (nSize > 1024*512 && (nSize % (1024*256)) != 0){
-                nSize += 1024*256 - (nSize % (1024*256));
-            }
-
-            // If > 1M, pad to 512k multiple.
-            if (nSize > 1024*1024 && (nSize % (1024*512)) != 0){
-                nSize += 1024*512 - (nSize % (1024*512));
-            }
-
-            // If > 1.5M, pad to 1M multiple.
-            if (nSize > 1024*1024*1.5 && (nSize % (1024*1024)) != 0){
-                nSize += 1024*1024 - (nSize % (1024*1024));
-            }
-
-            // If > 10M, pad to 5M multiple.
-            if (nSize > 1024*1024*10 && (nSize % (1024*1024*5)) != 0){
-                nSize += 1024*1024*5 - (nSize % (1024*1024*5));
-            }
-
-            return nSize - curSize;
-        };
-
         var uploader = new EnigmaUploader({
             file: fFile,
             token: accessToken,
             encKey: encKey,
             fname: fldFname.val(),
             contentType: isChecked(chkMask) ? 'application/octet-stream' : undefined,
-            padFnc: isChecked(chkMask) ? sizeConcealPadFnc : undefined,
+            padFnc: isChecked(chkMask) ? EnigmaSharingUpload.sizeConcealPadFnc : undefined,
             onComplete: function(data) {
                 log("Upload complete: " + data);
                 $form.removeClass( 'is-uploading' );

@@ -798,3 +798,67 @@ EnigmaUploader.prototype.totalSize_ = function() {
     base += 16; // GCM tag
     return base;
 };
+
+
+/**
+ * Manager for secure file upload & share.
+ */
+var EnigmaSharingUpload = function(options) {
+
+};
+
+/**
+ * File size concealing - padding.
+ * @param curSize current file size.
+ * @returns {number} padding bytes to add.
+ */
+EnigmaSharingUpload.sizeConcealPadFnc = function(curSize){
+    var nSize = curSize;
+
+    // At least 1k.
+    if (curSize < 1024){
+        return 1024-curSize;
+    }
+
+    // Pad to 4kB multiple.
+    if ((nSize % (1024*4)) != 0){
+        nSize += 1024*4 - (nSize % (1024*4));
+    }
+
+    // > 64k ? pad to 32k
+    if (nSize > 1024*64 && (nSize % (1024*32)) != 0){
+        nSize += 1024*32 - (nSize % (1024*32));
+    }
+
+    // If > 128k, pad to 64k multiple
+    if (nSize > 1024*128 && (nSize % (1024*64)) != 0){
+        nSize += 1024*64 - (nSize % (1024*64));
+    }
+
+    // If > 256k, pad to 128k multiple
+    if (nSize > 1024*256 && (nSize % (1024*128)) != 0){
+        nSize += 1024*128 - (nSize % (1024*128));
+    }
+
+    // If > 512k, pad to 256kB multiple.
+    if (nSize > 1024*512 && (nSize % (1024*256)) != 0){
+        nSize += 1024*256 - (nSize % (1024*256));
+    }
+
+    // If > 1M, pad to 512k multiple.
+    if (nSize > 1024*1024 && (nSize % (1024*512)) != 0){
+        nSize += 1024*512 - (nSize % (1024*512));
+    }
+
+    // If > 1.5M, pad to 1M multiple.
+    if (nSize > 1024*1024*1.5 && (nSize % (1024*1024)) != 0){
+        nSize += 1024*1024 - (nSize % (1024*1024));
+    }
+
+    // If > 10M, pad to 5M multiple.
+    if (nSize > 1024*1024*10 && (nSize % (1024*1024*5)) != 0){
+        nSize += 1024*1024*5 - (nSize % (1024*1024*5));
+    }
+
+    return nSize - curSize;
+};
