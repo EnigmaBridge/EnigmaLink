@@ -312,6 +312,7 @@ MergedDataSource.inheritsFrom(DataSource, {
  * @param {string} [options.contentType] Content-type, if overriding the type of the blob. Public info (non-protected).
  * @param {object} [options.metadata] File metadata
  * @param {object} [options.fname] Filename to use.
+ * @param {Array} [options.parents] Parent folder IDs of the uploaded file. If null, root directory is the only parent.
  * @param {function} [options.onComplete] Callback for when upload is complete
  * @param {function} [options.onProgress] Callback for status for the in-progress upload
  * @param {function} [options.onError] Callback if upload fails
@@ -331,6 +332,9 @@ var EnigmaUploader = function(options) {
             'name': this.fname,
             'mimeType': this.contentType
         };
+    if (options.parents){
+        this.metadata.parents = options.parents;    // parent folders for the uploaded file. if null -> root
+    }
     this.token = options.token;
     this.onComplete = options.onComplete || noop;
     this.onProgress = options.onProgress || noop;

@@ -47,11 +47,15 @@
 
         // configuration
         var shareConfig = {
-            baseUrl: 'https://expert.enigmabridge.com/sharing'
+            baseUrl: 'https://expert.enigmabridge.com/sharing',
+            shareFolderName: 'EnigmaShares'
         };
 
         // Google Drive access token.
         var accessToken = null;
+
+        // Share folder drive ID where to put uploaded files in the Google Drive.
+        var shareFolderId;
 
         // Upload context.
         var isAdvancedUpload = false;
@@ -496,8 +500,9 @@
             document.getElementById('signedin').style.display = null;
 
             $('#gDriveConfigHead').click();
-            setDisabled(btnShare, false);
-            $('#spnBtnShare').hide('fast');
+
+            // Load google drive lib.
+            loadDrive();
         }
     }
 
@@ -644,6 +649,7 @@
             secCtx: secCtx,
             chunkSize: 262144*5,
             fname: fldFname.val(),
+            parents: [shareFolderId],
             contentType: isChecked(chkMask) ? 'application/octet-stream' : undefined,
             padFnc: isChecked(chkMask) ? EnigmaSharingUpload.sizeConcealPadFnc : undefined,
             onProgress: function(oEvent, aux){
@@ -681,7 +687,74 @@
             fkeyREMOVE: eb.sh.misc.getURLParameter('fkeyREMOVE', link)
         };
         log("Parsed link data: " + JSON.stringify(linkCfg));
+    }
 
+    /**
+     * Loads Google Drive library, after load fetches share folder.
+     */
+    function loadDrive(){
+        gapi.client.load('drive', 'v3', driveLoaded);
+    }
+
+    /**
+     * Called when Drive library is loaded.
+     */
+    function driveLoaded(){
+        fetchShareFolder();
+    }
+
+    /**
+     * Find share folder ID, if does not exist, create it.
+     */
+    function fetchShareFolder() {
+        // Search the share folder.
+        var request = gapi.client.drive.files.list({
+            'q': "mimeType='application/vnd.google-apps.folder'" +
+            " and name='" + shareConfig.shareFolderName + "' " +
+            " and trashed=false " +
+            " and 'root' in parents",
+            'fields': "nextPageToken, files(id, name)"
+        });
+
+        // Request for creating a new one should share folder not be found.
+        var requestCreate = gapi.client.drive.files.create({
+            resource: {
+                'name' : shareConfig.shareFolderName,
+                'mimeType' : 'application/vnd.google-apps.folder'
+            },
+            fields: 'id'
+        });
+
+        request.execute(function(resp) {
+            var files = resp.files;
+            if (files && files.length > 0) {
+                var file = files[0];
+                shareFolderId = file.id;
+                log(sprintf("Share folder found [%s], ID: %s, matches: %d", file.name, shareFolderId, files.length));
+                onShareFolderFetched();
+
+            } else {
+                log('Share folder not found, creating a new one');
+                requestCreate.execute(function(resp) {
+                    if(resp.id === undefined) {
+                        log("Creating share folder failed: " + err);
+                        onShareFolderFetched(err);
+                    } else {
+                        shareFolderId = resp.id;
+                        log(sprintf("Share folder created, ID: %s", shareFolderId));
+                        onShareFolderFetched();
+                    }
+                });
+            }
+        });
+    }
+
+    function onShareFolderFetched(err){
+        log("Share folder fetched");
+
+        // Now sharing can be enabled.
+        setDisabled(btnShare, false);
+        $('#spnBtnShare').hide('fast');
     }
 
     $(function(){
