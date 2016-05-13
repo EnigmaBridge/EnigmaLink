@@ -614,8 +614,40 @@
         driveShareDialog.setOAuthToken(accessToken);
         driveShareDialog.setItemIds([data.id]);
 
-        // TODO: share with general public by default.
-        
+        // Share with general public by default.
+        shareUploadedFile(data);
+    }
+
+    function onUploadProgress(progress){
+        spnUploadPcnt.text(sprintf("%02.2f%%", progress*100));
+    }
+
+    function shareUploadedFile(data){
+        log("Sharing file with public");
+        var request = gapi.client.drive.permissions.create({
+            resource: {
+                'type': 'anyone',
+                'role': 'reader'
+            },
+            fileId: data.id,
+            fields: 'id'
+        });
+
+        request.execute(function(resp) {
+            var permId;
+            if (resp && resp.id) {
+                permId = resp.id;
+                log("File shared with public, permission id:" + permId);
+            } else {
+                log("Error: Could not share file with public!");
+            }
+            
+            data.permId = permId;
+            onFileShared(data);
+        });
+    }
+
+    function onFileShared(data){
         var settings = getSettings();
         var link = eb.sh.misc.buildUrl("/download", {
             uoid: settings.userObjectId,
@@ -629,10 +661,6 @@
         fldShareLink.val(link);
         divQrCode.html("");
         divQrCode.qrcode(link);
-    }
-
-    function onUploadProgress(progress){
-        spnUploadPcnt.text(sprintf("%02.2f%%", progress*100));
     }
 
     function processClicked(){
@@ -711,6 +739,7 @@
             fkeyREMOVE: eb.sh.misc.getURLParameter('fkeyREMOVE', link)
         };
         log("Parsed link data: " + JSON.stringify(linkCfg));
+        // TODO: implement...
     }
 
     /**
