@@ -116,7 +116,7 @@ if ($fetchLen>0){
 }
 
 //$json->headers = print_r($header, true);
-if ($fetchChunk <= 0) {
+if ($fetchChunk < 0) {
     // No chunk proxy download - output JSON.
     $json->elapsed = microtime(true) - $tstart;
     die(json_encode($json));
