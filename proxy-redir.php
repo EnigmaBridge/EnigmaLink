@@ -53,7 +53,7 @@ if (empty($id)){
 $url = "https://drive.google.com/uc?export=download&id=" . urlencode($id);
 
 // CORS
-header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Origin: *'); // TODO: add our domains.
 header('Access-Control-Allow-Credentials: false');
 header('Access-Control-Allow-Methods: GET,OPTIONS');
 
