@@ -606,7 +606,6 @@
     }
 
     function onFileUploaded(data){
-        setDisabled(btnDownload, false);
         lastUploadedFileId = data.id;
 
         // Initialize sharing dialog if user wants to change sharing settings.
@@ -661,6 +660,7 @@
         fldShareLink.val(link);
         divQrCode.html("");
         divQrCode.qrcode(link);
+        setDisabled(btnDownload, false);
     }
 
     function processClicked(){
