@@ -38,18 +38,17 @@
 //    Alternate-Protocol: 443:quic
 //    Alt-Svc: quic=":443"; ma=2592000; v="33,32,31,30,29,28,27,26,25"
 
-$id = $_REQUEST['id'];
-$mode = $_REQUEST['mode'];
-if (empty($mode)){
-    $mode=1;
-}
+$id = getReq('id');
+$mode = getReq('mode', 1);
+$fetchLen = getReq('fetchLen', 1);
 
 if (empty($id)){
-    $id="0B4ObafdOo3JwbWtYa2ZjNWxRUk0";
+    $id = "0B4ObafdOo3JwbWtYa2ZjNWxRUk0";
 //    header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found", true, 404);
 //    die("ID not specified");
 }
 
+$tstart = microtime(true);
 $url = "https://drive.google.com/uc?export=download&id=" . urlencode($id);
 
 // CORS
@@ -57,15 +56,13 @@ header('Access-Control-Allow-Origin: *'); // TODO: add our domains.
 header('Access-Control-Allow-Credentials: false');
 header('Access-Control-Allow-Methods: GET,OPTIONS');
 
-// Do the request
+// Do the request to obtain redirected address.
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $url);
-curl_setopt($ch, CURLOPT_HEADER, true);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+setCommonCurl($ch);
+
 $response = curl_exec($ch);
 
 // Get & parse headers.
@@ -82,6 +79,8 @@ if ($status!=302){
 
 if ($mode == 2) {
     header('Location: ' . $header['Location'][0], true, 302);
+} else {
+    header("HTTP/1.1 200 OK");
 }
 
 // Cookies.
@@ -95,9 +94,102 @@ if (isset($header['Set-Cookie'])) {
     $json->cookie = $header['Set-Cookie'];
 }
 
+// Get length - if applicable
+if ($fetchLen == 1){
+    $json->size = getFileSizeRange($json->url, $ch);
+} else if ($fetchLen == 2){
+    $json->size = getFileSizeHead($json->url, $ch);
+}
+
+//$json->headers = print_r($header, true);
+$json->elapsed = microtime(true) - $tstart;
 die(json_encode($json));
 
 // ---------------------------------------------------------------------------------------------------------------------
+// TODO: Streaming proxy read with: CURLOPT_WRITEFUNCTION,
+// TODO: Streaming: http://stackoverflow.com/questions/10991443/curl-get-remote-file-and-force-download-at-same-time
+
+/**
+ * Tries to fetch size of the file using Range request.
+ *
+ * @param $url
+ * @return int
+ */
+function getFileSizeRange($url, $ch=null){
+    if (empty($ch)){
+        $ch = curl_init();
+    }
+
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_RANGE, "0-0");
+    setCommonCurl($ch);
+    $response = curl_exec($ch);
+    //var_dump($response);
+
+    // Get & parse headers.
+    $bh = explode("\r\n\r\n", $response, 3);
+    $header = parseHeaders($bh[0]);
+    $status = $header['status'];
+    if ($header['status']==100){ //use the other "header"
+        $header=parseHeaders($bh[1]);
+    }
+
+    if (empty($header['Content-Range'])){
+        return -1;
+    }
+
+    return intval(explode("/", $header['Content-Range'][0], 2)[1]);
+}
+
+/**
+ * Tries to fetch size of the file using HEAD request.
+ *
+ * @param $url
+ * @return int
+ */
+function getFileSizeHead($url, $ch=null){
+    if (empty($ch)){
+        $ch = curl_init();
+    }
+
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_NOBODY, true);
+
+    setCommonCurl($ch);
+    $res = curl_exec($ch);
+    //var_dump($res);
+
+    $size = curl_getinfo($ch, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+    return intval($size);
+}
+
+/**
+ * Common cURL settings.
+ * @param $ch
+ */
+function setCommonCurl($ch){
+    curl_setopt($ch, CURLOPT_HEADER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+}
+
+/**
+ * Reads _REQUEST
+ * @param $param
+ * @param $default
+ */
+function getReq($param, $default = null){
+    return isset($_REQUEST[$param]) ? $_REQUEST[$param] : $default;
+}
+
+/**
+ * Sets header to current connection if present in the header array.
+ */
 function setHeaderIfAny($headers, $header){
     if (!isset($headers[$header])){
         return;
