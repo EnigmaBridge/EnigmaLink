@@ -976,6 +976,9 @@ EnigmaDownloader.prototype.fetch = function() {
     //log("Starting session with metadata: " + JSON.stringify(this.metadata));
     //xhr.send(JSON.stringify(this.metadata));
     //
+
+    // TODO: implement multiple fetching strategies as described in the documentation.
+    // TODO: split google drive download logic from the overall download logic. So it is usable also for dropbox & ...
     if (this.proxyRedirUrl) {
         this.fetchProxyRedir_();
     } else if (this.url) {
@@ -1001,7 +1004,10 @@ EnigmaDownloader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
 };
 
 /**
+ * Fetches another chunk of the file, adds it to the processing buffer and calls processing routine.
+ * Handles failed state - download retry.
  *
+ * Range download: https://greenbytes.de/tech/webdav/draft-ietf-httpbis-p5-range-latest.html#rule.ranges-specifier
  * @private
  */
 EnigmaDownloader.prototype.fetchFile_ = function() {
@@ -1017,9 +1023,12 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
             log("Loading done, size: " + (arraybuffer ? arraybuffer.byteLength : -1));
             console.log(arraybuffer);
 
+            // By default we are not able to read header "Content-Range" here as it is not in Access-Control-Expose-Headers.
+            //var range = xhr.getResponseHeader('Content-Range');
+
             // Bytes OK?
-            // TODO: fst block? total size?
             // TODO: add to the download buffer, start processing of the download buffer.
+            
 
         } else {
             this.onDownloadError_(e);
@@ -1027,7 +1036,7 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
     }.bind(this);
     xhr.onerror = this.onDownloadError_.bind(this);
 
-    log(sprintf("Downloading file range: %s", rangeHeader));
+    log(sprintf("Downloading file range: %s, total size: %s", rangeHeader, this.totalSize));
     xhr.responseType = "arraybuffer";
     xhr.send(null);
 };
@@ -1043,6 +1052,8 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
  * Luckily, Google download URL returns 302 temporary redirect to the file
  * which supports CORS and Range headers. We can get this direct link using our
  * simple proxy-redir.php proxy file, which reads the redirect and provides it as a JSON.
+ *
+ * TODO: move to google drive downloader class.
  *
  * @private
  */
@@ -1061,6 +1072,10 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
                 return;
             }
 
+            if (json.size && json.size > 0){
+                this.totalSize = json.size;
+            }
+
             this.url = json.url;
             this.fetchFile_();
 
@@ -1075,7 +1090,7 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
 };
 
 /**
- * Query for the state of the file for resumption.
+ * Resume download process which failed previously.
  *
  * @private
  */
