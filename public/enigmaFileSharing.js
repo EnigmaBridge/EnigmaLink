@@ -902,3 +902,286 @@ EnigmaSharingUpload.sizeConcealPadFnc = function(curSize){
 
     return nSize - curSize;
 };
+
+/**
+ * Downloader object.
+ * Quite universal if you have a direct link for the file.
+ * @param options
+ * @constructor
+ */
+var EnigmaDownloader = function(options){
+    var noop = function() {};
+
+    this.token = options.token;
+    this.onComplete = options.onComplete || noop;
+    this.onProgress = options.onProgress || noop;
+    this.onError = options.onError || noop;
+    this.chunkSize = options.chunkSize || 262144*2; // All security relevant data should be present in the first chunk.
+    this.offset = 0;
+    this.retryHandler = new RetryHandler();
+
+    this.url = options.url;
+    this.proxyRedirUrl = options.proxyRedirUrl;
+
+    // Encryption related fields.
+    this.encKey = options.encKey;                   // bitArray with encryption key for AES-256-GCM.
+    this.secCtx = options.secCtx || [];             // bitArray with security context, result of UO application.
+    this.encryptionInitialized = false;             // If the security block was parsed successfully and system is ready for decryption.
+    this.aes = undefined;                           // AES cipher instance to be used with GCM for data encryption.
+    this.iv = undefined;                            // initialization vector for GCM, 1 block, 16B.
+    this.gcm = undefined;                           // GCM encryption mode, initialized now.
+
+    // Construct first meta block now, compute file sizes.
+    this.init_();
+    this.preFileSize=-1;                            // Number of bytes in the upload stream before file contents.
+    this.totalSize=-1;                              // Total size of the upload stream.
+
+    // Encrypted data buffering - already processed data. Underflow avoidance.
+    this.cached = {};         // Data processing cache object.
+    this.cached.offset = -1;  // Data start offset that is cached in the buff. Absolute data offset address of the first buff byte.
+    this.cached.end = -1;     // Data end offset that is cached in the buff. Absolute data offset address of the last buff byte.
+    this.cached.buff = [];    // Cached processed data buffer. Size = cached.end - cached.offset.
+    this.cached.tag = [];     // Computed final auth tag for the data.
+};
+
+/**
+ * Initiate the upload.
+ * Store file metadata, start resumable upload to obtain upload ID.
+ */
+EnigmaDownloader.prototype.fetch = function() {
+    // TODO: maybe some init?
+    //var self = this;
+    //var xhr = new XMLHttpRequest();
+    //
+    //xhr.open("GET", this.url, true);
+    //xhr.setRequestHeader('Range', '');
+    ////xhr.setRequestHeader('Authorization', 'Bearer ' + this.token);
+    ////xhr.setRequestHeader('Content-Type', 'application/json');
+    ////xhr.setRequestHeader('X-Upload-Content-Length', this.totalSize);
+    ////xhr.setRequestHeader('X-Upload-Content-Type', this.contentType);
+    //
+    //xhr.onload = function(e) {
+    //    if (e.target.status < 400) {
+    //        var location = e.target.getResponseHeader('Location');
+    //        this.url = location;
+    //        log("Upload session started. Url: " + this.url);
+    //
+    //        this.sendFile_();
+    //    } else {
+    //        this.onUploadError_(e);
+    //    }
+    //}.bind(this);
+    //xhr.onerror = this.onDownloadError_.bind(this);
+    //
+    //log("Starting session with metadata: " + JSON.stringify(this.metadata));
+    //xhr.send(JSON.stringify(this.metadata));
+    //
+    if (this.proxyRedirUrl) {
+        this.fetchProxyRedir_();
+    } else if (this.url) {
+        this.fetchFile_();
+    } else {
+        throw new eb.exception.invalid("URL not valid");
+    }
+};
+
+/**
+ * TODO: docs
+ */
+EnigmaDownloader.prototype.init_ = function() {
+
+};
+
+/**
+ * Bytes to send.
+ * Uniform access to file structure before sending.
+ */
+EnigmaDownloader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
+
+};
+
+/**
+ *
+ * @private
+ */
+EnigmaDownloader.prototype.fetchFile_ = function() {
+    var self = this;
+    var xhr = new XMLHttpRequest();
+    var rangeHeader = "bytes=" + this.offset + "-" + (this.offset + this.chunkSize);
+
+    xhr.open("GET", this.url, true);
+    xhr.setRequestHeader('Range', rangeHeader);
+    xhr.onload = function(e) {
+        if (e.target.status < 400) {
+            var arraybuffer = xhr.response;
+            log("Loading done, size: " + (arraybuffer ? arraybuffer.byteLength : -1));
+            console.log(arraybuffer);
+
+            // Bytes OK?
+            // TODO: fst block? total size?
+            // TODO: add to the download buffer, start processing of the download buffer.
+
+        } else {
+            this.onDownloadError_(e);
+        }
+    }.bind(this);
+    xhr.onerror = this.onDownloadError_.bind(this);
+
+    log(sprintf("Downloading file range: %s", rangeHeader));
+    xhr.responseType = "arraybuffer";
+    xhr.send(null);
+};
+
+/**
+ * As the Google download URL does not provide CORS headers the download with
+ * XMLHttpRequest fails due to same origin policy.
+ *
+ * GoogleApis with googleapis.com do support CORS headers but user needs to be logged in.
+ * If we don't want to bother user with logging in we need another approach to get
+ * to the file.
+ *
+ * Luckily, Google download URL returns 302 temporary redirect to the file
+ * which supports CORS and Range headers. We can get this direct link using our
+ * simple proxy-redir.php proxy file, which reads the redirect and provides it as a JSON.
+ *
+ * @private
+ */
+EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
+    var self = this;
+    var xhr = new XMLHttpRequest();
+
+    xhr.open("GET", this.proxyRedirUrl, true);
+    xhr.onload = function(e) {
+        if (e.target.status < 400) {
+            var json = JSON.parse(xhr.responseText);
+            console.log(json);
+
+            if (!json.url){
+                this.onDownloadError_(null);
+                return;
+            }
+
+            this.url = json.url;
+            this.fetchFile_();
+
+        } else {
+            this.onDownloadError_(e);
+        }
+    }.bind(this);
+    xhr.onerror = this.onDownloadError_.bind(this);
+
+    log(sprintf("Fetching direct link using redir proxy: %s", this.proxyRedirUrl));
+    xhr.send(null);
+};
+
+/**
+ * Query for the state of the file for resumption.
+ *
+ * @private
+ */
+EnigmaDownloader.prototype.resume_ = function() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('PUT', this.url, true);
+    xhr.setRequestHeader('Content-Range', "bytes */" + this.totalSize);
+    xhr.setRequestHeader('X-Upload-Content-Type', this.file.type);
+    // Progress disabled for state query.
+    //if (xhr.upload) {
+    //    xhr.upload.addEventListener('progress', this.progressHandler_.bind(this));
+    //}
+    xhr.onload = this.onContentUploadSuccess_.bind(this);
+    xhr.onerror = this.onContentUploadError_.bind(this);
+    xhr.send();
+};
+
+/**
+ * Extract the last saved range if available in the request.
+ *
+ * @param {XMLHttpRequest} xhr Request object
+ */
+EnigmaDownloader.prototype.extractRange_ = function(xhr) {
+    var range = xhr.getResponseHeader('Range');
+    if (range) {
+        this.offset = parseInt(range.match(/\d+/g).pop(), 10) + 1;
+    }
+};
+
+/**
+ * Handle successful responses for uploads. Depending on the context,
+ * may continue with uploading the next chunk of the file or, if complete,
+ * invokes the caller's callback.
+ *
+ * @private
+ * @param {object} e XHR event
+ */
+EnigmaDownloader.prototype.onContentUploadSuccess_ = function(e) {
+    if (e.target.status == 200 || e.target.status == 201) {
+        this.onComplete(e.target.response);
+    } else if (e.target.status == 308) {
+        this.extractRange_(e.target);
+        this.retryHandler.reset();
+        this.sendFile_();
+    } else {
+        this.onContentUploadError_(e);
+    }
+};
+
+/**
+ * Handles errors for uploads. Either retries or aborts depending
+ * on the error.
+ *
+ * @private
+ * @param {object} e XHR event
+ */
+EnigmaDownloader.prototype.onContentUploadError_ = function(e) {
+    if (e.target.status && e.target.status < 500) {
+        this.onError(e.target.response);
+    } else {
+        this.retryHandler.retry(this.resume_.bind(this));
+    }
+};
+
+/**
+ * Handles errors for the initial request.
+ *
+ * @private
+ * @param {object} e XHR event
+ */
+EnigmaDownloader.prototype.onDownloadError_ = function(e) {
+    this.onError(e.target.response); // TODO - Retries for initial upload
+};
+
+EnigmaDownloader.prototype.progressHandler_ = function(meta, evt){
+    this.onProgress(evt, meta);
+};
+
+/**
+ * Computes metadata sent before file contents.
+ *
+ * @private
+ * @return {number} number of bytes of the final file.
+ */
+EnigmaDownloader.prototype.preFileSize_ = function() {
+    if (this.fstBlock === undefined){
+        throw new sjcl.exception.invalid("First block not computed");
+    }
+
+    var ln = sjcl.bitArray.bitLength(this.fstBlock)/8;
+    if (ln == 0){
+        throw new sjcl.exception.invalid("First block not computed");
+    }
+
+    return ln;
+};
+
+/**
+ * Computes overall file size.
+ *
+ * @private
+ * @return {number} number of bytes of the final file.
+ */
+EnigmaDownloader.prototype.totalSize_ = function() {
+    var base = this.preFileSize_();
+    base += this.dataSize; // GCM is a streaming mode.
+    base += 16; // GCM tag
+    return base;
+};

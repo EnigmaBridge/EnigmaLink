@@ -506,6 +506,7 @@
             accessToken = result.access_token;
             document.getElementById('signin').style.display = 'none';
             document.getElementById('signedin').style.display = null;
+            log(sprintf("Google Drive auth successful, token: %s", accessToken));
 
             $('#gDriveConfigHead').click();
 
@@ -729,6 +730,20 @@
         uploader.upload();
     }
 
+    function getDriveDownloadLink(fileId){
+        return sprintf("https://drive.google.com/file/d/%s/view?usp=sharing", encodeURIComponent(fileId));
+    }
+
+    function getDriveDirectLink(fileId){
+//        https://www.googleapis.com/drive/v3/files/0B4ObafdOo3JwbWtYa2ZjNWxRUk0?alt=media
+//        return sprintf("https://docs.google.com/uc?id=%s&export=download", fileId);
+        return sprintf("https://drive.google.com/uc?export=download&id=%s", encodeURIComponent(fileId));
+    }
+
+    function getProxyRedirLink(fileId){
+        return sprintf("http://deadcode.me/proxy-redir.php?id=%s", encodeURIComponent(fileId));
+    }
+
     function downloadClicked(){
         var link = fldShareLink.val();
         var linkCfg = {
@@ -738,8 +753,36 @@
             fid: eb.sh.misc.getURLParameter('fid', link),
             fkeyREMOVE: eb.sh.misc.getURLParameter('fkeyREMOVE', link)
         };
+        var fileLink = getDriveDownloadLink(linkCfg.fid);
+        var directLink = getDriveDirectLink(linkCfg.fid);
+        var proxyLink = getProxyRedirLink(linkCfg.fid);
         log("Parsed link data: " + JSON.stringify(linkCfg));
-        // TODO: implement...
+        log("DownloadLink: " + fileLink);
+        log("DirectLink: " + directLink);
+        log("ProxyRedirLink: " + proxyLink);
+
+        // Init downloader, start download.
+        // Google APIs do not support CORS for not authorized users. In order to have CORS,
+        // we need access token. It means we need to bother user with signing in to the google drive/plus.
+        //
+        // If we have no access_token, we need to use proxy to obtain file location we can download.
+        // proxy-redir.php reads redirect URL and provides it in a form of a JSON.
+        // Another proxy approach is to stream the whole file = greater overhead, we don't have Google's bandwidth.
+        var dwn = new EnigmaDownloader({
+            url:directLink,
+            proxyRedirUrl: proxyLink,
+            onProgress: function(oEvent, aux){
+
+            },
+            onComplete: function(data) {
+                log("Upload complete: " + data);
+            },
+            onError: function(data) {
+                log("Critical error: " + JSON.stringify(data));
+            }
+        });
+
+        dwn.fetch();
     }
 
     /**
