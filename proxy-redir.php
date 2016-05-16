@@ -41,6 +41,7 @@
 $id = getReq('id');
 $mode = getReq('mode', 1);
 $fetchLen = getReq('fetchLen', 1);
+$fetchChunk = getReq('fetchChunk', -1);
 
 if (empty($id)){
     $id = "0B4ObafdOo3JwbWtYa2ZjNWxRUk0";
@@ -48,13 +49,21 @@ if (empty($id)){
 //    die("ID not specified");
 }
 
+if ($fetchChunk > 1024*256){
+    $fetchChunk = 1024*256;
+}
+
 $tstart = microtime(true);
 $url = "https://drive.google.com/uc?export=download&id=" . urlencode($id);
 
 // CORS
+$ourHeaders = 'X-Content-Range, X-Content-Length, X-Total-Length, X-Time-Elapsed, X-Redir, X-Cookies';
+
 header('Access-Control-Allow-Origin: *'); // TODO: add our domains.
 header('Access-Control-Allow-Credentials: false');
 header('Access-Control-Allow-Methods: GET,OPTIONS');
+header('Access-Control-Allow-Headers: Accept, Accept-Language, Authorization, Cache-Control, Content-Disposition, Content-Encoding, Content-Language, Content-Length, Content-MD5, Content-Range, Content-Type, Date, GData-Version, Host, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Origin, OriginToken, Pragma, Range, Slug, Transfer-Encoding, Want-Digest, X-ClientDetails, X-GData-Client, X-GData-Key, X-Goog-AuthUser, X-Goog-PageId, X-Goog-Encode-Response-If-Executable, X-Goog-Correlation-Id, X-Goog-Request-Info, X-Goog-Experiments, x-goog-iam-authority-selector, x-goog-iam-authorization-token, X-Goog-Spatula, X-Goog-Upload-Command, X-Goog-Upload-Content-Disposition, X-Goog-Upload-Content-Length, X-Goog-Upload-Content-Type, X-Goog-Upload-File-Name, X-Goog-Upload-Offset, X-Goog-Upload-Protocol, X-Goog-Visitor-Id, X-HTTP-Method-Override, X-JavaScript-User-Agent, X-Pan-Versionid, X-Origin, X-Referer, X-Upload-Content-Length, X-Upload-Content-Type, X-Use-HTTP-Status-Code-Override, X-Ios-Bundle-Identifier, X-Android-Package, X-YouTube-VVT, X-YouTube-Page-CL, X-YouTube-Page-Timestamp, ' . $ourHeaders);
+header('Access-Control-Expose-Headers: Content-Encoding, Content-Language, Content-Length, Content-MD5, Content-Range, Content-Type, Date, GData-Version, Host, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Origin, OriginToken, Pragma, Range, Slug, Transfer-Encoding, Want-Digest, ' . $ourHeaders);
 
 // Do the request to obtain redirected address.
 $ch = curl_init();
@@ -83,9 +92,6 @@ if ($mode == 2) {
     header("HTTP/1.1 200 OK");
 }
 
-// Cookies.
-setHeaderIfAny($header, 'Set-Cookie');
-
 // Construct response JSON.
 $json = new stdClass();
 $json->status = 'ok';
@@ -97,17 +103,87 @@ if (isset($header['Set-Cookie'])) {
 // Get length - if applicable
 if ($fetchLen == 1){
     $json->size = getFileSizeRange($json->url, $ch);
+
 } else if ($fetchLen == 2){
     $json->size = getFileSizeHead($json->url, $ch);
 }
 
+// Cookies, location
+setHeaderIfAny($header, 'Set-Cookie', 'X-Cookies');
+header('X-Redir: ' . $json->url);
+if ($fetchLen>0){
+    header('X-Total-Length: ' . $json->size);
+}
+
 //$json->headers = print_r($header, true);
+if ($fetchChunk <= 0) {
+    // No chunk proxy download - output JSON.
+    $json->elapsed = microtime(true) - $tstart;
+    die(json_encode($json));
+}
+
+// Output downloaded chunk.
+getFileChunk($json->url, 0, $fetchChunk);
 $json->elapsed = microtime(true) - $tstart;
-die(json_encode($json));
 
 // ---------------------------------------------------------------------------------------------------------------------
 // TODO: Streaming proxy read with: CURLOPT_WRITEFUNCTION,
 // TODO: Streaming: http://stackoverflow.com/questions/10991443/curl-get-remote-file-and-force-download-at-same-time
+
+/**
+ * Function to get a range of bytes from the remote file
+ *
+ * @param $file
+ * @param $start
+ * @param $end
+ */
+function getFileChunk($file, $start, $end){
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $file);
+    curl_setopt($ch, CURLOPT_RANGE, $start.'-'.$end);
+    curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_WRITEFUNCTION, 'chunkFnc');
+    curl_setopt($ch, CURLOPT_HEADERFUNCTION, 'headerFnc');
+    // CURLOPT_HEADER = NO.
+
+    $result = curl_exec($ch);
+    curl_close($ch);
+}
+
+/**
+ * CURLOPT_HEADERFUNCTION
+ * Modifies global state.
+ *
+ * @param $ch
+ * @param $hdr
+ * @return int
+ */
+function headerFnc($ch, $hdr){
+    global $json;
+    $header = parseHeaders($hdr);
+    if (isset($header['Content-Range'])){
+        $json->size = intval(explode("/", $header['Content-Range'][0], 2)[1]);
+        header('X-Total-Length: ' . $json->size);
+        header('X-Content-Range: ' . $header['Content-Range'][0]);
+    }
+    setHeaderIfAny($header, 'Content-Disposition');
+    setHeaderIfAny($header, 'Content-Encoding');
+    setHeaderIfAny($header, 'Content-Type');
+
+    return strlen($hdr);
+}
+
+/**
+ * CURLOPT_WRITEFUNCTION, outputs loaded chunk to the browser.
+ *
+ * @param $ch
+ * @param $str
+ * @return int
+ */
+function chunkFnc($ch, $str) {
+    print($str);
+    return strlen($str);
+}
 
 /**
  * Tries to fetch size of the file using Range request.
@@ -121,7 +197,7 @@ function getFileSizeRange($url, $ch=null){
     }
 
     curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_RANGE, "0-0");
     setCommonCurl($ch);
@@ -155,7 +231,7 @@ function getFileSizeHead($url, $ch=null){
     }
 
     curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_NOBODY, true);
 
@@ -190,13 +266,16 @@ function getReq($param, $default = null){
 /**
  * Sets header to current connection if present in the header array.
  */
-function setHeaderIfAny($headers, $header){
+function setHeaderIfAny($headers, $header, $auxSetHeader=null){
     if (!isset($headers[$header])){
         return;
     }
 
     foreach($headers[$header] as $value){
         header($header . ': ' . $value);
+        if (!empty($auxSetHeader)){
+            header($auxSetHeader . ': ' . $value);
+        }
     }
 }
 
