@@ -1504,18 +1504,6 @@ EnigmaDownloader.prototype.resume_ = function() {
 };
 
 /**
- * Extract the last saved range if available in the request.
- *
- * @param {XMLHttpRequest} xhr Request object
- */
-EnigmaDownloader.prototype.extractRange_ = function(xhr) {
-    var range = xhr.getResponseHeader('Range');
-    if (range) {
-        this.offset = parseInt(range.match(/\d+/g).pop(), 10) + 1;
-    }
-};
-
-/**
  * Handles errors for chunk download. Either retries or aborts depending
  * on the error.
  *
@@ -1538,41 +1526,9 @@ EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
  * @param {object} e XHR event
  */
 EnigmaDownloader.prototype.onDownloadError_ = function(e) {
-    this.onError(e.target.response); // TODO - Retries for initial upload
+    this.onError(e.target.response); // TODO - Retries for initial download
 };
 
 EnigmaDownloader.prototype.progressHandler_ = function(meta, evt){
     this.onProgress(evt, meta);
-};
-
-/**
- * Computes metadata sent before file contents.
- *
- * @private
- * @return {number} number of bytes of the final file.
- */
-EnigmaDownloader.prototype.preFileSize_ = function() {
-    if (this.fstBlock === undefined){
-        throw new sjcl.exception.invalid("First block not computed");
-    }
-
-    var ln = sjcl.bitArray.bitLength(this.fstBlock)/8;
-    if (ln == 0){
-        throw new sjcl.exception.invalid("First block not computed");
-    }
-
-    return ln;
-};
-
-/**
- * Computes overall file size.
- *
- * @private
- * @return {number} number of bytes of the final file.
- */
-EnigmaDownloader.prototype.totalSize_ = function() {
-    var base = this.preFileSize_();
-    base += this.dataSize; // GCM is a streaming mode.
-    base += 16; // GCM tag
-    return base;
 };
