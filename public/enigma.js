@@ -465,6 +465,21 @@ eb.misc = {
      */
     genChecksumValueFromString: function(x, size){
         return eb.misc.genChecksumValue(sjcl.hash.sha256.hash(x), size);
+    },
+
+    /**
+     * Asserts the condition.
+     * @param condition
+     * @param message
+     */
+    assert: function(condition, message) {
+        if (!condition) {
+            message = message || "Assertion failed";
+            if (typeof Error !== "undefined") {
+                throw new Error(message);
+            }
+            throw message; // Fallback
+        }
     }
 };
 
