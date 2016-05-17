@@ -1246,7 +1246,7 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
 
     // Initialize cipher, engines.
     this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
-    this.gcm = new sjcl.mode.gcm2(this.aes, true, [], this.iv, 128); // GCM encryption mode, initialized now.
+    this.gcm = new sjcl.mode.gcm2(this.aes, false, [], this.iv, 128); // GCM encryption mode, initialized now.
     this.encryptionInitialized = true;
 };
 
