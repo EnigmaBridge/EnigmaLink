@@ -772,6 +772,7 @@
         var dwn = new EnigmaDownloader({
             url:directLink,
             proxyRedirUrl: proxyLink,
+            encKey: eb.misc.inputToBits(linkCfg.fkeyREMOVE), // TODO: remove after UO is implemented...
             onProgress: function(oEvent, aux){
 
             },

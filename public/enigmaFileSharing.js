@@ -918,15 +918,16 @@ var EnigmaDownloader = function(options){
     this.onError = options.onError || noop;
     this.chunkSize = options.chunkSize || 262144*2; // All security relevant data should be present in the first chunk.
     this.offset = 0;
-    this.downloaded = false;
+    this.downloaded = false;        // If file was downloaded entirely.
+    this.encWrapDetected = false;   // Encryption tag encountered already? If yes, data goes through GCM layer.
     this.retryHandler = new RetryHandler();
 
     this.url = options.url;
     this.proxyRedirUrl = options.proxyRedirUrl;
 
     // Encryption related fields.
-    this.encKey = options.encKey;                   // bitArray with encryption key for AES-256-GCM.
-    this.secCtx = options.secCtx || [];             // bitArray with security context, result of UO application.
+    this.encKey = options.encKey;                   // bitArray with encryption key for AES-256-GCM. TODO: remove, will be computed
+    this.secCtx = undefined;                        // bitArray with security context, result of UO application.
     this.encryptionInitialized = false;             // If the security block was parsed successfully and system is ready for decryption.
     this.aes = undefined;                           // AES cipher instance to be used with GCM for data encryption.
     this.iv = undefined;                            // initialization vector for GCM, 1 block, 16B.
@@ -938,12 +939,18 @@ var EnigmaDownloader = function(options){
     this.totalSize=-1;                              // Total size of the upload stream.
     this.downloadedSize=0;                          // Number of bytes downloaded so far.
 
-    // Encrypted data buffering - already processed data. Underflow avoidance.
+    // Downloaded data buffering.
     this.cached = {};         // Data processing cache object.
     this.cached.offset = -1;  // Data start offset that is cached in the buff. Absolute data offset address of the first buff byte.
     this.cached.end = -1;     // Data end offset that is cached in the buff. Absolute data offset address of the last buff byte.
     this.cached.buff = [];    // Cached processed data buffer. Size = cached.end - cached.offset.
-    this.cached.tag = [];     // Computed final auth tag for the data.
+
+    // Decrypted data buffering. Fed to TLV parser.
+    this.dec = {};
+    this.dec.offset = -1;
+    this.dec.end = -1;
+    this.dec.buff = [];
+
 };
 
 /**
@@ -1131,13 +1138,122 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
 
         // Read encryption block, process data.
         log("Reading encryption data.");
+        this.processEncryptionBlock_();
     }
+
+    // TODO: process with encryption layer.
+    log(sprintf("ToProcess with GCM: %s-%s, size: %s", this.cached.offset, this.cached.end, this.cached.end-this.cached.offset));
 
     // Last step:
     // Download next chunk, if any.
     this.bufferProcessed_();
 };
 
+EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
+    // Possible parser states:
+    //  - reading a new TLV record = clean start.
+    //  - incomplete length field = length field not fully available, stop parsing (do not consume buffer), read more, no parser state change.
+    //  - incomplete value (from defined length). state = current tag, length (-1 if till end), current length (read), current data.
+    // Parser is fed with the downloaded data buffer, later, in decryption phase another layer is added, source is data after decryption.
+    // This parser is very simple, cannot work with small chunks, everything has to be already loaded in the cache buffer.
+    var cpos=0, ctag=-1, tlen=-1, w=sjcl.bitArray;
+    if (this.cached.offset != 0){
+        throw new eb.exception.invalid("Input data buffer is in invalid state");
+    }
+
+    // Process tags.
+    do {
+        if (cpos > this.cached.end){
+            throw new eb.exception.invalid("Input data invalid - reading out of bounds");
+        } else if (cpos == this.cached.end){
+            break;
+        }
+
+        // Get tag.
+        ctag = w.extract(this.cached.buff, cpos*8, 8);
+        cpos += 1;
+        switch(ctag){
+            case EnigmaUploader.TAG_ENCWRAP:
+                this.encWrapDetected = true;
+                break;
+
+            case EnigmaUploader.TAG_PADDING:
+                tlen = w.extract32(this.cached.buff, cpos*8);
+                cpos += EnigmaUploader.LENGTH_BYTES + tlen;
+                break;
+
+            case EnigmaUploader.TAG_SEC:
+                tlen = w.extract32(this.cached.buff, cpos*8);
+                cpos += EnigmaUploader.LENGTH_BYTES;
+                if (this.encryptionInitialized){
+                    throw new eb.exception.invalid("Sec block already seen");
+                }
+
+                var secBlock = w.bitSlice(this.cached.buff, cpos*8, (cpos+tlen)*8);
+                cpos += tlen;
+
+                if (w.bitLength(secBlock) != tlen*8){
+                    throw new eb.exception.invalid("Sec block size does not match");
+                }
+
+                this.processSecCtx_(secBlock);
+                break;
+
+            default:
+                tlen = w.extract32(this.cached.buff, cpos*8);
+                cpos += EnigmaUploader.LENGTH_BYTES + tlen;
+                log(sprintf("Unsupported tag detected: %s, len: %s", ctag, tlen));
+                break;
+        }
+
+    } while(!this.encWrapDetected);
+
+    // Throw an exception if ENCWRAP was not detected by the end of this call. Simple parser.
+    if (!this.encWrapDetected){
+        throw new eb.exception.invalid("ENCWRAP tag was not detected in the data. Parser does not support chunked data");
+    }
+
+    // Slice off the processed part of the buffer.
+    if (cpos == this.cached.end){
+        this.cached.offset = -1;
+        this.cached.end = -1;
+        this.cached.buff = [];
+
+    } else {
+        this.cached.offset = cpos;
+        this.cached.buff = w.bitSlice(this.cached.buff, cpos*8);
+    }
+};
+
+/**
+ * Processing of the security context block;
+ * @private
+ */
+EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
+    var cpos=0, w=sjcl.bitArray;
+    var ln = w.bitLength(buffer)/8;
+    if (ln < 16){
+        throw new eb.exception.invalid("Input data buffer is in invalid state");
+    }
+
+    // Extract GCM IV.
+    this.iv = w.bitSlice(buffer, 0, 16*8);
+    cpos += 16;
+
+    // Security context, contains decryption key, wrapped.
+    this.secCtx = w.bitSlice(buffer, cpos*8);
+    // TODO: call UO. parse secCtx.
+
+    // Initialize cipher, engines.
+    this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
+    this.gcm = new sjcl.mode.gcm2(this.aes, true, [], this.iv, 128); // GCM encryption mode, initialized now.
+    this.encryptionInitialized = true;
+};
+
+/**
+ * On downloaded data is processed.
+ * @private
+ */
 EnigmaDownloader.prototype.bufferProcessed_ = function(){
     if (!this.downloaded){
         this.fetchFile_();
