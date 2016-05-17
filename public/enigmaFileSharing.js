@@ -584,7 +584,7 @@ EnigmaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
 
         this.cached.buff = w.bitSlice(this.cached.buff, (fOffset - this.chunkSize - this.cached.offset)*8);
         this.cached.offset = fOffset - this.chunkSize;
-        assert(w.bitLength(this.cached.buff) == 8*(this.cached.end - this.cached.offset), "Invariant broken");
+        eb.misc.assert(w.bitLength(this.cached.buff) == 8*(this.cached.end - this.cached.offset), "Invariant broken");
     }
 
     // If we have some data already prepared in the buffer - provide it. (fOffset is in the cached buffer range).
