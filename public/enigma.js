@@ -1089,7 +1089,14 @@ sjcl.mode.gcm2.prototype = {
         this.tag[2] ^= enc[2];
         this.tag[3] ^= enc[3];
 
-        return { tag:w.bitSlice(this.tag, 0, this.tlen), data:interm };
+        var res = { tag:w.bitSlice(this.tag, 0, this.tlen), data:interm };
+
+        // When decrypting, check tag
+        if (!this.enc){
+            res.tagValid = w.equal(this.tag, this.buffTag);
+        }
+
+        return res;
     },
 
     /**
