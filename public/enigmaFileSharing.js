@@ -328,6 +328,7 @@ var EnigmaUploader = function(options) {
     this.contentType = options.contentType || this.file.type || 'application/octet-stream';
     this.contentTypeOrig = this.file.type || 'application/octet-stream';
     this.fname = options.fname || this.file.name || 'note';
+    this.fnameOrig = options.fnameOrig || this.file.name || 'note';
     this.metadata = options.metadata || {
             'name': this.fname,
             'mimeType': this.contentType
@@ -443,8 +444,8 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
     // But for the simplicity, pad it to the block size - easier state manipulation, size computation.
     //
     // Filename
-    log("FileName in meta block: " + this.fname);
-    var baName = sjcl.codec.utf8String.toBits(this.fname);
+    log("FileName in meta block: " + this.fnameOrig);
+    var baName = sjcl.codec.utf8String.toBits(this.fnameOrig);
     toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_FNAME, w.bitLength(baName)/8)));
     toEnc = w.concat(toEnc, baName);
 

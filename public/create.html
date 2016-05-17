@@ -702,6 +702,7 @@
             secCtx: secCtx,
             chunkSize: 262144*5,
             fname: fldFname.val(),
+            fnameOrig: fldFnameOrig.val(),
             parents: [shareFolderId],
             contentType: isChecked(chkMask) ? 'application/octet-stream' : undefined,
             padFnc: isChecked(chkMask) ? EnigmaSharingUpload.sizeConcealPadFnc : undefined,
