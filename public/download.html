@@ -33,6 +33,13 @@
     <script>
         "use strict";
 
+        // Google Drive access token.
+        var accessToken = null;
+
+        // Other fields.
+        var catConfig;
+        var catDrive;
+
     </script>
 </head>
 <body>
@@ -173,10 +180,6 @@
 
     <script>
         "use strict";
-        $('#endpoint').val(defaults.site);
-        $('#divConfigHead').click(toggleCategory);
-        $('#gDriveConfigHead').click(toggleCategory);
-        $('#divConfigHead').click();
 
         function log(msg){
             console.log(msg);
@@ -389,8 +392,6 @@
                 document.getElementById('signedin').style.display = null;
                 log(sprintf("Google Drive auth successful, token: %s", accessToken));
 
-                $('#gDriveConfigHead').click();
-
                 // Load google drive lib.
                 loadDrive();
             }
@@ -419,7 +420,8 @@
             sjcl.random.startCollectors();
 
             // Init
-
+            catConfig = $('#divConfigHead');
+            catDrive = $('#gDriveConfigHead');
 
             // HTML5 support?
 
@@ -427,6 +429,12 @@
 //            btnDownload.click(function(){
 //                downloadClicked();
 //            });
+
+            // Behavior.
+            catConfig.click(toggleCategory);
+            catDrive.click(toggleCategory);
+            catConfig.click();
+            catDrive.click();
         });
 
     </script>
