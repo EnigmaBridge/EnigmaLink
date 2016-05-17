@@ -39,6 +39,7 @@
         // Other fields.
         var catConfig;
         var catDrive;
+        var btnDownload;
 
     </script>
 </head>
@@ -415,6 +416,17 @@
 
         }
 
+        function downloadClicked() {
+
+        }
+
+        function loadParams(){
+            log(sprintf("URL: %s", location.search));
+            log(sprintf("URL hash: %s", location.hash));
+            log(sprintf("URL href: %s", location.href));
+            log(sprintf("URL target: %s", location.target));
+        }
+
         $(function(){
             // Start random number collectors.
             sjcl.random.startCollectors();
@@ -422,19 +434,21 @@
             // Init
             catConfig = $('#divConfigHead');
             catDrive = $('#gDriveConfigHead');
-
-            // HTML5 support?
+            btnDownload = $('#btnDownload');
 
             // Button click handling.
-//            btnDownload.click(function(){
-//                downloadClicked();
-//            });
+            btnDownload.click(function(){
+                downloadClicked();
+            });
 
             // Behavior.
             catConfig.click(toggleCategory);
             catDrive.click(toggleCategory);
             catConfig.click();
             catDrive.click();
+
+            // Load URL parameters
+            loadParams();
         });
 
     </script>
