@@ -1127,7 +1127,7 @@ EnigmaDownloader.prototype.mergeDownloadBuffers_ = function(from, to, buffer){
  * @private
  */
 EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
-    // If the first block has not been processed yet...
+    // If the first block has not been processed yet - process encryption block, get IV, encKey.
     if (!this.encryptionInitialized){
         // If there is not enough data for encryption initialization, keep downloading.
         if (!this.downloaded && this.downloadedSize < 128){
@@ -1149,6 +1149,12 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
     this.bufferProcessed_();
 };
 
+/**
+ * Parser of the unencrypted data.
+ * Initial block contains security related data required for further decryption.
+ *
+ * @private
+ */
 EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
     // Possible parser states:
     //  - reading a new TLV record = clean start.
