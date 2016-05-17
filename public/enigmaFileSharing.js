@@ -947,10 +947,15 @@ var EnigmaDownloader = function(options){
 
     // Decrypted data buffering. Fed to TLV parser.
     this.dec = {};
-    this.dec.offset = -1;
-    this.dec.end = -1;
     this.dec.buff = [];
 
+    // State of the TLV parser of the dec buffer.
+    this.tps = {};
+    this.tps.cpos = 0;
+    this.tps.ctag = -1;
+    this.tps.tlen = -1;
+    this.tps.clen = -1;
+    this.tps.cdata = [];
 };
 
 /**
@@ -1127,6 +1132,8 @@ EnigmaDownloader.prototype.mergeDownloadBuffers_ = function(from, to, buffer){
  * @private
  */
 EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
+    var w = sjcl.bitArray;
+
     // If the first block has not been processed yet - process encryption block, get IV, encKey.
     if (!this.encryptionInitialized){
         // If there is not enough data for encryption initialization, keep downloading.
@@ -1141,12 +1148,71 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
         this.processEncryptionBlock_();
     }
 
-    // TODO: process with encryption layer.
-    log(sprintf("ToProcess with GCM: %s-%s, size: %s", this.cached.offset, this.cached.end, this.cached.end-this.cached.offset));
+    log(sprintf("ToProcess with GCM: %s-%s, size: %s, buffSize: %s",
+        this.cached.offset, this.cached.end, this.cached.end-this.cached.offset, w.bitLength(this.cached.buff)/8));
+
+    if (this.cached.end<this.cached.offset || this.cached.end-this.cached.offset != w.bitLength(this.cached.buff)/8){
+        throw new eb.exception.invalid("Cache buffer inconsistent");
+    }
+
+    // If the whole file was downloaded, process the whole buffer, without alignments, compute&verify tag.
+    if (this.downloaded){
+        var finalBlock = this.gcm.doFinal(this.cached.buff);
+        if (finalBlock.tagValid != true){
+            log("Invalid tag!");
+            throw new eb.exception.corrupt("Invalid auth tag on decrypted data");
+        }
+
+        // Reset the cached state
+        this.cached.offset = -1;
+        this.cached.end = -1;
+        this.cached.buff = [];
+
+        // Merge decrypted data buffer with the previously decrypted data.
+        this.mergeDecryptedBuffers_(finalBlock.data);
+
+    } else {
+        // Not the final block, take data aligned to one AES block, decrypt, add to buffer.
+        var buffLen = w.bitLength(this.cached.buff)/8;
+        var buffToDecryptLen = buffLen - (buffLen%16);
+        if (buffToDecryptLen > 0){
+            var decrypted = this.gcm.update(w.bitSlice(this.cached.buff, 0, buffToDecryptLen*8));
+
+            // Slice of the GCM processed data from the download buffer, update state.
+            this.cached.buff = w.bitSlice(this.cached.buff, buffToDecryptLen*8);
+            this.cached.offset += buffToDecryptLen;
+
+            // Merge decrypted data buffer with the previously decrypted data.
+            this.mergeDecryptedBuffers_(decrypted);
+        }
+    }
+
+    // Process decrypted data.
+    this.processDecryptedBlock_();
 
     // Last step:
     // Download next chunk, if any.
     this.bufferProcessed_();
+};
+
+/**
+ * Merge currently decrypted data with the decrypted buffer.
+ * @param buffer
+ * @private
+ */
+EnigmaDownloader.prototype.mergeDecryptedBuffers_ = function(buffer){
+    this.dec.buff = sjcl.bitArray.concat(this.dec.buff, buffer);
+};
+
+// TODO:
+EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
+    var decLen, w = sjcl.bitArray;
+    decLen = w.bitLength(this.dec.buff)/8;
+    log(sprintf("To parse %s B", decLen));
+
+    if (decLen < 0){
+        return;
+    }
 };
 
 /**
@@ -1249,6 +1315,9 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
     // Security context, contains decryption key, wrapped.
     this.secCtx = w.bitSlice(buffer, cpos*8);
     // TODO: call UO. parse secCtx.
+    // TODO: remove debugging info.
+    log(sprintf("IV: %s", eb.misc.inputToHex(this.iv)));
+    log(sprintf("EK: %s", eb.misc.inputToHex(this.encKey)));
 
     // Initialize cipher, engines.
     this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
