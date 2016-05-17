@@ -36,6 +36,7 @@
     <script src="he.js"></script>
     <script src="enigma.js"></script>
     <script src="demo.js"></script>
+    <script src="FileSaver.js"></script>
     <script src="enigmaFileSharing.js"></script>
     <script type="text/javascript" src="https://apis.google.com/js/api.js"></script>
     <script>
@@ -779,6 +780,13 @@
             },
             onComplete: function(data) {
                 log("Download complete: " + data);
+                log(sprintf("File name: %s", dwn.fname));
+                log(sprintf("Mime type: %s", dwn.mimetype));
+                log(sprintf("File size: %s", dwn.fsize));
+
+                // Reconstruct file.
+                var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
+                saveAs(blob, dwn.fname);
             },
             onError: function(data) {
                 log("Critical error: " + JSON.stringify(data));
