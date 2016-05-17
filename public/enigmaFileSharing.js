@@ -1262,8 +1262,10 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
             // File data - consume the whole buffer.
             var fileData = w.bitSlice(this.dec.buff, cpos*8);
             var csize = w.bitLength(fileData)/8;
+            var arrayBuffer = sjcl.codec.arrayBuffer.fromBits(fileData, 0, 0);
+            log(sprintf("Processing %s B of data, totally have: %s. ArrayBuffer: %s B", csize, this.fsize + csize, arrayBuffer.byteLength));
 
-            this.blobs.push(sjcl.codec.arrayBuffer.fromBits(fileData));
+            this.blobs.push(arrayBuffer);
             this.fsize += csize;
 
             cpos += csize;
