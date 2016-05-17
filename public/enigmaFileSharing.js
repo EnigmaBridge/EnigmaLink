@@ -918,6 +918,7 @@ var EnigmaDownloader = function(options){
     this.onError = options.onError || noop;
     this.chunkSize = options.chunkSize || 262144*2; // All security relevant data should be present in the first chunk.
     this.offset = 0;
+    this.downloaded = false;
     this.retryHandler = new RetryHandler();
 
     this.url = options.url;
@@ -935,6 +936,7 @@ var EnigmaDownloader = function(options){
     this.init_();
     this.preFileSize=-1;                            // Number of bytes in the upload stream before file contents.
     this.totalSize=-1;                              // Total size of the upload stream.
+    this.downloadedSize=0;                          // Number of bytes downloaded so far.
 
     // Encrypted data buffering - already processed data. Underflow avoidance.
     this.cached = {};         // Data processing cache object.
@@ -996,14 +998,6 @@ EnigmaDownloader.prototype.init_ = function() {
 };
 
 /**
- * Bytes to send.
- * Uniform access to file structure before sending.
- */
-EnigmaDownloader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
-
-};
-
-/**
  * Fetches another chunk of the file, adds it to the processing buffer and calls processing routine.
  * Handles failed state - download retry.
  *
@@ -1011,34 +1005,148 @@ EnigmaDownloader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
  * @private
  */
 EnigmaDownloader.prototype.fetchFile_ = function() {
-    var self = this;
+    // Already downloaded the file?
+    if (this.downloaded){
+        // Start processing of the download buffer.
+        this.processDownloadBuffer_();
+        return;
+    }
+
+    // Start downloading a next chunk we don't have.
     var xhr = new XMLHttpRequest();
-    var rangeHeader = "bytes=" + this.offset + "-" + (this.offset + this.chunkSize);
+    var rangeHeader = "bytes=" + this.offset + "-" + (this.offset + this.chunkSize - 1);
 
     xhr.open("GET", this.url, true);
     xhr.setRequestHeader('Range', rangeHeader);
     xhr.onload = function(e) {
+        if (e.target.status == 416){
+            log("Content range not satisfiable, end of the transfer.");
+            this.downloaded = true;
+
+            // Start processing of the download buffer.
+            this.processDownloadBuffer_();
+        }
+
         if (e.target.status < 400) {
+            this.retryHandler.reset();
+
             var arraybuffer = xhr.response;
-            log("Loading done, size: " + (arraybuffer ? arraybuffer.byteLength : -1));
-            console.log(arraybuffer);
+            var downloadedLen = arraybuffer ? arraybuffer.byteLength : -1;
+            var isLastChunk = downloadedLen < this.chunkSize || (this.totalSize > 0 && this.totalSize <= this.downloadedSize+downloadedLen);
+            log(sprintf("Download done, size: %s, lastChunk: %s, downloadedPreviously: %s, offset: %s",
+                downloadedLen, isLastChunk, this.downloadedSize, this.offset));
+
+            if (downloadedLen < 0){
+                log("Invalid downloaded length");
+                this.onDownloadError_(null);
+                return;
+            }
+
+            // If the size is less than we asked for we surely know it is the last chunk.
+            // But if there is no total size information and the length is the size of the chunk it still
+            // can be the last chunk but we don't know until we ask for the next one.
+            if (isLastChunk){
+                this.downloaded = true;
+            }
 
             // By default we are not able to read header "Content-Range" here as it is not in Access-Control-Expose-Headers.
             //var range = xhr.getResponseHeader('Content-Range');
 
-            // Bytes OK?
-            // TODO: add to the download buffer, start processing of the download buffer.
-            
+            // Merge with cached download buffer.
+            this.mergeDownloadBuffers_(this.offset, this.offset + downloadedLen, arraybuffer);
+
+            // Start processing of the download buffer.
+            this.processDownloadBuffer_();
 
         } else {
-            this.onDownloadError_(e);
+            this.onContentDownloadError_(e);
         }
     }.bind(this);
-    xhr.onerror = this.onDownloadError_.bind(this);
+    xhr.onerror = this.onContentDownloadError_.bind(this);
 
     log(sprintf("Downloading file range: %s, total size: %s", rangeHeader, this.totalSize));
     xhr.responseType = "arraybuffer";
     xhr.send(null);
+};
+
+/**
+ * Merges downloaded chunk to the download buffer.
+ * Moves offset value.
+ *
+ * @param from
+ * @param to
+ * @param buffer
+ * @private
+ */
+EnigmaDownloader.prototype.mergeDownloadBuffers_ = function(from, to, buffer){
+    var bitArray = sjcl.codec.arrayBuffer.toBits(buffer);
+
+    // Download buffer is empty - simple case.
+    if (this.cached.offset == -1 && this.cached.end == -1){
+        this.cached.offset = from;
+        this.cached.end = to;
+        this.cached.buff = bitArray;
+
+        // State update
+        this.offset = to;
+        this.downloadedSize += to-from;
+        return;
+    }
+
+    // Consecutive - easy.
+    if (this.cached.offset != -1 && this.cached.end == from){
+        this.cached.end = to;
+        this.cached.buff = sjcl.bitArray.concat(this.cached.buff, buffer);
+
+        // State update
+        this.offset = to;
+        this.downloadedSize += to-from;
+        return;
+    }
+
+    // Same chunk or inside the buffer already?
+    if (this.cached.offset <= from && this.cached.end >= to){
+        log("Downloaded chunk is already in the buffer, should not happen");
+        this.offset = this.cached.end;
+        return;
+    }
+
+    log("Download buffer is in invalid state, gaps could be present");
+    throw new eb.exception.invalid("Illegal download buffer state");
+};
+
+/**
+ * Processing of the download buffer.
+ * @private
+ */
+EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
+    // If the first block has not been processed yet...
+    if (!this.encryptionInitialized){
+        // If there is not enough data for encryption initialization, keep downloading.
+        if (!this.downloaded && this.downloadedSize < 128){
+            log("Not initialized, not enough data");
+            this.bufferProcessed_();
+            return;
+        }
+
+        // Read encryption block, process data.
+        log("Reading encryption data.");
+    }
+
+    // Last step:
+    // Download next chunk, if any.
+    this.bufferProcessed_();
+};
+
+EnigmaDownloader.prototype.bufferProcessed_ = function(){
+    if (!this.downloaded){
+        this.fetchFile_();
+    }
+
+    // TODO: implement if all processing is done (decryption).
+    if (this.downloaded) {
+        this.onComplete();
+    }
 };
 
 /**
@@ -1072,6 +1180,9 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
                 return;
             }
 
+            // Proxy can fetch total size of the downloaded file.
+            // This information is optional, does not affect download process. We are donloading until there is some data.
+            // This is mainly for UX while downloading large files so user can see download progress.
             if (json.size && json.size > 0){
                 this.totalSize = json.size;
             }
@@ -1095,17 +1206,8 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
  * @private
  */
 EnigmaDownloader.prototype.resume_ = function() {
-    var xhr = new XMLHttpRequest();
-    xhr.open('PUT', this.url, true);
-    xhr.setRequestHeader('Content-Range', "bytes */" + this.totalSize);
-    xhr.setRequestHeader('X-Upload-Content-Type', this.file.type);
-    // Progress disabled for state query.
-    //if (xhr.upload) {
-    //    xhr.upload.addEventListener('progress', this.progressHandler_.bind(this));
-    //}
-    xhr.onload = this.onContentUploadSuccess_.bind(this);
-    xhr.onerror = this.onContentUploadError_.bind(this);
-    xhr.send();
+    log("Resume!");
+    this.fetchFile_();
 };
 
 /**
@@ -1121,34 +1223,15 @@ EnigmaDownloader.prototype.extractRange_ = function(xhr) {
 };
 
 /**
- * Handle successful responses for uploads. Depending on the context,
- * may continue with uploading the next chunk of the file or, if complete,
- * invokes the caller's callback.
- *
- * @private
- * @param {object} e XHR event
- */
-EnigmaDownloader.prototype.onContentUploadSuccess_ = function(e) {
-    if (e.target.status == 200 || e.target.status == 201) {
-        this.onComplete(e.target.response);
-    } else if (e.target.status == 308) {
-        this.extractRange_(e.target);
-        this.retryHandler.reset();
-        this.sendFile_();
-    } else {
-        this.onContentUploadError_(e);
-    }
-};
-
-/**
- * Handles errors for uploads. Either retries or aborts depending
+ * Handles errors for chunk download. Either retries or aborts depending
  * on the error.
  *
  * @private
  * @param {object} e XHR event
  */
-EnigmaDownloader.prototype.onContentUploadError_ = function(e) {
-    if (e.target.status && e.target.status < 500) {
+EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
+    log("Chunk download error");
+    if (e.target.status && e.target.status < 400) {
         this.onError(e.target.response);
     } else {
         this.retryHandler.retry(this.resume_.bind(this));

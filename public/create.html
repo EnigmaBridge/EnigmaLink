@@ -741,8 +741,8 @@
     }
 
     function getProxyRedirLink(fileId){
-        return sprintf("http://deadcode.me/proxy-redir.php?id=%s", encodeURIComponent(fileId));
-//        return sprintf("https://expert.enigmabridge.com/cgi-bin/proxy-redir.php?id=%s", encodeURIComponent(fileId));
+//        return sprintf("http://deadcode.me/proxy-redir.php?id=%s", encodeURIComponent(fileId));
+        return sprintf("https://expert.enigmabridge.com/cgi-bin/proxy-redir.php?id=%s", encodeURIComponent(fileId));
     }
 
     function downloadClicked(){
@@ -776,7 +776,7 @@
 
             },
             onComplete: function(data) {
-                log("Upload complete: " + data);
+                log("Download complete: " + data);
             },
             onError: function(data) {
                 log("Critical error: " + JSON.stringify(data));
