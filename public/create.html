@@ -63,6 +63,8 @@
         var $fldRestart;
 
         // Other fields.
+        var catConfig;
+        var catDrive;
         var fldMsg;
         var fldFname;
         var fldFnameOrig;
@@ -73,6 +75,7 @@
         var spnBtnShare;
         var btnShare;
         var btnDownload;
+        var fldEndpoint;
     </script>
 </head>
 <body>
@@ -269,10 +272,6 @@
 
 <script>
     "use strict";
-    $('#endpoint').val(defaults.site);
-    $('#divConfigHead').click(toggleCategory);
-    $('#gDriveConfigHead').click(toggleCategory);
-    $('#divConfigHead').click();
 
     function log(msg){
         console.log(msg);
@@ -489,7 +488,7 @@
             document.getElementById('signedin').style.display = null;
             log(sprintf("Google Drive auth successful, token: %s", accessToken));
 
-            $('#gDriveConfigHead').click();
+            catDrive.click();
 
             // Load google drive lib.
             loadDrive();
@@ -876,6 +875,9 @@
         spnBtnShare = $('#spnBtnShare');
         btnShare = $('#btnShare');
         btnDownload = $('#btnDownload');
+        catConfig = $('#divConfigHead');
+        catDrive = $('#gDriveConfigHead');
+        fldEndpoint = $('#endpoint');
 
         // HTML5 support?
         isAdvancedUpload = function() {
@@ -899,6 +901,12 @@
             var checked = isChecked(chkMask);
             fldFname.val(checked ? genRandomName() : fldFnameOrig.val());
         });
+
+        // Behavior.
+        fldEndpoint.val(defaults.site);
+        catConfig.click(toggleCategory);
+        catDrive.click(toggleCategory);
+        catConfig.click();
     });
 
 </script>
