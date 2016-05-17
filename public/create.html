@@ -38,21 +38,10 @@
     <script src="demo.js"></script>
     <script src="FileSaver.js"></script>
     <script src="enigmaFileSharing.js"></script>
+    <script src="enigmaFileSharingDemo.js"></script>
     <script type="text/javascript" src="https://apis.google.com/js/api.js"></script>
     <script>
         "use strict";
-        var defaults = {
-            site: 'site2.enigmabridge.com',
-            site1: 'site1.enigmabridge.com',
-            site2: 'site2.enigmabridge.com'
-        };
-
-        // configuration
-        var shareConfig = {
-            baseUrl: 'https://expert.enigmabridge.com/sharing',
-            shareFolderName: 'EnigmaShares',
-            clientId: '1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com'
-        };
 
         // Google Drive access token.
         var accessToken = null;
