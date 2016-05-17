@@ -93,5 +93,15 @@ function assert(condition, message) {
     }
 }
 
+function copyElementToClipboard(elem){
+    elem.select();
+    try {
+        document.execCommand('copy');
+    } catch (err) {
+        log("Unable to copy");
+    }
+}
+
+
 
 

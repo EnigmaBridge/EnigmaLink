@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Enigma Bridge file sharing demo</title>
+    <link rel="shortcut icon" type="image/png" href="favicon.png" />
+    <style>
+        body,p,td,input {font-family: Arial, Helvetica, sans-serif; font-size: 10pt;}
+        h1 {font-size: 14pt; }
+        h2 {font-size: 12pt; }
+        button[disabled],
+        input[disabled]{
+            background-color: #F8F8F8 !important;
+        }
+
+    </style>
+    <link href='css/googleapi-FamilyBitter.css' rel='stylesheet' type='text/css'/>
+    <link href="forms.css" rel="stylesheet" type="text/css"/>
+    <link href="create.css" rel="stylesheet" type="text/css"/>
+    <!-- remove this if you use Modernizr -->
+    <script>(function(e,t,n){var r=e.querySelectorAll("html")[0];r.className=r.className.replace(/(^|\s)no-js(\s|$)/,"$1js$2")})(document,window,0);</script>
+    <script src="jquery-1.12.1.min.js"></script>
+    <script src="sprintf.js"></script>
+    <script src="sjcl.js"></script>
+    <script src="jquery.qrcode.min.js"></script>
+    <script src="he.js"></script>
+    <script src="enigma.js"></script>
+    <script src="demo.js"></script>
+    <script src="FileSaver.js"></script>
+    <script src="enigmaFileSharing.js"></script>
+    <script src="enigmaFileSharingDemo.js"></script>
+    <script type="text/javascript" src="https://apis.google.com/js/api.js"></script>
+    <script>
+        "use strict";
+
+    </script>
+</head>
+<body>
+
+<!-- form design: http://www.sanwebe.com/2014/08/css-html-forms-designs -->
+<div class="form-style-10">
+    <h1>Secure file download<span>EnigmaBridge demo</span></h1>
+    <div>
+        <div class="section"><span>1</span>Input</div>
+        <div class="inner-wrap">
+            <label>Password
+                <input type="text" name="password" id="password" value="" placeholder="Password to protect the share (TODO)"/>
+                <span>Additional password protection</span>
+            </label>
+        </div>
+
+        <div class="section" id="gDriveConfigHead">
+            <span>2</span>
+            GoogleDrive
+            <div class="collapser">[-]</div>
+        </div>
+        <div class="inner-wrap" id="gDriveConfig">
+            <!--
+            https://developers.google.com/drive/v3/web/quickstart/js#prerequisites
+            https://github.com/googledrive/cors-upload-sample/blob/master/index.html
+            -->
+            <span id="signin">
+                <span
+                        class="g-signin"
+                        data-callback="signinCallback"
+                        data-clientid="1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com"
+                        data-cookiepolicy="single_host_origin"
+                        data-scope="https://www.googleapis.com/auth/drive.file">
+                </span>
+            </span>
+            <span id="signedin" style="display: none;">
+                Already signed in
+            </span>
+        </div>
+
+        <div class="section" id="divConfigHead">
+            <span>3</span>
+            Configuration
+            <div class="collapser">[-]</div>
+        </div>
+        <div class="inner-wrap" id="divConfig">
+            <label>API Key
+                <input type="text" name="apiKey" id="apiKey" value="TEST_API"/>
+                <span>Your EB API key</span>
+            </label>
+
+            <label>User object ID
+                <input type="text" name="userObjectID" id="userObjectID" value="8855"/>
+                <span>User object used for HOTP context generation</span>
+            </label>
+
+            <label>ProcessData method
+                <input type="text" name="processDataMethod" id="processDataMethod" value="AUTH_NEWUSERCTX"/>
+                <span></span>
+            </label>
+
+            <label>Endpoint
+                <input type="text" name="endpoint" id="endpoint" placeholder="endpoint.address.com"/>
+                <span>Hostname of the EB API
+                    <a onclick="$('#endpoint').val(defaults.site1);">site1</a>,
+                    <a onclick="$('#endpoint').val(defaults.site2);">site2</a></span>
+            </label>
+
+            <label>Method
+                <select id="requestMethod" name="requestMethod">
+                    <option value="POST">POST</option>
+                    <option value="GET">GET</option>
+                </select>
+            </label>
+
+            <label>Scheme
+                <select id="requestScheme" name="requestScheme">
+                    <option value="https">https</option>
+                    <option value="http">http</option>
+                </select>
+            </label>
+
+            <label>AES encryption key
+                <input type="text" name="aesKey" id="aesKey" value="1234567890123456789012345678901234567890123456789012345678901234"/>
+                <span>Hexcoded encryption API key
+                </span>
+            </label>
+
+            <label>MAC key
+                <input type="text" name="macKey" id="macKey" value="2224262820223456789012345678901234567890123456789012345678901234"/>
+                <span>Hexcoded hmac API key
+                </span>
+            </label>
+        </div>
+
+        <div class="section"><span>4</span>Response</div>
+        <div class="inner-wrap">
+            <label>Status code
+                <input type="text" name="hotpStatus" id="hotpStatus" placeholder="EB status code" readonly="readonly"/>
+                <span>9000 means success</span>
+            </label>
+
+            <label style="display: none">Generated user ID
+                <input type="text" name="userId" id="userId" placeholder="hex-coded user ID" readonly="readonly"/>
+                <span>User ID generated by the service</span>
+            </label>
+
+            <label style="display: none">HOTP secret
+                <input type="text" name="hotpSecret" id="hotpSecret" placeholder="HOTP secret key" readonly="readonly" class="crc-src"/>
+                <input type="text" name="hotpSecretCrc" id="hotpSecretCrc" placeholder="CRC" readonly="readonly" class="crc-dst"/>
+                <span>HOTP secret key for the user, used for HOTP token initialization</span>
+            </label>
+
+            <label style="display: none">User context
+                <input type="text" name="userCtx" id="userCtx" placeholder="binary blob" readonly="readonly" class="crc-src"/>
+                <input type="text" name="userCtxCrc" id="userCtxCrc" placeholder="CRC" readonly="readonly" class="crc-dst"/>
+                <span>User context generated by the service, used for further authentication requests</span>
+            </label>
+
+            <label style="display: none">First 5 codes
+                <input type="text" name="htops" id="htops" placeholder="000000 111111 222222 333333 444444" readonly="readonly"/>
+                <span>First HOTP codes generated, should match HOTP authenticator output.</span>
+            </label>
+
+        </div>
+        <div class="button-section">
+            <input type="button" id="btnDownload" value="Download" disabled="disabled"/><br/>
+        </div>
+    </div>
+
+    <br/>
+    <label for="reqRest">Request: </label>
+    <div id="reqRest" class="logbox"></div>
+    <br/>
+
+    <label for="status">Log: </label>
+    <div id="status" class="logbox"></div>
+
+    <script>
+        "use strict";
+        $('#endpoint').val(defaults.site);
+        $('#divConfigHead').click(toggleCategory);
+        $('#gDriveConfigHead').click(toggleCategory);
+        $('#divConfigHead').click();
+
+        function log(msg){
+            console.log(msg);
+            append_message(msg);
+        }
+
+        /**
+         * Get settings from the form.
+         * @returns {{remoteEndpoint: (*|jQuery), remotePort: number, requestMethod: (*|jQuery), requestScheme: (*|jQuery), requestTimeout: number, debuggingLog: boolean}}
+         */
+        function getSettings(){
+            var apiKey = $('#apiKey').val();
+            var keyId = parseInt($('#userObjectID').val(), 16);
+            var endpoint = $('#endpoint').val();
+            var method = $('#requestMethod').val();
+            var scheme = $('#requestScheme').val();
+            var aesKey = $('#aesKey').val();
+            var macKey = $('#macKey').val();
+
+            return {
+                remoteEndpoint: endpoint,
+                remotePort: 11180,
+                requestMethod: method,
+                requestScheme: scheme,
+                requestTimeout: 30000,
+                debuggingLog: true,
+                apiKey: apiKey,
+                apiKeyLow4Bytes: keyId,
+                userObjectId : keyId,
+                aesKey: aesKey,
+                macKey: macKey,
+            };
+        }
+
+        function connectionError(data){
+            $('#qrcode').html("");
+            $('#qrcode2').html("");
+            $('#userId').val("");
+            $('#hotpSecret').val("");
+            $('#htops').val("");
+            $('#qrLink').val("");
+            $('#userCtx').val("");
+            $('#redirBlock').hide('slow');
+
+            statusFieldSet($('#hotpStatus'), "Connection error", false);
+        }
+
+        function finished(response){
+            var digits = $('#hotpDigits').val();
+
+            var statusElem = $('#hotpStatus');
+            var responseStatus = response.hotpStatus;
+            if ((responseStatus === undefined || responseStatus == 0x0) && response.statusCode != eb.comm.status.SW_STAT_OK){
+                responseStatus = response.statusCode;
+            }
+
+            var status = sprintf("0x%04X", responseStatus);
+            if (responseStatus == eb.comm.status.SW_STAT_OK){
+                status += ' - Context created successfully';
+            } else if (responseStatus == eb.comm.status.SW_AUTHMETHOD_NOT_ALLOWED){
+                status += ' - Failed, authentication method not allowed';
+            } else {
+                status += ' - Failed, unknown error';
+            }
+
+            statusFieldSet(statusElem, status, response.hotpStatus == eb.comm.status.SW_STAT_OK);
+            if (response.hotpUserId){
+                $('#userId').val(sjcl.codec.hex.fromBits(eb.comm.hotp.userIdToBits(response.hotpUserId)));
+            }
+
+            if (response.hotpKey){
+                var hotpKeyBits = sjcl.codec.hex.fromBits(response.hotpKey);
+                $('#hotpSecret').val(hotpKeyBits);
+                $('#hotpSecretCrc').val(eb.misc.genChecksumValue(hotpKeyBits, 4));
+
+                // HOTP codes - compute first 5, demo that it works.
+                var i, codes=[];
+                for(i=1; i<=5; i++){
+                    codes.push(""+eb.comm.hotp.hotpCompute(response.hotpKey, i, digits));
+                }
+
+                $('#htops').val(codes.join(" "));
+
+                // QR code for picky iPhones.
+                var qrLink2 = eb.comm.hotp.hotpGetQrLink(response.hotpKey, {
+                    label: sjcl.codec.hex.fromBits(response.hotpUserId),
+                    web: "demo.enigmabridge.com",
+                    issuer: "EnigmaBridge",
+                    ctr:0,
+                    digits: digits,
+                    stripPadding: true
+                });
+                $('#qrLink').val(qrLink2);
+                log("QR link2: " + qrLink2);
+
+                $('#qrcode').html("");
+                $('#qrcode').qrcode(qrLink2);
+
+                // Auth link.
+                $('#redirBlock').show('slow');
+                $('#redirHref').attr("href", sprintf("demoHotpAuth.html?key=%s&userId=%s&userCtx=%s&digits=%d",
+                        sjcl.codec.hex.fromBits(response.hotpKey),
+                        sjcl.codec.hex.fromBits(response.hotpUserId),
+                        sjcl.codec.hex.fromBits(response.hotpUserCtx),
+                        digits
+                ));
+            }
+
+            if (response.hotpUserCtx){
+                var userCtxBits = sjcl.codec.hex.fromBits(response.hotpUserCtx);
+                $('#userCtx').val(userCtxBits);
+                $('#userCtxCrc').val(eb.misc.genChecksumValue(userCtxBits, 4));
+            }
+        }
+
+        function requestSimple(){
+            var aesKey = $('#aesKey').val();
+            var macKey = $('#macKey').val();
+            var pDataMethod = $('#processDataMethod').val();
+            var digits = $('#hotpDigits').val();
+            var password = $('#authPassword').val();
+            password = password ? password.trim() : '';
+            var body = $("body");
+
+            // Flush old messages.
+            display_message("");
+            set_request("");
+
+            var logger = function(msg) {
+                append_message(msg);
+            };
+
+            var endpointConfig = getSettings();
+            var userConfig = {
+                aesKey: aesKey,
+                macKey: macKey,
+                callRequestType: pDataMethod
+            };
+
+            // Configuration for creating a new auth context.
+            // Nested is necessary as we can configure the whole stack with this configuration,
+            // including endpoints, ports, protocols, schemes and so on.
+            var reqConfig = {
+                hotp:{
+                    methods: eb.comm.hotp.USERAUTH_FLAG_HOTP,
+                    hotp:{
+                        digits: digits
+                    }
+                }
+            };
+
+            // If password is configured, add it as an auth method.
+            if (password && password.length > 0){
+                reqConfig.hotp.methods |= eb.comm.hotp.USERAUTH_FLAG_PASSWD;
+                reqConfig.hotp.passwd = reqConfig.hotp.passwd || {};
+                reqConfig.hotp.passwd.hash = sjcl.hash.sha256.hash(password);
+                log("Password configured. Hash=" + eb.misc.inputToHex(reqConfig.hotp.passwd.hash));
+            }
+
+            log("Create Auth context configuration: " + JSON.stringify(reqConfig));
+            var request = new eb.comm.hotp.newHotpUserRequest(reqConfig);
+            request.configure(userConfig);
+            request.configure(endpointConfig);
+
+            // Logging settings.
+            request.logger = logger;
+
+            // Callbacks settings.
+            request.done(function(response, requestObj, data) {
+                log("DONE! " + response.toString());
+                finished(response);
+
+            }).fail(function(failType, data){
+                log("fail! type=" + failType + ", response="+(data && data.response ? data.response.toString() : 'undefined')+"\n data=" + JSON.stringify(data));
+                if (failType == eb.comm.status.PDATA_FAIL_RESPONSE_FAILED){
+                    log("Fail msg: " + data.response.toString());
+                    finished(data.response);
+
+                } else if (failType == eb.comm.status.PDATA_FAIL_CONNECTION){
+                    log("Connection error");
+                    connectionError(data);
+                }
+
+            }).always(function(request, data){
+                log("it is over...");
+                body.removeClass("loading");
+            });
+
+            // Build the request so we can display request in the form.
+            request.build();
+            set_request(sprintf("%s<br/>\n%s<br/>\n%s<br/>\n",
+                    request.getApiUrl(),
+                    JSON.stringify(request.getApiRequestData()),
+                    JSON.stringify(request.getSocketRequest())));
+
+            // Do the call.
+            statusFieldSet($('#hotpStatus'), '...');
+            body.addClass("loading");
+
+            request.doRequest();
+        }
+
+        /**
+         * Callback for G+ Sign-in. Swaps views if login successful.
+         */
+        function signinCallback(result) {
+            if(result.access_token) {
+                accessToken = result.access_token;
+                document.getElementById('signin').style.display = 'none';
+                document.getElementById('signedin').style.display = null;
+                log(sprintf("Google Drive auth successful, token: %s", accessToken));
+
+                $('#gDriveConfigHead').click();
+
+                // Load google drive lib.
+                loadDrive();
+            }
+        }
+
+        /**
+         * Loads Google Drive library, after load fetches share folder.
+         */
+        function loadDrive(){
+            // Google drive API
+            gapi.client.load('drive', 'v3', driveLoaded);
+
+            // Load share logic
+            gapi.load('drive-share');
+        }
+
+        /**
+         * Called when Drive library is loaded.
+         */
+        function driveLoaded(){
+
+        }
+
+        $(function(){
+            // Start random number collectors.
+            sjcl.random.startCollectors();
+
+            // Init
+
+
+            // HTML5 support?
+
+            // Button click handling.
+//            btnDownload.click(function(){
+//                downloadClicked();
+//            });
+        });
+
+    </script>
+    <script src="https://apis.google.com/js/client:plusone.js"></script>
+    <div class="modal"><div class="modal-wrap"></div></div>
+</body>
+</html>

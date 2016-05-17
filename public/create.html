@@ -283,15 +283,6 @@
         return eb.misc.genAlphaNonce(12);
     }
 
-    function copyElementToClipboard(elem){
-        elem.select();
-        try {
-            document.execCommand('copy');
-        } catch (err) {
-            log("Unable to copy");
-        }
-    }
-
     /**
      * Get settings from the form.
      * @returns {{remoteEndpoint: (*|jQuery), remotePort: number, requestMethod: (*|jQuery), requestScheme: (*|jQuery), requestTimeout: number, debuggingLog: boolean}}
@@ -639,7 +630,7 @@
 
     function onFileShared(data){
         var settings = getSettings();
-        var link = eb.sh.misc.buildUrl("/download", {
+        var link = eb.sh.misc.buildUrl("/download.html", {
             uoid: settings.userObjectId,
             encKey: eb.misc.inputToHex(settings.aesKey),
             macKey: eb.misc.inputToHex(settings.macKey),
