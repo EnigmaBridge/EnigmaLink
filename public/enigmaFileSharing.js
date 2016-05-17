@@ -1103,7 +1103,7 @@ EnigmaDownloader.prototype.mergeDownloadBuffers_ = function(from, to, buffer){
     // Consecutive - easy.
     if (this.cached.offset != -1 && this.cached.end == from){
         this.cached.end = to;
-        this.cached.buff = sjcl.bitArray.concat(this.cached.buff, buffer);
+        this.cached.buff = sjcl.bitArray.concat(this.cached.buff, bitArray);
 
         // State update
         this.offset = to;
