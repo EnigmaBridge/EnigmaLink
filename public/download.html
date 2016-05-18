@@ -49,6 +49,7 @@
         var divPassword;
         var divNoPassword;
 
+        var fldEndpoint;
         var fldUserObjectID;
         var fldEncKey;
         var fldMacKey;
@@ -475,6 +476,7 @@
             btnDownload = $('#btnDownload');
             divPassword = $('#passwordDiv');
             divNoPassword = $('#noInputNeededDiv');
+            fldEndpoint = $('#endpoint');
             fldUserObjectID = $('#userObjectID');
             fldEncKey = $('#aesKey');
             fldMacKey = $('#macKey');
@@ -485,6 +487,7 @@
             });
 
             // Behavior.
+            fldEndpoint.val(defaults.site);
             catConfig.click(toggleCategory);
             catDrive.click(toggleCategory);
             catConfig.click();
