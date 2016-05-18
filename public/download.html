@@ -26,6 +26,7 @@
     <script src="sprintf.js"></script>
     <script src="sjcl.js"></script>
     <script src="jquery.qrcode.min.js"></script>
+    <script src="jquery.visible.min.js"></script>
     <script src="he.js"></script>
     <script src="enigma.js"></script>
     <script src="demo.js"></script>
@@ -472,9 +473,13 @@
                     // Reconstruct file.
                     var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
                     saveAs(blob, dwn.fname);
+                    setDisabled(btnDownload, false);
+                    onPasswordRequired(false);
                 },
                 onError: function(data) {
                     log("Critical error: " + JSON.stringify(data));
+                    setDisabled(btnDownload, false);
+                    onPasswordRequired(false);
                 },
                 onPasswordNeeded: function(data){
                     log("Password needed");
@@ -489,6 +494,7 @@
                 }
             });
 
+            setDisabled(btnDownload, true);
             dwn.fetch();
         }
 
@@ -496,9 +502,11 @@
             if (required){
                 divNoPassword.hide();
                 divPassword.show('slow');
+                scrollToIfNotVisible(divPassword, false);
             } else {
                 divPassword.hide('slow');
                 divNoPassword.show();
+                divNoPassword.text("File downloaded");
             }
         }
 
