@@ -218,8 +218,10 @@
             <label>Share link
                 <input type="text" name="qrLink" id="qrLink" placeholder="Share link" readonly="readonly"/>
                 <span>
-                    Link to share this file, <a onclick="copyElementToClipboard(fldShareLink)">copy to clipboard.</a><br/>
-                    <a onclick="changeSharingPermissions()">Change sharing settings</a>
+                    Link to share this file, <a onclick="copyElementToClipboard(fldShareLink)">copy to clipboard.</a>&nbsp;
+                    <a href="" target="_blank" id="aDownloadLink">Try link</a><br/>
+                    <a onclick="changeSharingPermissions()">Change sharing settings</a><br/>
+
                 </span>
             </label>
 
@@ -618,6 +620,7 @@
         divQrCode.html("");
         divQrCode.qrcode(link);
         setDisabled(btnDownload, false);
+        $('#aDownloadLink').attr("href", link);
     }
 
     function processClicked(){
