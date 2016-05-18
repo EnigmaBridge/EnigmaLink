@@ -54,6 +54,23 @@ eb.sh.misc = {
     },
 
     /**
+     * Converts input to the URL-compatible base64 encoding.
+     * @param {bitArray|string|number} input
+     */
+    inputToLinkBase64: function(input){
+        var b64 = sjcl.codec.base64.fromBits(eb.misc.inputToBits(input));
+        return b64===undefined ? undefined : b64.replace('/', '_').replace('+', '.').replace('=', '');
+    },
+
+    /**
+     * Converts link compatible base64 to the bitArray.
+     * @param {string} input
+     */
+    inputFromLinkBase64: function(input){
+        return sjcl.codec.base64.toBits(input.replace('_', '/').replace('.', '+'));
+    },
+
+    /**
      * Extracts URL parameter from the given link.
      * @param {string} name of the URL parameter
      * @param {string} [url] optional URL which to analyze. If undefined, location.search is used (current).

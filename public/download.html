@@ -427,16 +427,16 @@
 
             var params = location.hash;
             var linkCfg = {
-                uoid: eb.sh.misc.getURLParameter('uoid', params, true),
-                aesKey: eb.sh.misc.getURLParameter('encKey', params, true),
-                macKey: eb.sh.misc.getURLParameter('macKey', params, true),
-                fid: eb.sh.misc.getURLParameter('fid', params, true),
-                fkeyREMOVE: eb.sh.misc.getURLParameter('fkeyREMOVE', params, true)
+                uoid:       eb.sh.misc.getURLParameter('uoid', params, true),
+                aesKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('encKey', params, true)),
+                macKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('macKey', params, true)),
+                fid:        eb.sh.misc.getURLParameter('fid', params, true),
+                fkeyREMOVE: eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('fkeyREMOVE', params, true))
             };
 
             log(JSON.stringify(linkCfg));
 
-            
+
         }
 
         $(function(){
