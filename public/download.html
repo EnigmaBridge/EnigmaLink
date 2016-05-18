@@ -15,18 +15,23 @@
         #passwordDiv{
             display:none;
         }
+        pre {
+            margin: 0;
+        }
         .notif {
-            display: block;
+            display: none;
             padding: 10px;
             margin: 15px 0 0 0;
             border-style: dashed;
             border-width: 1px;
         }
         .notifSuccess {
+            display: block;
             background-color: #ddffdd;
             border-color: #4cae4c;
         }
         .notifFail {
+            display: block;
             background-color: #e4b9c0;
             border-color: #a94442;
         }
@@ -61,6 +66,7 @@
 
         // Downloader
         var dwn;
+        var passwdRequired=false;
 
         // Other fields.
         var catConfig;
@@ -71,6 +77,8 @@
         var divPassword;
         var divNoPassword;
         var divPasswdNotif;
+        var divNoPasswdInfo;
+        var divNoPasswdNotif;
 
         var fldEndpoint;
         var fldUserObjectID;
@@ -96,7 +104,10 @@
                 <div id="divPasswdNotif" class="notif"></div>
             </div>
             <div id="noInputNeededDiv">
-                Download not started or the file is not password protected. <a onclick="scrollToIfNotVisible(btnDownload, false);">Go to download part</a>.
+                <div id="divNoPasswdInfo">
+                    Download not started. <a onclick="scrollToIfNotVisible(btnDownload, false);">Go to download part</a>.
+                </div>
+                <div id="divNoPasswdNotif" class="notif"></div>
             </div>
         </div>
 
@@ -454,6 +465,29 @@
 
         }
 
+        function displayNotify(elem, text, isError, shouldScroll){
+            elem.text(text);
+            if (isError){
+                elem.removeClass('notifSuccess');
+                elem.addClass('notifFail');
+            } else {
+                elem.removeClass('notifFail');
+                elem.addClass('notifSuccess');
+            }
+            elem.show('slow');
+            if (shouldScroll){
+                scrollToIfNotVisible(elem, false);
+            }
+
+            if (isError){
+                elem.effect('shake');
+            }
+        }
+
+        function displayNotifyGlobal(text, isError, shouldScroll){
+            displayNotify(passwdRequired ? divPasswdNotif : divNoPasswdNotif, text, isError, shouldScroll);
+        }
+
         function downloadClicked() {
             var fileLink = eb.sh.misc.getDriveDownloadLink(linkCfg.fid);
             var directLink = eb.sh.misc.getDriveDirectLink(linkCfg.fid);
@@ -491,12 +525,11 @@
                     // Reconstruct file.
                     var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
                     saveAs(blob, dwn.fname);
-                    setDisabled(btnDownload, false);
+                    onSuccess(data);
                 },
                 onError: function(data) {
                     log("Critical error: " + JSON.stringify(data));
-                    setDisabled(btnDownload, false);
-                    onPasswordRequired(false);
+                    onError(data);
                 },
                 onPasswordNeeded: function(data){
                     log("Password needed");
@@ -504,19 +537,46 @@
                 },
                 onPasswordFail: function(data){
                     log("Password is invalid");
-                    onPasswordFail();
+                    onPasswordFail(data);
                 },
                 onPasswordOK: function(data){
                     log("Password is OK");
-                    onPasswordOk();
+                    onPasswordOk(data);
                 }
             });
 
             setDisabled(btnDownload, true);
+            divNoPasswdInfo.text("Downloading...");
             dwn.fetch();
         }
 
+        function onSuccess(){
+            var fileInfo = sprintf("File name: %s\nMime type: %s\nFile size: %s B",
+                    dwn.fname,
+                    dwn.mimetype,
+                    dwn.fsize
+            );
+
+            setDisabled(btnDownload, false);
+
+            var pretag = document.createElement( "pre" );
+            $(pretag).text(fileInfo);
+
+            divNoPasswdInfo.text("File details:");
+            divNoPasswdInfo.append(pretag);
+            displayNotifyGlobal("Download successful", false, true);
+        }
+
+        function onError(data){
+            setDisabled(btnDownload, true);
+            setDisabled(btnPasswordSubmit, true);
+            setDisabled(fldPassword, true);
+            divNoPasswdInfo.html("Failed");
+            displayNotifyGlobal("Error: " + JSON.stringify(data), true, true);
+        }
+
         function onPasswordRequired(required){
+            passwdRequired = required;
             if (required){
                 setDisabled(btnPasswordSubmit, false);
                 setDisabled(fldPassword, false);
@@ -534,22 +594,13 @@
         }
 
         function onPasswordFail(){
-            divPasswdNotif.removeClass('notifSuccess');
-            divPasswdNotif.addClass('notifFail');
-            divPasswdNotif.text("Invalid password");
-            divPasswdNotif.show('slow');
-            scrollToIfNotVisible(divPasswdNotif, false);
-            divPasswdNotif.effect('shake');
+            displayNotify(divPasswdNotif, "Invalid password", true, true);
         }
 
         function onPasswordOk(){
             setDisabled(btnPasswordSubmit, true);
             setDisabled(fldPassword, true);
-            divPasswdNotif.removeClass('notifFail');
-            divPasswdNotif.addClass('notifSuccess');
-            divPasswdNotif.text("Password is correct!");
-            scrollToIfNotVisible(divPasswdNotif, false);
-            divPasswdNotif.show('slow');
+            displayNotify(divPasswdNotif, "Password is correct", false, false);
         }
 
         function onPasswordSubmitted(){
@@ -602,6 +653,8 @@
             divPassword = $('#passwordDiv');
             divNoPassword = $('#noInputNeededDiv');
             divPasswdNotif = $('#divPasswdNotif');
+            divNoPasswdInfo = $('#divNoPasswdInfo');
+            divNoPasswdNotif = $('#divNoPasswdNotif');
             fldEndpoint = $('#endpoint');
             fldUserObjectID = $('#userObjectID');
             fldEncKey = $('#aesKey');
