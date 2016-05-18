@@ -634,7 +634,7 @@
             encKey: eb.sh.misc.inputToLinkBase64(settings.aesKey),
             macKey: eb.sh.misc.inputToLinkBase64(settings.macKey),
             fid: data.id,
-            nonce: eb.sh.misc.inputToLinkBase64(data.uploader.lnonce),
+            nonce: eb.sh.misc.inputToLinkBase64(data.lnonce),
             fkeyREMOVE: eb.sh.misc.inputToLinkBase64(data.encKey)         // TODO: only for testing! remove!!! BUGBUG SECBUG
         }, shareConfig.baseUrl, true);
 
@@ -664,6 +664,7 @@
 
         // Generate a new file encryption key, random.
         var encKey = sjcl.random.randomWords(8);
+        var lnonce = sjcl.random.randomWords(4);
 
         // TODO: encrypt encKey with UO.
         var secCtx = sjcl.random.randomWords(32);
@@ -699,6 +700,7 @@
                 onFileUploaded($.extend(JSON.parse(data), {
                     encKey: encKey,
                     secCtx: secCtx,
+                    lnonce: lnonce,
                     uploader: uploader
                 }));
             },

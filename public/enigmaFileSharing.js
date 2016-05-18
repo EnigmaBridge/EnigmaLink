@@ -396,7 +396,6 @@ var EnigmaUploader = function(options) {
     this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
     this.reader = new FileReader();                 // Reader of data/file contents.
     this.iv = sjcl.random.randomWords(4);           // initialization vector for GCM, 1 block, 16B.
-    this.lnonce = sjcl.random.randomWords(4);       // 128bit of entropy stored in the link. Not available to EB.
     this.gcm = new sjcl.mode.gcm2(this.aes, true, [], this.iv, 128); // GCM encryption mode, initialized now.
 
     // Construct first meta block now, compute file sizes.
