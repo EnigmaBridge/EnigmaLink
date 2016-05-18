@@ -374,7 +374,7 @@ EnigmaShareScheme.OUTPUTLEN = 32;      // To match AES key block size.
 /**
  * Builds a secure context block from the parameters.
  * @param {string} password UTF-8 password
- * @param onBuildFinishedCb callback to be called when building is finished.
+ * @param [onBuildFinishedCb] callback to be called when building is finished. Otherwise onComplete is called.
  * @return {bitArray} secure context block.
  */
 EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
@@ -388,15 +388,15 @@ EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
     this.fKey = sjcl.random.randomWords(8);
     this.onComplete = onBuildFinishedCb || this.onComplete;
 
-    // Derive lkey
+    // Derive lKey
     this.lKey = this.derive_(this.lnonce, 0, this.lkeySalt, EnigmaShareScheme.ITERATIONS_LKEY, EnigmaShareScheme.OUTPUTLEN);
 
-    // Derive pkey
+    // Derive pKey
     this.passwordSet = password !== undefined && password.length > 0;
     var passwordInput = this.passwordSet ? sjcl.codec.utf8String.toBits(password) : [0];
     this.pKey = this.derive_(passwordInput, 0, this.pkeySalt, EnigmaShareScheme.ITERATIONS_PKEY, EnigmaShareScheme.OUTPUTLEN);
 
-    // Plainsec block = phSalt || (lkey + fkey)
+    // Plainsec block = phSalt || (lKey + fKey)
     var plainSecBlock = w.concat(this.phSalt, eb.misc.xor8(this.lKey, this.fKey));
 
     // Call EB to compute E2, for now it is mocked with static key encryption.
@@ -524,8 +524,8 @@ EnigmaShareScheme.prototype.tryDecrypt_ = function(password){
             return;
         }
 
-        // Compute fkey.
-        this.fkey = eb.misc.xor8(w.bitSlice(plainSecBlock, 128), this.lKey);
+        // Compute fKey.
+        this.fKey = eb.misc.xor8(w.bitSlice(plainSecBlock, 128), this.lKey);
 
         // Completed!
         this.onPasswordOK({});
