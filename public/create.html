@@ -635,8 +635,7 @@
             encKey: eb.sh.misc.inputToLinkBase64(settings.aesKey),
             macKey: eb.sh.misc.inputToLinkBase64(settings.macKey),
             fid: data.id,
-            nonce: eb.sh.misc.inputToLinkBase64(data.lnonce),
-            fkeyREMOVE: eb.sh.misc.inputToLinkBase64(data.encKey)         // TODO: only for testing! remove!!! BUGBUG SECBUG
+            nonce: eb.sh.misc.inputToLinkBase64(data.lnonce)
         }, shareConfig.baseUrl, true);
 
         log(link);
@@ -719,7 +718,6 @@
                 log("Upload complete: " + data);
                 $form.removeClass( 'is-uploading' );
                 onFileUploaded($.extend(JSON.parse(data), {
-                    encKey: encKey,
                     secCtx: secCtx,
                     lnonce: lnonce,
                     uploader: uploader,
@@ -743,8 +741,7 @@
             aesKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('encKey', link, true)),
             macKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('macKey', link, true)),
             fid:        eb.sh.misc.getURLParameter('fid', link, true),
-            nonce:      eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('nonce', link, true)),
-            fkeyREMOVE: eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('fkeyREMOVE', link, true))
+            nonce:      eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('nonce', link, true))
         };
 
         var fileLink = eb.sh.misc.getDriveDownloadLink(linkCfg.fid);
@@ -771,7 +768,6 @@
             url:directLink,
             proxyRedirUrl: proxyLink,
             encScheme: encScheme,
-            //encKey: eb.misc.inputToBits(linkCfg.fkeyREMOVE), // TODO: remove after UO is implemented...
             onProgress: function(oEvent, aux){
 
             },

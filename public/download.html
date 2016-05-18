@@ -431,12 +431,11 @@
                 aesKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('encKey', params, true)),
                 macKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('macKey', params, true)),
                 fid:        eb.sh.misc.getURLParameter('fid', params, true),
-                nonce:      eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('nonce', params, true)),
-                fkeyREMOVE: eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('fkeyREMOVE', params, true))
+                nonce:      eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('nonce', params, true))
             };
 
             log(JSON.stringify(linkCfg));
-
+            
 
         }
 
