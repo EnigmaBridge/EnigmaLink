@@ -42,10 +42,15 @@
         // Link configuration for the download
         var linkCfg;
 
+        // Downloader
+        var dwn;
+
         // Other fields.
         var catConfig;
         var catDrive;
         var btnDownload;
+        var btnPasswordSubmit;
+        var fldPassword;
         var divPassword;
         var divNoPassword;
 
@@ -69,9 +74,10 @@
                     <input type="text" name="password" id="password" value="" placeholder="Decryption password"/>
                     <span>Password is required to decrypt this file</span>
                 </label>
+                <input type="button" id="btnPasswordSubmit" value="Submit password"/><br/>
             </div>
             <div id="noInputNeededDiv">
-                File is not password protected
+                Download not started or the file is not password protected
             </div>
         </div>
 
@@ -430,7 +436,74 @@
         }
 
         function downloadClicked() {
+            var fileLink = eb.sh.misc.getDriveDownloadLink(linkCfg.fid);
+            var directLink = eb.sh.misc.getDriveDirectLink(linkCfg.fid);
+            var proxyLink = getProxyRedirLink(linkCfg.fid);
+            log("Parsed link data: " + JSON.stringify(linkCfg));
+            log("DownloadLink: " + fileLink);
+            log("DirectLink: " + directLink);
+            log("ProxyRedirLink: " + proxyLink);
 
+            // Initialize encryption scheme
+            var encScheme = new EnigmaShareScheme({
+                lnonce: linkCfg.nonce
+            });
+
+            // Init downloader, start download.
+            // Google APIs do not support CORS for not authorized users. In order to have CORS,
+            // we need access token. It means we need to bother user with signing in to the google drive/plus.
+            //
+            // If we have no access_token, we need to use proxy to obtain file location we can download.
+            // proxy-redir.php reads redirect URL and provides it in a form of a JSON.
+            // Another proxy approach is to stream the whole file = greater overhead, we don't have Google's bandwidth.
+            dwn = new EnigmaDownloader({
+                url:directLink,
+                proxyRedirUrl: proxyLink,
+                encScheme: encScheme,
+                onProgress: function(oEvent, aux){
+
+                },
+                onComplete: function(data) {
+                    log("Download complete: " + data);
+                    log(sprintf("File name: %s", dwn.fname));
+                    log(sprintf("Mime type: %s", dwn.mimetype));
+                    log(sprintf("File size: %s", dwn.fsize));
+
+                    // Reconstruct file.
+                    var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
+                    saveAs(blob, dwn.fname);
+                },
+                onError: function(data) {
+                    log("Critical error: " + JSON.stringify(data));
+                },
+                onPasswordNeeded: function(data){
+                    log("Password needed");
+                    onPasswordRequired(true);
+                },
+                onPasswordFail: function(data){
+                    log("Password is invalid");
+                    alert("Password is invalid");
+                },
+                onPasswordOK: function(data){
+                    log("Password is OK");
+                }
+            });
+
+            dwn.fetch();
+        }
+
+        function onPasswordRequired(required){
+            if (required){
+                divNoPassword.hide();
+                divPassword.show('slow');
+            } else {
+                divPassword.hide('slow');
+                divNoPassword.show();
+            }
+        }
+
+        function onPasswordSubmitted(){
+            dwn.tryPassword(fldPassword.val());
         }
 
         function loadParams(){
@@ -474,6 +547,8 @@
             catConfig = $('#divConfigHead');
             catDrive = $('#gDriveConfigHead');
             btnDownload = $('#btnDownload');
+            btnPasswordSubmit = $('#btnPasswordSubmit');
+            fldPassword = $('#password');
             divPassword = $('#passwordDiv');
             divNoPassword = $('#noInputNeededDiv');
             fldEndpoint = $('#endpoint');
@@ -484,6 +559,9 @@
             // Button click handling.
             btnDownload.click(function(){
                 downloadClicked();
+            });
+            btnPasswordSubmit.click(function(){
+               onPasswordSubmitted();
             });
 
             // Behavior.
