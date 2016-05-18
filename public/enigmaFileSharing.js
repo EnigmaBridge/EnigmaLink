@@ -1228,9 +1228,14 @@ var EnigmaDownloader = function(options){
     var noop = function() {};
 
     this.token = options.token;
+
     this.onComplete = options.onComplete || noop;
     this.onProgress = options.onProgress || noop;
     this.onError = options.onError || noop;
+    this.onPasswordNeeded = options.onPasswordNeeded || noop;
+    this.onPasswordFail = options.onPasswordFail || noop;
+    this.onPasswordOK = options.onPasswordOK || noop;
+
     this.chunkSize = options.chunkSize || 262144*2; // All security relevant data should be present in the first chunk.
     this.offset = 0;
     this.downloaded = false;        // If file was downloaded entirely.
@@ -1241,7 +1246,8 @@ var EnigmaDownloader = function(options){
     this.proxyRedirUrl = options.proxyRedirUrl;
 
     // Encryption related fields.
-    this.encKey = options.encKey;                   // bitArray with encryption key for AES-256-GCM. TODO: remove, will be computed
+    this.encScheme = options.encScheme;             // EnigmaShareScheme for computing file encryption key.
+    this.encKey = options.encKey;                   // bitArray with encryption key for AES-256-GCM.
     this.secCtx = undefined;                        // bitArray with security context, result of UO application.
     this.encryptionInitialized = false;             // If the security block was parsed successfully and system is ready for decryption.
     this.aes = undefined;                           // AES cipher instance to be used with GCM for data encryption.
@@ -1437,6 +1443,10 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
         // Read encryption block, process data.
         log("Reading encryption data.");
         this.processEncryptionBlock_();
+
+        // Abort the processing. Encryption callback will call processing function again as
+        // all key material is ready to use.
+        return;
     }
 
     log(sprintf("ToProcess with GCM: %s-%s, size: %s, buffSize: %s",
@@ -1647,7 +1657,7 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
     //  - incomplete value (from defined length). state = current tag, length (-1 if till end), current length (read), current data.
     // Parser is fed with the downloaded data buffer, later, in decryption phase another layer is added, source is data after decryption.
     // This parser is very simple, cannot work with small chunks, everything has to be already loaded in the cache buffer.
-    var cpos=0, ctag=-1, tlen=-1, w=sjcl.bitArray;
+    var cpos=0, ctag=-1, tlen=-1, secBlock, w=sjcl.bitArray;
     if (this.cached.offset != 0){
         throw new eb.exception.invalid("Input data buffer is in invalid state");
     }
@@ -1676,18 +1686,17 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
             case EnigmaUploader.TAG_SEC:
                 tlen = w.extract32(this.cached.buff, cpos*8);
                 cpos += EnigmaUploader.LENGTH_BYTES;
-                if (this.encryptionInitialized){
+                if (this.encryptionInitialized || secBlock !== undefined){
                     throw new eb.exception.invalid("Sec block already seen");
                 }
 
-                var secBlock = w.bitSlice(this.cached.buff, cpos*8, (cpos+tlen)*8);
+                secBlock = w.bitSlice(this.cached.buff, cpos*8, (cpos+tlen)*8);
                 cpos += tlen;
 
                 if (w.bitLength(secBlock) != tlen*8){
                     throw new eb.exception.invalid("Sec block size does not match");
                 }
 
-                this.processSecCtx_(secBlock);
                 break;
 
             default:
@@ -1714,6 +1723,12 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
         this.cached.offset = cpos;
         this.cached.buff = w.bitSlice(this.cached.buff, cpos*8);
     }
+
+    if (secBlock === undefined){
+        throw new eb.exception.invalid("Security block not found");
+    }
+
+    this.processSecCtx_(secBlock);
 };
 
 /**
@@ -1733,15 +1748,50 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
 
     // Security context, contains decryption key, wrapped.
     this.secCtx = w.bitSlice(buffer, cpos*8);
-    // TODO: call UO. parse secCtx.
-    // TODO: remove debugging info.
     log(sprintf("IV: %s", eb.misc.inputToHex(this.iv)));
-    log(sprintf("EK: %s", eb.misc.inputToHex(this.encKey)));
+    log(sprintf("EK: %s", eb.misc.inputToHex(this.secCtx)));
 
-    // Initialize cipher, engines.
-    this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
-    this.gcm = new sjcl.mode.gcm2(this.aes, false, [], this.iv, 128); // GCM encryption mode, initialized now.
-    this.encryptionInitialized = true;
+    this.encScheme.onComplete = (function(data){
+        this.encKey = this.encScheme.fKey;
+        log(sprintf("Scheme finished. encKey: %s", eb.misc.inputToHex(this.encKey)));
+
+        // Initialize cipher, engines.
+        this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
+        this.gcm = new sjcl.mode.gcm2(this.aes, false, [], this.iv, 128); // GCM encryption mode, initialized now.
+        this.encryptionInitialized = true;
+
+        // Finish the processing of current download chunk. Continues in download operation.
+        this.processDownloadBuffer_();
+
+    }).bind(this);
+
+    this.encScheme.onError = (function(data){
+        log("Failed to compute encryption key.");
+    }).bind(this);
+
+    this.encScheme.onPasswordNeeded = (function(data){
+        this.onPasswordNeeded(data);
+    }).bind(this);
+
+    this.encScheme.onPasswordOK = (function(data){
+        this.onPasswordOK(data);
+    }).bind(this);
+
+    this.encScheme.onPasswordFail = (function(data){
+        this.onPasswordFail(data);
+    }).bind(this);
+
+    // Process security block, async call.
+    this.encScheme.process(this.secCtx);
+};
+
+/**
+ * Function called when password is entered by the user and should be tried by the encryption scheme.
+ * This function can be called only after callback onPasswordNeeded was signaled.
+ * @param password
+ */
+EnigmaDownloader.prototype.tryPassword = function(password){
+    this.encScheme.passwordProvided(password);
 };
 
 /**

@@ -68,6 +68,7 @@
         var fldMsg;
         var fldFname;
         var fldFnameOrig;
+        var fldPassword;
         var chkMask;
         var spnUploadPcnt;
         var fldShareLink;
@@ -662,12 +663,32 @@
             return
         }
 
-        // Generate a new file encryption key, random.
-        var encKey = sjcl.random.randomWords(8);
-        var lnonce = sjcl.random.randomWords(4);
+        // Setup the encryption scheme.
+        var encScheme = new EnigmaShareScheme({
+            onComplete: function(data){
+                onUploadKeyCreated(encScheme);
+            },
+            onError: function(data){
+                log("Critical error: " + JSON.stringify(data));
+                $form.removeClass( 'is-uploading' ).addClass( 'is-error' );
+                $fldErrorMsg.text( JSON.stringify(data) );
+            }
+        });
 
-        // TODO: encrypt encKey with UO.
-        var secCtx = sjcl.random.randomWords(32);
+        // Generate the file encryption key.
+        encScheme.build(fldPassword.val());
+    }
+
+    function onUploadKeyCreated(encScheme){
+        var $form = $(updForm);
+
+        // Extract file encryption key & lnonce.
+        var encKey = encScheme.fKey;
+        var lnonce = encScheme.lnonce;
+        var secCtx = encScheme.secCtx;
+        log(sprintf("fKey:   %s", eb.misc.inputToHex(encKey)));
+        log(sprintf("lnonce: %s", eb.misc.inputToHex(lnonce)));
+        log(sprintf("secCtx: %s", eb.misc.inputToHex(secCtx)));
 
         // Encrypt file in the browser, upload to drive, first file.
         var fFile = droppedFiles && droppedFiles.length > 0 ? droppedFiles[0] : undefined;
@@ -701,7 +722,8 @@
                     encKey: encKey,
                     secCtx: secCtx,
                     lnonce: lnonce,
-                    uploader: uploader
+                    uploader: uploader,
+                    encScheme: encScheme
                 }));
             },
             onError: function(data) {
@@ -717,13 +739,14 @@
     function downloadClicked(){
         var link = fldShareLink.val();
         var linkCfg = {
-            uoid: eb.sh.misc.getURLParameter('uoid', link),
-            aesKey: eb.sh.misc.getURLParameter('encKey', link),
-            macKey: eb.sh.misc.getURLParameter('macKey', link),
-            fid: eb.sh.misc.getURLParameter('fid', link),
-            nonce: eb.sh.misc.getURLParameter('nonce', link),
-            fkeyREMOVE: eb.sh.misc.getURLParameter('fkeyREMOVE', link)
+            uoid:       eb.sh.misc.getURLParameter('uoid', link, true),
+            aesKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('encKey', link, true)),
+            macKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('macKey', link, true)),
+            fid:        eb.sh.misc.getURLParameter('fid', link, true),
+            nonce:      eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('nonce', link, true)),
+            fkeyREMOVE: eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('fkeyREMOVE', link, true))
         };
+
         var fileLink = eb.sh.misc.getDriveDownloadLink(linkCfg.fid);
         var directLink = eb.sh.misc.getDriveDirectLink(linkCfg.fid);
         var proxyLink = getProxyRedirLink(linkCfg.fid);
@@ -731,6 +754,11 @@
         log("DownloadLink: " + fileLink);
         log("DirectLink: " + directLink);
         log("ProxyRedirLink: " + proxyLink);
+
+        // Initialize encryption scheme
+        var encScheme = new EnigmaShareScheme({
+            lnonce: linkCfg.nonce
+        });
 
         // Init downloader, start download.
         // Google APIs do not support CORS for not authorized users. In order to have CORS,
@@ -742,7 +770,8 @@
         var dwn = new EnigmaDownloader({
             url:directLink,
             proxyRedirUrl: proxyLink,
-            encKey: eb.misc.inputToBits(linkCfg.fkeyREMOVE), // TODO: remove after UO is implemented...
+            encScheme: encScheme,
+            //encKey: eb.misc.inputToBits(linkCfg.fkeyREMOVE), // TODO: remove after UO is implemented...
             onProgress: function(oEvent, aux){
 
             },
@@ -758,6 +787,17 @@
             },
             onError: function(data) {
                 log("Critical error: " + JSON.stringify(data));
+            },
+            onPasswordNeeded: function(data){
+                log("Password needed");
+                dwn.tryPassword(fldPassword.val());
+            },
+            onPasswordFail: function(data){
+                log("Password is invalid");
+                alert("Password is invalid");
+            },
+            onPasswordOK: function(data){
+                log("Password is OK");
             }
         });
 
@@ -867,6 +907,7 @@
         catConfig = $('#divConfigHead');
         catDrive = $('#gDriveConfigHead');
         fldEndpoint = $('#endpoint');
+        fldPassword = $('#password');
 
         // HTML5 support?
         isAdvancedUpload = function() {
