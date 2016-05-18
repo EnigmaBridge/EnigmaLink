@@ -390,6 +390,39 @@ eb.misc = {
     },
 
     /**
+     * Function generates a zero bit vector of given size.
+     * @param bitLength
+     */
+    getZeroBits: function(bitLength){
+        if (bitLength <= 0) {
+            return [];
+        }
+
+        var bs = [0, 0, 0, 0,   0, 0, 0, 0], i;
+        for(i=256; i<bitLength; i+=32){
+            bs.push(0);
+        }
+
+        return sjcl.bitArray.bitSlice(bs, 0, bitLength);
+    },
+
+    /**
+     * Converts given number to the bitArray representation.
+     *
+     * @param num
+     * @param bitSize
+     */
+    numberToBits: function(num, bitSize){
+        if (bitSize > 32){
+            throw new eb.exception.invalid("num can be maximally 32bit wide");
+        }
+        if (bitSize == 32){
+            return [num];
+        }
+        return sjcl.bitArray.bitSlice([num], 32-bitSize, 32);
+    },
+
+    /**
      * Left zero padding to the even number of hexcoded digits.
      * @param x
      * @returns {*}
