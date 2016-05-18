@@ -11,3 +11,8 @@ var shareConfig = {
     shareFolderName: 'EnigmaShares',
     clientId: '1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com'
 };
+
+function getProxyRedirLink(fileId){
+    return sprintf("https://expert.enigmabridge.com/cgi-bin/proxy-redir.php?id=%s", encodeURIComponent(fileId));
+}
+

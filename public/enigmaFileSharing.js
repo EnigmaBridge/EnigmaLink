@@ -62,6 +62,26 @@ eb.sh.misc = {
      */
     getURLParameter: function(name, url, fromFragment) {
         return decodeURIComponent((new RegExp('['+(fromFragment ? '#' : '?')+'|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(url || location.search) || [, ""])[1].replace(/\+/g, '%20')) || null;
+    },
+
+    /**
+     * Returns google drive link for the file with given ID.
+     * @param fileId
+     * @returns {*}
+     */
+    getDriveDownloadLink: function(fileId){
+        return sprintf("https://drive.google.com/file/d/%s/view?usp=sharing", encodeURIComponent(fileId));
+    },
+
+    /**
+     * Returns google drive direct download link for the file with given ID.
+     * @param fileId
+     * @returns {*}
+     */
+    getDriveDirectLink: function(fileId){
+        // return sprintf("https://www.googleapis.com/drive/v3/files/%s?alt=media", encodeURIComponent(fileId));
+        // return sprintf("https://docs.google.com/uc?id=%s&export=download", encodeURIComponent(fileId));
+        return sprintf("https://drive.google.com/uc?export=download&id=%s", encodeURIComponent(fileId));
     }
 };
 

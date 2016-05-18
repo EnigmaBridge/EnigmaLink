@@ -711,21 +711,6 @@
         uploader.upload();
     }
 
-    function getDriveDownloadLink(fileId){
-        return sprintf("https://drive.google.com/file/d/%s/view?usp=sharing", encodeURIComponent(fileId));
-    }
-
-    function getDriveDirectLink(fileId){
-//        https://www.googleapis.com/drive/v3/files/0B4ObafdOo3JwbWtYa2ZjNWxRUk0?alt=media
-//        return sprintf("https://docs.google.com/uc?id=%s&export=download", fileId);
-        return sprintf("https://drive.google.com/uc?export=download&id=%s", encodeURIComponent(fileId));
-    }
-
-    function getProxyRedirLink(fileId){
-//        return sprintf("http://deadcode.me/proxy-redir.php?id=%s", encodeURIComponent(fileId));
-        return sprintf("https://expert.enigmabridge.com/cgi-bin/proxy-redir.php?id=%s", encodeURIComponent(fileId));
-    }
-
     function downloadClicked(){
         var link = fldShareLink.val();
         var linkCfg = {
@@ -735,8 +720,8 @@
             fid: eb.sh.misc.getURLParameter('fid', link),
             fkeyREMOVE: eb.sh.misc.getURLParameter('fkeyREMOVE', link)
         };
-        var fileLink = getDriveDownloadLink(linkCfg.fid);
-        var directLink = getDriveDirectLink(linkCfg.fid);
+        var fileLink = eb.sh.misc.getDriveDownloadLink(linkCfg.fid);
+        var directLink = eb.sh.misc.getDriveDirectLink(linkCfg.fid);
         var proxyLink = getProxyRedirLink(linkCfg.fid);
         log("Parsed link data: " + JSON.stringify(linkCfg));
         log("DownloadLink: " + fileLink);
