@@ -634,6 +634,7 @@
             encKey: eb.sh.misc.inputToLinkBase64(settings.aesKey),
             macKey: eb.sh.misc.inputToLinkBase64(settings.macKey),
             fid: data.id,
+            nonce: eb.sh.misc.inputToLinkBase64(data.uploader.lnonce),
             fkeyREMOVE: eb.sh.misc.inputToLinkBase64(data.encKey)         // TODO: only for testing! remove!!! BUGBUG SECBUG
         }, shareConfig.baseUrl, true);
 
@@ -718,6 +719,7 @@
             aesKey: eb.sh.misc.getURLParameter('encKey', link),
             macKey: eb.sh.misc.getURLParameter('macKey', link),
             fid: eb.sh.misc.getURLParameter('fid', link),
+            nonce: eb.sh.misc.getURLParameter('nonce', link),
             fkeyREMOVE: eb.sh.misc.getURLParameter('fkeyREMOVE', link)
         };
         var fileLink = eb.sh.misc.getDriveDownloadLink(linkCfg.fid);
