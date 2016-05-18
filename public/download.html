@@ -12,6 +12,9 @@
         input[disabled]{
             background-color: #F8F8F8 !important;
         }
+        #passwordDiv{
+            display:none;
+        }
 
     </style>
     <link href='css/googleapi-FamilyBitter.css' rel='stylesheet' type='text/css'/>
@@ -36,10 +39,19 @@
         // Google Drive access token.
         var accessToken = null;
 
+        // Link configuration for the download
+        var linkCfg;
+
         // Other fields.
         var catConfig;
         var catDrive;
         var btnDownload;
+        var divPassword;
+        var divNoPassword;
+
+        var fldUserObjectID;
+        var fldEncKey;
+        var fldMacKey;
 
     </script>
 </head>
@@ -51,10 +63,15 @@
     <div>
         <div class="section"><span>1</span>Input</div>
         <div class="inner-wrap">
-            <label>Password
-                <input type="text" name="password" id="password" value="" placeholder="Password to protect the share (TODO)"/>
-                <span>Additional password protection</span>
-            </label>
+            <div id="passwordDiv">
+                <label>Password
+                    <input type="text" name="password" id="password" value="" placeholder="Decryption password"/>
+                    <span>Password is required to decrypt this file</span>
+                </label>
+            </div>
+            <div id="noInputNeededDiv">
+                File is not password protected
+            </div>
         </div>
 
         <div class="section" id="gDriveConfigHead">
@@ -94,12 +111,7 @@
 
             <label>User object ID
                 <input type="text" name="userObjectID" id="userObjectID" value="8855"/>
-                <span>User object used for HOTP context generation</span>
-            </label>
-
-            <label>ProcessData method
-                <input type="text" name="processDataMethod" id="processDataMethod" value="AUTH_NEWUSERCTX"/>
-                <span></span>
+                <span>User object ID for decryption</span>
             </label>
 
             <label>Endpoint
@@ -421,22 +433,36 @@
         }
 
         function loadParams(){
+            var w = sjcl.bitArray;
+
             console.log(location);
             log(sprintf("URL query: %s", location.search));
             log(sprintf("URL hash: %s", location.hash));
-
             var params = location.hash;
-            var linkCfg = {
+            linkCfg = {
                 uoid:       eb.sh.misc.getURLParameter('uoid', params, true),
-                aesKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('encKey', params, true)),
-                macKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('macKey', params, true)),
+                aesKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('encKey', params, true) || ""),
+                macKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('macKey', params, true) || ""),
                 fid:        eb.sh.misc.getURLParameter('fid', params, true),
-                nonce:      eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('nonce', params, true))
+                nonce:      eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('nonce', params, true) || "")
             };
 
             log(JSON.stringify(linkCfg));
-            
 
+            // Configure UO fields if required.
+            if (w.bitLength(linkCfg.aesKey)>0){
+                fldEncKey.val(sjcl.codec.hex.fromBits(linkCfg.aesKey));
+            }
+            if (w.bitLength(linkCfg.macKey)>0){
+                fldMacKey.val(sjcl.codec.hex.fromBits(linkCfg.macKey));
+            }
+            if (linkCfg.uoid > 0){
+                fldUserObjectID.val(linkCfg.uoid);
+            }
+
+            if (linkCfg.fid !== null && linkCfg.fid.length > 0 && linkCfg.nonce != null && w.bitLength(linkCfg.nonce) > 0){
+                setDisabled(btnDownload, false);
+            }
         }
 
         $(function(){
@@ -447,6 +473,11 @@
             catConfig = $('#divConfigHead');
             catDrive = $('#gDriveConfigHead');
             btnDownload = $('#btnDownload');
+            divPassword = $('#passwordDiv');
+            divNoPassword = $('#noInputNeededDiv');
+            fldUserObjectID = $('#userObjectID');
+            fldEncKey = $('#aesKey');
+            fldMacKey = $('#macKey');
 
             // Button click handling.
             btnDownload.click(function(){
