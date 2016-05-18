@@ -492,6 +492,7 @@ EnigmaShareScheme.prototype.process = function(secCtx){
 
 /**
  * Called when password was required, entered by user and provided for processing.
+ * Function can be called only if onPasswordNeeded callback was signaled.
  * @param password
  */
 EnigmaShareScheme.prototype.passwordProvided = function(password){
@@ -595,7 +596,7 @@ EnigmaShareScheme.prototype.ebOp_ = function(input, encrypt, ebOptions, onSucces
  * @private
  */
 EnigmaShareScheme.prototype.derive_ = function(input, extra, salt, iterations, outputLen){
-    var sha256 = sjcl.hash.sha256, xor8=eb.misc.xor8;
+    var sha256 = sjcl.hash.sha256.hash, xor8=eb.misc.xor8;
     var extraHbits = sha256(eb.misc.inputToBits(extra || [0]));
     var inputHbits = sha256(eb.misc.inputToBits(input));
     var saltHbits  = sha256(eb.misc.inputToBits(salt));
