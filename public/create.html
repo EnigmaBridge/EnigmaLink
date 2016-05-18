@@ -111,8 +111,10 @@
             </label>
 
             <label>Password
-                <input type="text" name="password" id="password" value="" placeholder="Password to protect the share (TODO)"/>
-                <span>Additional password protection</span>
+                <input type="text" name="password" id="password" value="" placeholder="Password to protect the share [optional]"/>
+                <span>Additional password protection of the file. Password can be empty. If entered, it is
+                used for file encryption key derivation. In order to download the file the password is required.
+                Password is not possible to brute-force locally (attacker would need to call EB for each guess). </span>
             </label>
 
             <div class="js box">
