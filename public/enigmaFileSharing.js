@@ -332,23 +332,33 @@ MergedDataSource.inheritsFrom(DataSource, {
  * Ued for building & parsing security context of the files.
  * First version of share scheme, simple building & parsing.
  *
+ * VERSION-1B | TAGV1-1B | PasswordSet-1B | lkeySalt-16B | pkeySalt-16B | phSalt-16B | e1Iv-16B | pkeyIter-4B | lkeyIter-4B | e1-32B
  *
  * @param options
  * @constructor
  */
 var EnigmaShareScheme = function(options){
-    this.lnonce = undefined;    // 128bit of entropy stored in the link. Not available to EB.
-    this.lkeySalt = undefined;  // 128bit of entropy for lkey salt (stored in encrypted file).
-    this.pkeySalt = undefined;  // 128bit of entropy for pkey salt (stored in encrypted file).
-    this.e1Iv = undefined;      // 128bit IV for E_1 computation.
-    this.phSalt = undefined;    // 128bit of entropy for password verification (stored in encrypted file).
-    this.passwordSet = false;   // flag indicating whether the password was used or not.
+    var nop = function() {};
+    this.lnonce = options.lnonce;  // 128bit of entropy stored in the link. Not available to EB.
+    this.lkeySalt = undefined;     // 128bit of entropy for lkey salt (stored in encrypted file).
+    this.pkeySalt = undefined;     // 128bit of entropy for pkey salt (stored in encrypted file).
+    this.e1Iv = undefined;         // 128bit IV for E_1 computation.
+    this.phSalt = undefined;       // 128bit of entropy for password verification (stored in encrypted file).
+    this.passwordSet = false;      // flag indicating whether the password was used or not.
+
+    // Event handlers.
+    this.onError = options.onError || nop;
+    this.onComplete = options.onComplete || nop;
+    this.onPasswordNeeded = options.onPasswordNeeded || nop;
+    this.onPasswordFail = options.onPasswordFail || nop;
+    this.onPasswordOK = options.onPasswordOK || nop;
 
     // To be computed.
     this.secCtx = undefined;    // security context to be generated / parsed.
     this.fKey = undefined;      // master key to be computed.
     this.pKey = undefined;      // pkey, 32B key derived from password.
     this.lKey = undefined;      // lkey, 32B key derived from link nonce.
+    this.e1 = undefined;        // e1 encryption block.
 
     // EB options.
     this.ebOptions = options.eb;
@@ -376,6 +386,7 @@ EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
     this.phSalt = sjcl.random.randomWords(4);
     this.e1Iv = sjcl.random.randomWords(4);
     this.fKey = sjcl.random.randomWords(8);
+    this.onComplete = onBuildFinishedCb || this.onComplete;
 
     // Derive lkey
     this.lKey = this.derive_(this.lnonce, 0, this.lkeySalt, EnigmaShareScheme.ITERATIONS_LKEY, EnigmaShareScheme.OUTPUTLEN);
@@ -395,14 +406,18 @@ EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
             throw new eb.exception.invalid("Returned encrypted block has invalid length");
         }
 
-        // compute e1
+        // Compute e1 block.
         var aes = new sjcl.cipher.aes(eb.misc.inputToBits(this.pKey));
-        var e1 = sjcl.mode.cbc.encrypt(aes, e2, this.e1Iv, [], true);
-        this.buildBlock_(e1, onBuildFinishedCb);
+        this.e1 = sjcl.mode.cbc.encrypt(aes, e2, this.e1Iv, [], true);
+
+        // Build final block & signalize completion.
+        this.buildBlock_(this.e1);
+        this.onComplete({});
     };
 
     var onEbOpFailure = function(data){
         console.log("EB failure");
+        // TODO: retry handler.
     };
 
     // Call EB operation.
@@ -410,14 +425,129 @@ EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
 };
 
 /**
+ * Processes (parses) secCtx object.
+ * If password is required, callback is called.
+ * In case of a parsing error, exception is thrown.
+ *
+ * @param secCtx
+ */
+EnigmaShareScheme.prototype.process = function(secCtx){
+    var cpos = 0, pkeyIter, lkeyIter, w = sjcl.bitArray;
+    this.secCtx = secCtx || this.secCtx;
+
+    // Parse the context.
+    if (w.extract(secCtx, cpos*8, 8) != EnigmaShareScheme.VERSION){
+        throw new eb.exception.invalid("Unsupported version");
+    }
+    cpos += 1;
+
+    if (w.extract(secCtx, cpos*8, 8) != EnigmaShareScheme.TAG_V1){
+        throw new eb.exception.invalid("V1 tag is missing");
+    }
+    cpos += 1;
+
+    this.passwordSet = w.extract(secCtx, cpos*8, 8);
+    cpos += 1;
+
+    this.lkeySalt = w.bitSlice(secCtx, cpos*8, (cpos+16)*8);
+    cpos += 16;
+
+    this.pkeySalt = w.bitSlice(secCtx, cpos*8, (cpos+16)*8);
+    cpos += 16;
+
+    this.phSalt = w.bitSlice(secCtx, cpos*8, (cpos+16)*8);
+    cpos += 16;
+
+    this.e1Iv = w.bitSlice(secCtx, cpos*8, (cpos+16)*8);
+    cpos += 16;
+
+    pkeyIter = w.extract32(secCtx, cpos*8);
+    cpos += 4;
+
+    lkeyIter = w.extract32(secCtx, cpos*8);
+    cpos += 4;
+
+    if (pkeyIter != EnigmaShareScheme.ITERATIONS_PKEY || lkeyIter != EnigmaShareScheme.ITERATIONS_LKEY){
+        throw new eb.exception.invalid("Number of iterations not supported");
+    }
+
+    this.e1 = w.bitSlice(secCtx, cpos*8);
+
+    if (w.bitLength(this.lkeySalt) != 128
+        || w.bitLength(this.pkeySalt) != 128
+        || w.bitLength(this.phSalt) != 128
+        || w.bitLength(this.e1Iv) != 128
+    ) {
+        throw new eb.exception.invalid("Invalid element sizes in secCtx");
+    }
+
+    // If password protection is set, call password provide callback.
+    if (this.passwordSet){
+        this.onPasswordNeeded({});
+        return;
+    }
+
+    this.tryDecrypt_();
+};
+
+/**
+ * Called when password was required, entered by user and provided for processing.
+ * @param password
+ */
+EnigmaShareScheme.prototype.passwordProvided = function(password){
+    this.tryDecrypt_(password);
+};
+
+EnigmaShareScheme.prototype.tryDecrypt_ = function(password){
+    var w = sjcl.bitArray;
+
+    // Derive lkey
+    this.lKey = this.derive_(this.lnonce, 0, this.lkeySalt, EnigmaShareScheme.ITERATIONS_LKEY, EnigmaShareScheme.OUTPUTLEN);
+
+    // Derive pkey
+    var passwordInput = this.passwordSet ? sjcl.codec.utf8String.toBits(password) : [0];
+    this.pKey = this.derive_(passwordInput, 0, this.pkeySalt, EnigmaShareScheme.ITERATIONS_PKEY, EnigmaShareScheme.OUTPUTLEN);
+
+    // Compute e2
+    var aes = new sjcl.cipher.aes(eb.misc.inputToBits(this.pKey));
+    var e2 = sjcl.mode.cbc.decrypt(aes, this.e1, this.e1Iv, [], true);
+
+    // Call EB decryption on e2.
+    var onEbOpSuccess = function(data){
+        var plainSecBlock = data.data;
+        var phSaltPrime = w.bitSlice(plainSecBlock, 0, 128);
+
+        // Test password correctness
+        if (!w.equal(phSaltPrime, this.phSalt)){
+            // Password is invalid.
+            this.onPasswordFail({});
+            return;
+        }
+
+        // Compute fkey.
+        this.fkey = eb.misc.xor8(w.bitSlice(plainSecBlock, 128), this.lKey);
+
+        // Completed!
+        this.onPasswordOK({});
+        this.onComplete({});
+    };
+
+    var onEbOpFailure = function(data){
+        console.log("EB failure");
+        // TODO: retry handler.
+    };
+
+    // Call EB operation.
+    this.ebOp_(e2, false, this.ebOptions, onEbOpSuccess.bind(this), onEbOpFailure.bind(this));
+};
+
+/**
  * Builds final secCtx block
- * VERSION-1B | TAGV1-1B | PasswordSet-1B | lkeySalt-16B | pkeySalt-16B | phSalt-16B | e1Iv-16B | pkeyIter-4B | lkeyIter-4B | e1-32B
  *
  * @param e1
- * @param onBuildFinishedCb
  * @private
  */
-EnigmaShareScheme.prototype.buildBlock_ = function(e1, onBuildFinishedCb){
+EnigmaShareScheme.prototype.buildBlock_ = function(e1){
     var w = sjcl.bitArray;
     var ba = [];
     ba = w.concat(ba, eb.misc.numberToBits(EnigmaShareScheme.VERSION, 8));
@@ -432,7 +562,7 @@ EnigmaShareScheme.prototype.buildBlock_ = function(e1, onBuildFinishedCb){
     ba = w.concat(ba, eb.misc.inputToBits(e1));
 
     this.secCtx = ba;
-    onBuildFinishedCb();
+    return ba;
 };
 
 /**
