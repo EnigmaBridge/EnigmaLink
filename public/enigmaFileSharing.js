@@ -1803,7 +1803,6 @@ EnigmaDownloader.prototype.bufferProcessed_ = function(){
         this.fetchFile_();
     }
 
-    // TODO: implement if all processing is done (decryption).
     if (this.downloaded) {
         this.onComplete();
     }
