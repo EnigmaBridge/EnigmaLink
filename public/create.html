@@ -635,7 +635,7 @@
             macKey: eb.misc.inputToHex(settings.macKey),
             fid: data.id,
             fkeyREMOVE: eb.misc.inputToHex(data.encKey)         // TODO: only for testing! remove!!! BUGBUG SECBUG
-        }, shareConfig.baseUrl);
+        }, shareConfig.baseUrl, true);
 
         log(link);
         fldShareLink.val(link);

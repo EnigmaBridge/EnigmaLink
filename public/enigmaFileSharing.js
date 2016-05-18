@@ -38,16 +38,17 @@ eb.sh.misc = {
      * @param {string} [path] File ID if replacing
      * @param {object} [params] Query parameters
      * @param {object} [baseUrl] Base url
+     * @param {boolean} [asFragment] If true the parameters are passed as fragment.
      * @return {string} URL
      */
-    buildUrl: function(path, params, baseUrl) {
+    buildUrl: function(path, params, baseUrl, asFragment) {
         var url = baseUrl || '';
         if (path) {
             url += path;
         }
         var query = eb.sh.misc.buildQuery(params);
         if (query) {
-            url += '?' + query;
+            url += (asFragment !== undefined && asFragment ? '#' : '?') + query;
         }
         return url;
     },
@@ -56,10 +57,11 @@ eb.sh.misc = {
      * Extracts URL parameter from the given link.
      * @param {string} name of the URL parameter
      * @param {string} [url] optional URL which to analyze. If undefined, location.search is used (current).
+     * @param {boolean} [fromFragment] If true the parameters are searched in the fragment.
      * @returns {string|null}
      */
-    getURLParameter: function(name, url) {
-        return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(url || location.search) || [, ""])[1].replace(/\+/g, '%20')) || null;
+    getURLParameter: function(name, url, fromFragment) {
+        return decodeURIComponent((new RegExp('['+(fromFragment ? '#' : '?')+'|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(url || location.search) || [, ""])[1].replace(/\+/g, '%20')) || null;
     }
 };
 

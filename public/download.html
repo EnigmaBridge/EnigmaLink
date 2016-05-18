@@ -421,10 +421,22 @@
         }
 
         function loadParams(){
-            log(sprintf("URL: %s", location.search));
+            console.log(location);
+            log(sprintf("URL query: %s", location.search));
             log(sprintf("URL hash: %s", location.hash));
-            log(sprintf("URL href: %s", location.href));
-            log(sprintf("URL target: %s", location.target));
+
+            var params = location.hash;
+            var linkCfg = {
+                uoid: eb.sh.misc.getURLParameter('uoid', params, true),
+                aesKey: eb.sh.misc.getURLParameter('encKey', params, true),
+                macKey: eb.sh.misc.getURLParameter('macKey', params, true),
+                fid: eb.sh.misc.getURLParameter('fid', params, true),
+                fkeyREMOVE: eb.sh.misc.getURLParameter('fkeyREMOVE', params, true)
+            };
+
+            log(JSON.stringify(linkCfg));
+
+            
         }
 
         $(function(){
