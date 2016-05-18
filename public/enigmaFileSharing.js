@@ -328,6 +328,151 @@ MergedDataSource.inheritsFrom(DataSource, {
 });
 
 /**
+ * Crypto sharing scheme protecting file sharing.
+ * Ued for building & parsing security context of the files.
+ * First version of share scheme, simple building & parsing.
+ *
+ *
+ * @param options
+ * @constructor
+ */
+var EnigmaShareScheme = function(options){
+    this.lnonce = undefined;    // 128bit of entropy stored in the link. Not available to EB.
+    this.lkeySalt = undefined;  // 128bit of entropy for lkey salt (stored in encrypted file).
+    this.pkeySalt = undefined;  // 128bit of entropy for pkey salt (stored in encrypted file).
+    this.e1Iv = undefined;      // 128bit IV for E_1 computation.
+    this.phSalt = undefined;    // 128bit of entropy for password verification (stored in encrypted file).
+    this.passwordSet = false;   // flag indicating whether the password was used or not.
+
+    // To be computed.
+    this.secCtx = undefined;    // security context to be generated / parsed.
+    this.fKey = undefined;      // master key to be computed.
+    this.pKey = undefined;      // pkey, 32B key derived from password.
+    this.lKey = undefined;      // lkey, 32B key derived from link nonce.
+
+    // EB options.
+    this.ebOptions = options.eb;
+};
+
+EnigmaShareScheme.VERSION = 1;
+EnigmaShareScheme.TAG_V1 = 1;
+
+EnigmaShareScheme.ITERATIONS_PKEY = 0; // 0 means no PBKDF2, just simple sha256.
+EnigmaShareScheme.ITERATIONS_LKEY = 0; // 0 means no PBKDF2, just simple sha256.
+EnigmaShareScheme.OUTPUTLEN = 32;      // To match AES key block size.
+
+/**
+ * Builds a secure context block from the parameters.
+ * @param {string} password UTF-8 password
+ * @param onBuildFinishedCb callback to be called when building is finished.
+ * @return {bitArray} secure context block.
+ */
+EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
+    // Init data.
+    var w = sjcl.bitArray;
+    this.lnonce = sjcl.random.randomWords(4);
+    this.lkeySalt = sjcl.random.randomWords(4);
+    this.pkeySalt = sjcl.random.randomWords(4);
+    this.phSalt = sjcl.random.randomWords(4);
+    this.e1Iv = sjcl.random.randomWords(4);
+    this.fKey = sjcl.random.randomWords(8);
+
+    // Derive lkey
+    this.lKey = this.derive_(this.lnonce, 0, this.lkeySalt, EnigmaShareScheme.ITERATIONS_LKEY, EnigmaShareScheme.OUTPUTLEN);
+
+    // Derive pkey
+    this.passwordSet = password !== undefined && password.length > 0;
+    var passwordInput = this.passwordSet ? sjcl.codec.utf8String.toBits(password) : [0];
+    this.pKey = this.derive_(passwordInput, 0, this.pkeySalt, EnigmaShareScheme.ITERATIONS_PKEY, EnigmaShareScheme.OUTPUTLEN);
+
+    // Plainsec block = phSalt || (lkey + fkey)
+    var plainSecBlock = w.concat(this.phSalt, eb.misc.xor8(this.lKey, this.fKey));
+
+    // Call EB to compute E2, for now it is mocked with static key encryption.
+    var onEbOpSuccess = function(data){
+        var e2 = data.data;
+        if (w.bitLength(e2) != w.bitLength(plainSecBlock)){
+            throw new eb.exception.invalid("Returned encrypted block has invalid length");
+        }
+
+        // compute e1
+        var aes = new sjcl.cipher.aes(eb.misc.inputToBits(this.pKey));
+        var e1 = sjcl.mode.cbc.encrypt(aes, e2, this.e1Iv, [], true);
+        this.buildBlock_(e1, onBuildFinishedCb);
+    };
+
+    var onEbOpFailure = function(data){
+        console.log("EB failure");
+    };
+
+    // Call EB operation.
+    this.ebOp_(plainSecBlock, true, this.ebOptions, onEbOpSuccess.bind(this), onEbOpFailure.bind(this));
+};
+
+/**
+ * Builds final secCtx block
+ * VERSION-1B | TAGV1-1B | PasswordSet-1B | lkeySalt-16B | pkeySalt-16B | phSalt-16B | e1Iv-16B | pkeyIter-4B | lkeyIter-4B | e1-32B
+ *
+ * @param e1
+ * @param onBuildFinishedCb
+ * @private
+ */
+EnigmaShareScheme.prototype.buildBlock_ = function(e1, onBuildFinishedCb){
+    var w = sjcl.bitArray;
+    var ba = [];
+    ba = w.concat(ba, eb.misc.numberToBits(EnigmaShareScheme.VERSION, 8));
+    ba = w.concat(ba, eb.misc.numberToBits(EnigmaShareScheme.TAG_V1,  8));
+    ba = w.concat(ba, eb.misc.numberToBits(this.passwordSet ? 1 : 0,  8));
+    ba = w.concat(ba, eb.misc.inputToBits(this.lkeySalt));
+    ba = w.concat(ba, eb.misc.inputToBits(this.pkeySalt));
+    ba = w.concat(ba, eb.misc.inputToBits(this.phSalt));
+    ba = w.concat(ba, eb.misc.inputToBits(this.e1Iv));
+    ba = w.concat(ba, eb.misc.numberToBits(EnigmaShareScheme.ITERATIONS_PKEY, 32));
+    ba = w.concat(ba, eb.misc.numberToBits(EnigmaShareScheme.ITERATIONS_LKEY, 32));
+    ba = w.concat(ba, eb.misc.inputToBits(e1));
+
+    this.secCtx = ba;
+    onBuildFinishedCb();
+};
+
+/**
+ * Performing EB encryption operation on the input.
+ * @param input
+ * @param encrypt
+ * @param ebOptions
+ * @param onSuccess
+ * @param onFailure
+ * @private
+ */
+EnigmaShareScheme.prototype.ebOp_ = function(input, encrypt, ebOptions, onSuccess, onFailure){
+    // TODO: implement EB call.
+    var aes = new sjcl.cipher.aes(eb.misc.inputToBits("11223344556677889900aabbccddeeff"));
+    var iv = [0, 0, 0, 0];
+    var encOp = encrypt ? sjcl.mode.cbc.encrypt : sjcl.mode.cbc.decrypt;
+    var processedData = encOp(aes, input, iv, [], true);
+    onSuccess({data:processedData});
+};
+
+/**
+ * Derivation function to derive secret keys from the input.
+ * For now we do not use PBKDF2, iterations and outputLen are ignored.
+ *
+ * @param input
+ * @param [extra] extra differentiator, for deriving multiple outputs with same input & salt.
+ * @param salt
+ * @param iterations
+ * @param outputLen
+ * @private
+ */
+EnigmaShareScheme.prototype.derive_ = function(input, extra, salt, iterations, outputLen){
+    var sha256 = sjcl.hash.sha256, xor8=eb.misc.xor8;
+    var extraHbits = sha256(eb.misc.inputToBits(extra || [0]));
+    var inputHbits = sha256(eb.misc.inputToBits(input));
+    var saltHbits  = sha256(eb.misc.inputToBits(salt));
+    return sha256(xor8(sha256(xor8(extraHbits, inputHbits)), saltHbits));
+};
+
+/**
  * Helper class for resumable uploads using XHR/CORS. Can upload any Blob-like item, whether
  * files or in-memory constructs.
  *
