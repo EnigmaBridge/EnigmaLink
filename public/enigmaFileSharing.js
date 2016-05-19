@@ -1283,6 +1283,11 @@ var EnigmaDownloader = function(options){
     this.mimetype = undefined;  // Mime type extracted from the meta block.
 };
 
+EnigmaDownloader.ERROR_CODE_PROXY_JSON = 1;
+EnigmaDownloader.ERROR_CODE_PROXY_INVALID_URL = 2;
+EnigmaDownloader.ERROR_CODE_INVALID_CHUNK_LEN = 3;
+EnigmaDownloader.ERROR_CODE_PROXY_FAILED = 4;
+
 /**
  * Initiate the upload.
  * Store file metadata, start resumable upload to obtain upload ID.
@@ -1300,7 +1305,7 @@ EnigmaDownloader.prototype.fetch = function() {
 };
 
 /**
- * TODO: docs
+ * Initialization of the downloader.
  */
 EnigmaDownloader.prototype.init_ = function() {
 
@@ -1347,7 +1352,7 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
 
             if (downloadedLen < 0){
                 log("Invalid downloaded length");
-                this.onDownloadError_(null);
+                this.onDownloadError_({'reason':'Download length invalid', 'code':EnigmaDownloader.ERROR_CODE_INVALID_CHUNK_LEN});
                 return;
             }
 
@@ -1758,7 +1763,7 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
     // Security context, contains decryption key, wrapped.
     this.secCtx = w.bitSlice(buffer, cpos*8);
     log(sprintf("IV: %s", eb.misc.inputToHex(this.iv)));
-    log(sprintf("EK: %s", eb.misc.inputToHex(this.secCtx)));
+    log(sprintf("SecCtx: %s", eb.misc.inputToHex(this.secCtx)));
 
     this.encScheme.onComplete = (function(data){
         this.encKey = this.encScheme.fKey;
@@ -1776,6 +1781,7 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
 
     this.encScheme.onError = (function(data){
         log("Failed to compute encryption key.");
+        this.onError(data);
     }).bind(this);
 
     this.encScheme.onPasswordNeeded = (function(data){
@@ -1808,10 +1814,13 @@ EnigmaDownloader.prototype.tryPassword = function(password){
  * @private
  */
 EnigmaDownloader.prototype.bufferProcessed_ = function(){
+    // All buffers processed, nothing to process more.
+    // If downloading is not completed yet, fetch the next chunk of the data.
     if (!this.downloaded){
         this.fetchFile_();
     }
 
+    // Once the download is completed, signalize process has finished.
     if (this.downloaded) {
         this.onComplete();
     }
@@ -1834,17 +1843,23 @@ EnigmaDownloader.prototype.bufferProcessed_ = function(){
  * @private
  */
 EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
-    var self = this;
     var xhr = new XMLHttpRequest();
 
     xhr.open("GET", this.proxyRedirUrl, true);
     xhr.onload = function(e) {
         if (e.target.status < 400) {
-            var json = JSON.parse(xhr.responseText);
-            console.log(json);
+            try {
+                var json = JSON.parse(xhr.responseText);
+                console.log(json);
+
+            } catch(e){
+                log("Exception when processing the JSON response: " + e);
+                this.onDownloadError_({'reason':'Could not fetch the file information', 'exception': e, 'code':EnigmaDownloader.ERROR_CODE_PROXY_JSON});
+                return;
+            }
 
             if (!json.url){
-                this.onDownloadError_(null);
+                this.onDownloadError_({'reason':'Could not fetch the file information', 'code':EnigmaDownloader.ERROR_CODE_PROXY_INVALID_URL});
                 return;
             }
 
@@ -1859,7 +1874,7 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
             this.fetchFile_();
 
         } else {
-            this.onDownloadError_(e);
+            this.onDownloadError_({'e': e, 'reason':'Could not fetch the file information', 'code':EnigmaDownloader.ERROR_CODE_PROXY_FAILED});
         }
     }.bind(this);
     xhr.onerror = this.onDownloadError_.bind(this);
@@ -1895,13 +1910,13 @@ EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
 };
 
 /**
- * Handles errors for the initial request.
+ * Handles errors for the initial request / proxy request.
  *
  * @private
- * @param {object} e XHR event
+ * @param {object} data aux data
  */
-EnigmaDownloader.prototype.onDownloadError_ = function(e) {
-    this.onError(e.target.response); // TODO - Retries for initial download
+EnigmaDownloader.prototype.onDownloadError_ = function(data) {
+    this.onError(data); // TODO - Retries for initial download
 };
 
 EnigmaDownloader.prototype.progressHandler_ = function(meta, evt){
