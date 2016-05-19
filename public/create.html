@@ -747,7 +747,10 @@
             proxyRedirUrl: proxyLink,
             encScheme: encScheme,
             onProgress: function(oEvent, aux){
-
+                if (oEvent && oEvent.lengthComputable && oEvent.loaded && aux && aux.offset && aux.total) {
+                    var totalPercent = (aux.offset+oEvent.loaded) / aux.total;
+                    onUploadProgress(totalPercent);
+                }
             },
             onComplete: function(data) {
                 log("Download complete: " + data);

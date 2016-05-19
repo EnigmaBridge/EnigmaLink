@@ -14,6 +14,7 @@
         }
         #passwordDiv{
             display:none;
+            margin-top: 15px;
         }
         pre {
             margin: 0;
@@ -72,13 +73,13 @@
         var catConfig;
         var catDrive;
         var btnDownload;
-        var btnPasswordSubmit;
+        var btnPasswordUse;
         var fldPassword;
         var divPassword;
-        var divNoPassword;
+        var divStatusWrapper;
         var divPasswdNotif;
-        var divNoPasswdInfo;
-        var divNoPasswdNotif;
+        var divStatusInfo;
+        var divStatusNotif;
 
         var fldEndpoint;
         var fldUserObjectID;
@@ -93,26 +94,8 @@
 <div class="form-style-10">
     <h1>Secure file download<span>EnigmaBridge demo</span></h1>
     <div>
-        <div class="section"><span>1</span>Input</div>
-        <div class="inner-wrap">
-            <div id="passwordDiv">
-                <label>Password
-                    <input type="text" name="password" id="password" value="" placeholder="Decryption password"/>
-                    <span>Password is required to decrypt this file</span>
-                </label>
-                <input type="button" id="btnPasswordSubmit" value="Submit password"/><br/>
-                <div id="divPasswdNotif" class="notif"></div>
-            </div>
-            <div id="noInputNeededDiv">
-                <div id="divNoPasswdInfo">
-                    Download not started. <a onclick="scrollToIfNotVisible(btnDownload, false);">Go to download part</a>.
-                </div>
-                <div id="divNoPasswdNotif" class="notif"></div>
-            </div>
-        </div>
-
         <div class="section" id="gDriveConfigHead">
-            <span>2</span>
+            <span>1</span>
             GoogleDrive
             <div class="collapser">[-]</div>
         </div>
@@ -136,7 +119,7 @@
         </div>
 
         <div class="section" id="divConfigHead">
-            <span>3</span>
+            <span>2</span>
             Configuration
             <div class="collapser">[-]</div>
         </div>
@@ -185,7 +168,25 @@
             </label>
         </div>
 
-        <div class="section"><span>4</span>Response</div>
+        <div class="section"><span>3</span>Status</div>
+        <div class="inner-wrap">
+            <div id="divStatusWrapper">
+                <div id="divStatusInfo">
+                    Download not started. <a onclick="scrollToIfNotVisible(btnDownload, false);">Go to download part</a>.
+                </div>
+                <div id="divStatusNotif" class="notif"></div>
+            </div>
+
+            <div id="passwordDiv">
+                <label>Password
+                    <input type="text" name="password" id="password" value="" placeholder="Decryption password"/>
+                    <span>Password is required to decrypt this file</span>
+                </label>
+                <input type="button" id="btnPasswordUse" value="Use password"/><br/>
+                <div id="divPasswdNotif" class="notif"></div>
+            </div>
+        </div>
+        
         <div class="inner-wrap">
             <label>Status code
                 <input type="text" name="hotpStatus" id="hotpStatus" placeholder="EB status code" readonly="readonly"/>
@@ -233,7 +234,11 @@
 
         function log(msg){
             console.log(msg);
-            append_message(msg);
+            try {
+                append_message(msg);
+            } catch(e){
+
+            }
         }
 
         /**
@@ -485,7 +490,7 @@
         }
 
         function displayNotifyGlobal(text, isError, shouldScroll){
-            displayNotify(passwdRequired ? divPasswdNotif : divNoPasswdNotif, text, isError, shouldScroll);
+            displayNotify(divStatusNotif, text, isError, shouldScroll);
         }
 
         function downloadClicked() {
@@ -514,7 +519,10 @@
                 proxyRedirUrl: proxyLink,
                 encScheme: encScheme,
                 onProgress: function(oEvent, aux){
-
+                    if (oEvent && oEvent.lengthComputable && oEvent.loaded && aux && aux.offset && aux.total) {
+                        var totalPercent = (aux.offset+oEvent.loaded) / aux.total;
+                        onDownloadProgress(totalPercent);
+                    }
                 },
                 onComplete: function(data) {
                     log("Download complete: " + data);
@@ -546,10 +554,18 @@
             });
 
             setDisabled(btnDownload, true);
-            divNoPasswdInfo.text("Downloading...");
-            divNoPasswdNotif.hide();
+            divStatusInfo.text("Downloading...");
+            divStatusNotif.hide();
             divPasswdNotif.hide();
             dwn.fetch();
+        }
+
+        function onDownloadStateChange(txt){
+            divStatusInfo.text(txt);
+        }
+
+        function onDownloadProgress(progress){
+            divStatusInfo.text(sprintf("Downloading: %02.2f%%", progress*100));
         }
 
         function onSuccess(){
@@ -564,34 +580,34 @@
             var pretag = document.createElement( "pre" );
             $(pretag).text(fileInfo);
 
-            divNoPasswdInfo.text("File details:");
-            divNoPasswdInfo.append(pretag);
+            divStatusInfo.text("File details:");
+            divStatusInfo.append(pretag);
             displayNotifyGlobal("Download successful", false, true);
         }
 
         function onError(data){
             setDisabled(btnDownload, true);
-            setDisabled(btnPasswordSubmit, true);
+            setDisabled(btnPasswordUse, true);
             setDisabled(fldPassword, true);
-            divNoPasswdInfo.html("Failed");
-            displayNotifyGlobal("Error: " + JSON.stringify(data), true, true);
+            divStatusInfo.html("Failed");
+            log(JSON.stringify(data));
+            displayNotifyGlobal("Error: " + (data && data.reason ? data.reason : JSON.stringify(data)), true, true);
         }
 
         function onPasswordRequired(required){
             passwdRequired = required;
             if (required){
-                setDisabled(btnPasswordSubmit, false);
+                onDownloadStateChange("Password verification required");
+                setDisabled(btnPasswordUse, false);
                 setDisabled(fldPassword, false);
                 divPasswdNotif.hide();
 
-                divNoPassword.hide();
                 divPassword.show('slow');
                 scrollToIfNotVisible(divPassword, false);
 
             } else {
                 divPassword.hide('slow');
-                divNoPassword.show();
-                divNoPassword.text("File downloaded");
+                divStatusWrapper.text("File downloaded");
             }
         }
 
@@ -600,7 +616,10 @@
         }
 
         function onPasswordOk(){
-            setDisabled(btnPasswordSubmit, true);
+            onDownloadStateChange("Downloading ...");
+            divPassword.hide('slow');
+
+            setDisabled(btnPasswordUse, true);
             setDisabled(fldPassword, true);
             displayNotify(divPasswdNotif, "Password is correct", false, false);
         }
@@ -650,13 +669,13 @@
             catConfig = $('#divConfigHead');
             catDrive = $('#gDriveConfigHead');
             btnDownload = $('#btnDownload');
-            btnPasswordSubmit = $('#btnPasswordSubmit');
+            btnPasswordUse = $('#btnPasswordUse');
             fldPassword = $('#password');
             divPassword = $('#passwordDiv');
-            divNoPassword = $('#noInputNeededDiv');
+            divStatusWrapper = $('#divStatusWrapper');
             divPasswdNotif = $('#divPasswdNotif');
-            divNoPasswdInfo = $('#divNoPasswdInfo');
-            divNoPasswdNotif = $('#divNoPasswdNotif');
+            divStatusInfo = $('#divStatusInfo');
+            divStatusNotif = $('#divStatusNotif');
             fldEndpoint = $('#endpoint');
             fldUserObjectID = $('#userObjectID');
             fldEncKey = $('#aesKey');
@@ -666,7 +685,7 @@
             btnDownload.click(function(){
                 downloadClicked();
             });
-            btnPasswordSubmit.click(function(){
+            btnPasswordUse.click(function(){
                onPasswordSubmitted();
             });
 
