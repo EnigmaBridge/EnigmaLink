@@ -1373,6 +1373,15 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
     }.bind(this);
     xhr.onerror = this.onContentDownloadError_.bind(this);
 
+    // Progress monitoring
+    xhr.addEventListener('progress',
+        this.progressHandler_.bind(this, {
+            offset:this.offset,
+            chunkSize:(this.chunkSize),
+            total:this.totalSize
+        })
+    );
+
     log(sprintf("Downloading file range: %s, total size: %s", rangeHeader, this.totalSize));
     xhr.responseType = "arraybuffer";
     xhr.send(null);
