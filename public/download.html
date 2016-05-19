@@ -547,6 +547,8 @@
 
             setDisabled(btnDownload, true);
             divNoPasswdInfo.text("Downloading...");
+            divNoPasswdNotif.hide();
+            divPasswdNotif.hide();
             dwn.fetch();
         }
 
