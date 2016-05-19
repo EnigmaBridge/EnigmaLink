@@ -340,8 +340,8 @@ MergedDataSource.inheritsFrom(DataSource, {
 var EnigmaShareScheme = function(options){
     var nop = function() {};
     this.lnonce = options.lnonce;  // 128bit of entropy stored in the link. Not available to EB.
-    this.lkeySalt = undefined;     // 128bit of entropy for lkey salt (stored in encrypted file).
-    this.pkeySalt = undefined;     // 128bit of entropy for pkey salt (stored in encrypted file).
+    this.lkeySalt = undefined;     // 256bit of entropy for lkey salt (stored in encrypted file).
+    this.pkeySalt = undefined;     // 256bit of entropy for pkey salt (stored in encrypted file).
     this.e1Iv = undefined;         // 128bit IV for E_1 computation.
     this.phSalt = undefined;       // 128bit of entropy for password verification (stored in encrypted file).
     this.passwordSet = false;      // flag indicating whether the password was used or not.
@@ -381,8 +381,8 @@ EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
     // Init data.
     var w = sjcl.bitArray;
     this.lnonce = sjcl.random.randomWords(4);
-    this.lkeySalt = sjcl.random.randomWords(4);
-    this.pkeySalt = sjcl.random.randomWords(4);
+    this.lkeySalt = sjcl.random.randomWords(8);
+    this.pkeySalt = sjcl.random.randomWords(8);
     this.phSalt = sjcl.random.randomWords(4);
     this.e1Iv = sjcl.random.randomWords(4);
     this.fKey = sjcl.random.randomWords(8);
@@ -394,7 +394,7 @@ EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
     // Derive pKey
     this.passwordSet = password !== undefined && password.length > 0;
     var passwordInput = this.passwordSet ? sjcl.codec.utf8String.toBits(password) : [0];
-    this.pKey = this.derive_(passwordInput, 0, this.pkeySalt, EnigmaShareScheme.ITERATIONS_PKEY, EnigmaShareScheme.OUTPUTLEN);
+    this.pKey = this.derive_(w.concat(this.lnonce, passwordInput), 0, this.pkeySalt, EnigmaShareScheme.ITERATIONS_PKEY, EnigmaShareScheme.OUTPUTLEN);
 
     // Plainsec block = phSalt || (lKey + fKey)
     var plainSecBlock = w.concat(this.phSalt, eb.misc.xor8(this.lKey, this.fKey));
@@ -449,11 +449,11 @@ EnigmaShareScheme.prototype.process = function(secCtx){
     this.passwordSet = w.extract(secCtx, cpos*8, 8);
     cpos += 1;
 
-    this.lkeySalt = w.bitSlice(secCtx, cpos*8, (cpos+16)*8);
-    cpos += 16;
+    this.lkeySalt = w.bitSlice(secCtx, cpos*8, (cpos+32)*8);
+    cpos += 32;
 
-    this.pkeySalt = w.bitSlice(secCtx, cpos*8, (cpos+16)*8);
-    cpos += 16;
+    this.pkeySalt = w.bitSlice(secCtx, cpos*8, (cpos+32)*8);
+    cpos += 32;
 
     this.phSalt = w.bitSlice(secCtx, cpos*8, (cpos+16)*8);
     cpos += 16;
@@ -473,8 +473,8 @@ EnigmaShareScheme.prototype.process = function(secCtx){
 
     this.e1 = w.bitSlice(secCtx, cpos*8);
 
-    if (w.bitLength(this.lkeySalt) != 128
-        || w.bitLength(this.pkeySalt) != 128
+    if (w.bitLength(this.lkeySalt) != 256
+        || w.bitLength(this.pkeySalt) != 256
         || w.bitLength(this.phSalt) != 128
         || w.bitLength(this.e1Iv) != 128
     ) {
@@ -507,7 +507,7 @@ EnigmaShareScheme.prototype.tryDecrypt_ = function(password){
 
     // Derive pkey
     var passwordInput = this.passwordSet ? sjcl.codec.utf8String.toBits(password) : [0];
-    this.pKey = this.derive_(passwordInput, 0, this.pkeySalt, EnigmaShareScheme.ITERATIONS_PKEY, EnigmaShareScheme.OUTPUTLEN);
+    this.pKey = this.derive_(w.concat(this.lnonce, passwordInput), 0, this.pkeySalt, EnigmaShareScheme.ITERATIONS_PKEY, EnigmaShareScheme.OUTPUTLEN);
 
     // Compute e2
     var aes = new sjcl.cipher.aes(eb.misc.inputToBits(this.pKey));
