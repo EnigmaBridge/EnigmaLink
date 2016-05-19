@@ -147,6 +147,31 @@
     margin-top: 10px;
     text-align: right;
 }
+
+.form-style-10 .inner-wrap .btnMisc {
+    background: #00A7D6;
+    padding: 4px 10px 4px 10px;
+    margin: 4px 0 4px 0;
+    border-radius: 5px;
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    color: #fff;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.12);
+    font: normal 30px 'Bitter', serif;
+    -moz-box-shadow: inset 0px 2px 2px 0px rgba(255, 255, 255, 0.17);
+    -webkit-box-shadow: inset 0px 2px 2px 0px rgba(255, 255, 255, 0.17);
+    box-shadow: inset 0px 2px 2px 0px rgba(255, 255, 255, 0.17);
+    border: 1px solid #257C9E;
+    font-size: 13px;
+}
+/*input[type="button"]*/
+.form-style-10 .inner-wrap  .btnMisc:hover{
+    background: #0097bc;
+    -moz-box-shadow: inset 0px 2px 2px 0px rgba(255, 255, 255, 0.28);
+    -webkit-box-shadow: inset 0px 2px 2px 0px rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0px 2px 2px 0px rgba(255, 255, 255, 0.28);
+}
+
 .inner-wrap .button-fix input[type="button"]{
     width: 150px;
 }

@@ -49,6 +49,10 @@
         // Share folder drive ID where to put uploaded files in the Google Drive.
         var shareFolderId;
 
+        // Downloader & uploader objects
+        var dwn;
+        var uploader;
+
         // Upload context.
         var isAdvancedUpload = false;
         var droppedFiles = false;
@@ -220,10 +224,16 @@
             <label>Share link
                 <input type="text" name="qrLink" id="qrLink" placeholder="Share link" readonly="readonly"/>
                 <span>
-                    Link to share this file, <a onclick="copyElementToClipboard(fldShareLink)">copy to clipboard.</a>&nbsp;
-                    <a href="" target="_blank" id="aDownloadLink">Try link</a><br/>
-                    <a onclick="changeSharingPermissions()">Change sharing settings</a><br/>
-
+                    Link to share this file. <a href="" target="_blank" id="aDownloadLink">Try link</a>.<br/>
+                    <input type="button" class="btnMisc" id="btnCopyLink" onclick="copyElementToClipboard(fldShareLink)" value="Copy Link">
+                    <input type="button" class="btnMisc" id="btnTryLink" onclick="window.open(fldShareLink.val(),'_blank')" value="Try Link">
+                    <input type="button" class="btnMisc" id="btnSaveLink" onclick="onDownloadShareLinkClicked()" value="Save Link">
+                    <input type="button" class="btnMisc" id="btSaveQr" onclick="onDownloadQRCodeLinkClicked()" value="Save QR code">
+                    <input type="button" class="btnMisc" id="btnChangeSharing" onclick="changeSharingPermissions()" value="Change sharing settings"><br/>
+                    <!--<a onclick="copyElementToClipboard(fldShareLink)">copy to clipboard.</a>&nbsp;-->
+                    <!--<a onclick="onDownloadShareLinkClicked()">Save link as a file</a><br/>-->
+                    <!--<a onclick="onDownloadQRCodeLinkClicked()">Save QR code as a file</a><br/>-->
+                    <!--<a onclick="changeSharingPermissions()">Change sharing settings</a><br/>-->
                 </span>
             </label>
 
@@ -496,6 +506,14 @@
         setDisabled(fldMsg, files.length > 0);
     }
 
+    function enableLinkButtons(enable){
+        setDisabled($('#btnCopyLink'), !enable);
+        setDisabled($('#btnTryLink'), !enable);
+        setDisabled($('#btnSaveLink'), !enable);
+        setDisabled($('#btSaveQr'), !enable);
+        setDisabled($('#btnChangeSharing'), !enable);
+    }
+
     function initUploadDiv(form){
         var $form = $(form);
         $fldInput		 = $form.find( 'input[type="file"]' );
@@ -619,6 +637,7 @@
 
         log(link);
         fldShareLink.val(link);
+        enableLinkButtons(link && link.length>0);
         divQrCode.html("");
         divQrCode.qrcode(link);
         setDisabled(btnDownload, false);
@@ -677,7 +696,7 @@
             fFile = new Blob(["" + fldMsg.val()], {"type": "text/plain"});
         }
 
-        var uploader = new EnigmaUploader({
+        uploader = new EnigmaUploader({
             file: fFile,
             token: accessToken,
             encKey: encKey,
@@ -744,7 +763,7 @@
         // If we have no access_token, we need to use proxy to obtain file location we can download.
         // proxy-redir.php reads redirect URL and provides it in a form of a JSON.
         // Another proxy approach is to stream the whole file = greater overhead, we don't have Google's bandwidth.
-        var dwn = new EnigmaDownloader({
+        dwn = new EnigmaDownloader({
             url:directLink,
             proxyRedirUrl: proxyLink,
             encScheme: encScheme,
@@ -866,6 +885,36 @@
         spnBtnShare.hide('fast');
     }
 
+    /**
+     * Saves current link as a file.
+     */
+    function onDownloadShareLinkClicked(){
+        var link = fldShareLink.val();
+        if (!link || link.length == 0 || !uploader || !uploader.fname){
+            log("Empty link, cannot save as a file");
+            return;
+        }
+
+        var linkBlob = new Blob(["" + link], {"type": "text/plain"});
+        saveAs(linkBlob, "ebshare-" + uploader.fname + ".link.txt");
+    }
+
+    /**
+     * Saves generated QR code as a file.
+     */
+    function onDownloadQRCodeLinkClicked(){
+        var children = divQrCode.children("canvas");
+        if (!children || children.length == 0 || !children[0] || !uploader || !uploader.fname){
+            log("No QRcode to save");
+            return;
+        }
+
+        var canvas = children[0];
+        canvas.toBlob(function(blob) {
+            saveAs(blob, ("ebshare-" + uploader.fname + ".qr.png"));
+        }, "image/png");
+    }
+
     $(function(){
         // Start random number collectors.
         sjcl.random.startCollectors();
@@ -916,6 +965,7 @@
         catConfig.click(toggleCategory);
         catDrive.click(toggleCategory);
         catConfig.click();
+        enableLinkButtons(false);
     });
 
 </script>
