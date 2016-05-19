@@ -105,9 +105,11 @@
                 <span><a onclick="fldFname.val(genRandomName())">Random name</a><br/></span>
             </label>
 
-            <label>Mask file
+            <label>Conceal file
                 <input type="checkbox" name="chkMask" id="chkMask" value="1"/>
-                <span>Masks file in the storage (random name, hide mime type, conceals file size)</span>
+                <span>Masks encrypted file in the storage (random file name, hides mime type, conceals file size).
+                File size concealing helps to hide original message/file size by inflating encrypted file with random noise
+                (noise gets removed on download).</span>
             </label>
 
             <label>Password
