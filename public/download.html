@@ -569,10 +569,12 @@
         }
 
         function onSuccess(){
-            var fileInfo = sprintf("File name: %s\nMime type: %s\nFile size: %s B",
+            var fileInfo = sprintf("File name: %s\nMime type: %s\nFile size: %s B\nSHA1:      %s\nSHA256:    %s",
                     dwn.fname,
                     dwn.mimetype,
-                    dwn.fsize
+                    dwn.fsize,
+                    sjcl.codec.hex.fromBits(dwn.sha1),
+                    sjcl.codec.hex.fromBits(dwn.sha256)
             );
 
             setDisabled(btnDownload, false);

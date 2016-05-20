@@ -1253,6 +1253,8 @@ var EnigmaDownloader = function(options){
     this.aes = undefined;                           // AES cipher instance to be used with GCM for data encryption.
     this.iv = undefined;                            // initialization vector for GCM, 1 block, 16B.
     this.gcm = undefined;                           // GCM encryption mode, initialized now.
+    this.sha1Digest = new sjcl.hash.sha1();         // Hashing downloaded data - checksum.
+    this.sha256Digest = new sjcl.hash.sha256();     // Hashing downloaded data - checksum.
 
     // Construct first meta block now, compute file sizes.
     this.init_();
@@ -1281,6 +1283,8 @@ var EnigmaDownloader = function(options){
     this.fsize = 0;             // Filesize.
     this.fname = undefined;     // Filename extracted from the meta block.
     this.mimetype = undefined;  // Mime type extracted from the meta block.
+    this.sha1 = undefined;      // SHA1 checksum of the message.
+    this.sha256 = undefined;    // SHA256 checksum of the message.
 };
 
 EnigmaDownloader.ERROR_CODE_PROXY_JSON = 1;
@@ -1600,6 +1604,9 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
             // File data - consume the whole buffer.
             var fileData = w.bitSlice(this.dec.buff, cpos*8);
             var csize = w.bitLength(fileData)/8;
+            this.sha1Digest.update(fileData);
+            this.sha256Digest.update(fileData);
+
             var arrayBuffer = sjcl.codec.arrayBuffer.fromBits(fileData, 0, 0);
             log(sprintf("Processing %s B of data, totally have: %s. ArrayBuffer: %s B", csize, this.fsize + csize, arrayBuffer.byteLength));
 
@@ -1822,6 +1829,14 @@ EnigmaDownloader.prototype.bufferProcessed_ = function(){
 
     // Once the download is completed, signalize process has finished.
     if (this.downloaded) {
+        if (!this.sha1){
+            this.sha1 = this.sha1Digest.finalize();
+        }
+
+        if (!this.sha256){
+            this.sha256 = this.sha256Digest.finalize();
+        }
+
         this.onComplete();
     }
 };
