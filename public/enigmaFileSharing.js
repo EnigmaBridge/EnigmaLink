@@ -205,6 +205,25 @@ var WrappedDataSource = function(generator, length){
 };
 
 /**
+ * Data source wrapping another data source, hashing its unique content.
+ * If underlying source is read sequentially, this data source hashes it correctly. Otherwise there will be gaps
+ * and only the read portions will be hashed.
+ * In future, can be implemented as a decorator.
+ *
+ * @param {DataSource} dataSource underlying datasource
+ * @param {Function} hashingFnc hashing function. bitArray to hash update is provided as an argument.
+ * @constructor
+ */
+var HashingDataSource = function(dataSource, hashingFnc){
+    this.ds = dataSource;
+    this.dsLen = dataSource.length();
+    this.hasher = hashingFnc;
+    this.seenOffsetStart = -1;
+    this.seenOffsetEnd = -1;
+    this.gaps = false;
+};
+
+/**
  * Data source combining multiple different data sources to one.
  * @param sources array of data sources.
  * @constructor
@@ -337,6 +356,38 @@ MergedDataSource.inheritsFrom(DataSource, {
     },
     length: function(){
         return this.len;
+    }
+});
+HashingDataSource.inheritsFrom(DataSource, {
+    read: function(offsetStart, offsetEnd, handler){
+        this.ds.read(offsetStart, offsetEnd, (function(ba){
+            var w = sjcl.bitArray, len = w.bitLength(ba)/8, realEnd = offsetStart + len;
+
+            this.gaps |= this.seenOffsetStart != -1 && this.seenOffsetStart > offsetStart;
+            this.gaps |= this.seenOffsetStart != -1 && this.seenOffsetStart > realEnd;
+            this.gaps |= this.seenOffsetEnd != -1 && this.seenOffsetEnd < offsetStart;
+
+            var offsetStartNow = Math.max(this.seenOffsetEnd, offsetStart);
+            var offsetEndNow = Math.max(this.seenOffsetEnd, realEnd);
+
+            // Call hasher only if there is something new.
+            if (offsetEndNow > offsetStartNow
+                && this.seenOffsetEnd < offsetEndNow)
+            {
+                var toHash = w.bitSlice(ba, (offsetStartNow - offsetStart)*8, (len - offsetEndNow + realEnd)*8);
+                this.hasher(offsetStartNow, offsetEndNow, this.dsLen, toHash);
+
+                this.seenOffsetEnd = offsetEndNow;
+                if (this.seenOffsetStart == -1){
+                    this.seenOffsetStart = offsetStartNow;
+                }
+            }
+
+            handler(ba);
+        }).bind(this));
+    },
+    length: function(){
+        return this.dsLen;
     }
 });
 
