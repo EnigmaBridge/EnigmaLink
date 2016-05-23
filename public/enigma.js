@@ -2331,6 +2331,7 @@ eb.comm.connector.prototype = {
                         'jqXHR':jqXHR,
                         'textStatus':textStatus,
                         'response':this.response,
+                        'failType':eb.comm.status.PDATA_FAIL_RESPONSE_FAILED,
                         'requestObj':this
                     });
                 }
@@ -2342,6 +2343,7 @@ eb.comm.connector.prototype = {
                 this._failCallback(eb.comm.status.PDATA_FAIL_RESPONSE_PARSING, {
                     'jqXHR':jqXHR,
                     'textStatus':textStatus,
+                    'failType':eb.comm.status.PDATA_FAIL_RESPONSE_PARSING,
                     'requestObj':this,
                     'parseException':e
                 });
@@ -2365,6 +2367,7 @@ eb.comm.connector.prototype = {
                 'jqXHR':jqXHR,
                 'textStatus':textStatus,
                 'errorThrown':errorThrown,
+                'failType':eb.comm.status.PDATA_FAIL_CONNECTION,
                 'requestObj': this
             });
         }
