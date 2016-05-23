@@ -737,14 +737,19 @@ var EnigmaUploader = function(options) {
     this.reader = new FileReader();                 // Reader of data/file contents.
     this.iv = sjcl.random.randomWords(4);           // initialization vector for GCM, 1 block, 16B.
     this.gcm = new sjcl.mode.gcm2(this.aes, true, [], this.iv, 128); // GCM encryption mode, initialized now.
+    this.sha1Digest = new sjcl.hash.sha1();         // Hashing input data
+    this.sha256Digest = new sjcl.hash.sha256();     // Hashing input data
 
     // Construct first meta block now, compute file sizes.
     this.paddingToAdd = options.padding || 0;       // Concealing padding size.
     this.paddingFnc = options.padFnc;               // Padding size function. If set, determines the padding length.
     this.dataSource = undefined;                    // Data source for data/file/padding...
     this.buildFstBlock_();
+    this.inputHashingDs = undefined;                // Input hashing data source. For computing of a hash of input data.
     this.preFileSize = this.preFileSize_();         // Number of bytes in the upload stream before file contents.
     this.totalSize = this.totalSize_();             // Total size of the upload stream.
+    this.sha1 = undefined;                          // SHA1 of the input data.
+    this.sha256 = undefined;                        // SHA256 of the input data.
 
     // Encrypted data buffering - already processed data. Underflow avoidance.
     this.cached = {};         // Data processing cache object.
@@ -876,7 +881,7 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
         block = w.concat(padBlock, block);
     }
 
-    log(sprintf("Total after pad: %s", w.bitLength(block)/8));
+    log(sprintf("FBlockSize after pad: %s", w.bitLength(block)/8));
     this.fstBlock = block;
 
     // Prepare data sources for encryption & fetching data. Processing engine fetches data from the data source
@@ -889,8 +894,17 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
     // Encryption block, the last tag in the message - without length
     var encSc = new ConstDataSource(h.toBits(sprintf("%02x", EnigmaUploader.TAG_ENC)));
     var blobSc = new BlobDataSource(this.file);
+    this.inputHashingDs = new HashingDataSource(blobSc, (function(ofStart, ofEnd, len, data){
+        this.sha1Digest.update(data);
+        this.sha256Digest.update(data);
+        if (ofEnd >= len){
+            this.sha1 = this.sha1Digest.finalize();
+            this.sha256 = this.sha256Digest.finalize();
+        }
+    }).bind(this));
+
     if (!paddingEnabled){
-        this.dataSource = new MergedDataSource([encSc, blobSc]);
+        this.dataSource = new MergedDataSource([encSc, this.inputHashingDs]);
 
     } else {
         // Simple padding data source generator - stream of zero bytes, generated on demand.
@@ -900,7 +914,7 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
 
         // If function is defined, gen number of padding bytes to add.
         // FstBlock + TAG_PADDING + len4B + TAG_ENC + len(message) + GCM-TAG-16B
-        var curTotalSize = this.preFileSize_() + 1 + 4 + 1 + blobSc.length() + 16;
+        var curTotalSize = this.preFileSize_() + 1 + 4 + 1 + this.inputHashingDs.length() + 16;
         if (this.paddingFnc){
             this.paddingToAdd = this.paddingFnc(curTotalSize);
         }
@@ -911,7 +925,7 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
         // Padding tag source + padding generator.
         var padConst = new ConstDataSource(h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_PADDING, this.paddingToAdd)));
         var padGen = new WrappedDataSource(padGenerator, this.paddingToAdd);
-        this.dataSource = new MergedDataSource([padConst, padGen, encSc, blobSc]);
+        this.dataSource = new MergedDataSource([padConst, padGen, encSc, this.inputHashingDs]);
         log("Concealing padding added: " + this.paddingToAdd + ", total file size: " + (curTotalSize+this.paddingToAdd));
     }
 
