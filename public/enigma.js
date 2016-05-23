@@ -428,6 +428,25 @@ eb.misc = {
     },
 
     /**
+     * Serializes 64bit number to a bitArray.
+     * @param {Number} num
+     * @returns {bitArray|Array}
+     */
+    serialize64bit: function(num){
+        return [Math.floor(num/0x100000000), (num|0)];
+    },
+
+    /**
+     * Deserializes 64bit number from bitArray
+     * @param {bitArray} arr
+     * @param {number} [offset] Default 0
+     */
+    deserialize64bit: function(arr, offset){
+        offset = offset || 0;
+        return (arr[offset]*0x100000000 + (arr[offset+1]) + (arr[offset+1] < 0 ? 0x100000000 : 0));
+    },
+
+    /**
      * Left zero padding to the even number of hexcoded digits.
      * @param x
      * @returns {*}
