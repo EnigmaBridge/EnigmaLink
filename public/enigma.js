@@ -1391,6 +1391,9 @@ sjcl.mode.gcm2.prototype = {
 eb.comm = {
     name: "comm",
 
+    REQ_METHOD_GET: "GET",
+    REQ_METHOD_POST: "POST",
+
     /**
      * General status constants.
      */
@@ -2080,7 +2083,7 @@ eb.comm.connector.prototype = {
      * Method to do REST request with. GET or POST are allowed.
      * @input
      */
-    requestMethod: "POST",
+    requestMethod: eb.comm.REQ_METHOD_POST,
 
     /**
      * Scheme used to contact remote API.
@@ -2256,7 +2259,7 @@ eb.comm.connector.prototype = {
             type: this.requestMethod,
             dataType: 'json',
             timeout: this.requestTimeout,
-            data: this.requestMethod == "POST" ? JSON.stringify(apiData) : null
+            data: this.requestMethod == eb.comm.REQ_METHOD_POST ? JSON.stringify(apiData) : null
         };
 
         // Extend ajax settings with user provided settings.
@@ -2611,7 +2614,7 @@ eb.comm.apiRequest.inheritsFrom(eb.comm.connector, {
      * @returns {*}
      */
     getApiUrl: function(){
-        if (this.requestMethod == "POST" || (this.requestMethod == "GET" && !this.reqBody)){
+        if (this.requestMethod == eb.comm.REQ_METHOD_POST || (this.requestMethod == eb.comm.REQ_METHOD_GET && !this.reqBody)){
             return sprintf("%s://%s:%d/%s/%s/%s/%s",
                 this.requestScheme,
                 this.remoteEndpoint,
@@ -2621,7 +2624,7 @@ eb.comm.apiRequest.inheritsFrom(eb.comm.connector, {
                 this.callFunction,
                 this.getNonce());
 
-        } else if (this.requestMethod == "GET"){
+        } else if (this.requestMethod == eb.comm.REQ_METHOD_GET){
             return sprintf("%s://%s:%d/%s/%s/%s/%s%s",
                 this.requestScheme,
                 this.remoteEndpoint,
@@ -2645,7 +2648,7 @@ eb.comm.apiRequest.inheritsFrom(eb.comm.connector, {
      * @returns {*}
      */
     getApiRequestData: function(){
-        if (this.requestMethod == "POST") {
+        if (this.requestMethod == eb.comm.REQ_METHOD_POST) {
             return this.reqBody;
         } else {
             return {};
@@ -2817,7 +2820,7 @@ eb.comm.processData.inheritsFrom(eb.comm.apiRequest, {
      * @returns {*}
      */
     getApiUrl: function(){
-        if (this.requestMethod == "POST"){
+        if (this.requestMethod == eb.comm.REQ_METHOD_POST){
             return sprintf("%s://%s:%d/%s/%s/%s/%s",
                 this.requestScheme,
                 this.remoteEndpoint,
@@ -2827,7 +2830,7 @@ eb.comm.processData.inheritsFrom(eb.comm.apiRequest, {
                 this.callFunction,
                 this.getNonce());
 
-        } else if (this.requestMethod == "GET"){
+        } else if (this.requestMethod == eb.comm.REQ_METHOD_GET){
             return sprintf("%s://%s:%d/%s/%s/%s/%s/%s",
                 this.requestScheme,
                 this.remoteEndpoint,
@@ -2851,7 +2854,7 @@ eb.comm.processData.inheritsFrom(eb.comm.apiRequest, {
      * @returns {*}
      */
     getApiRequestData: function(){
-        if (this.requestMethod == "POST") {
+        if (this.requestMethod == eb.comm.REQ_METHOD_POST) {
             return this.reqBody;
         } else {
             return {};
