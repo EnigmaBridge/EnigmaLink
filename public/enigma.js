@@ -2100,7 +2100,7 @@ eb.comm.connector.prototype = {
      * Endpoint where EB API listens
      * @input
      */
-    remoteEndpoint: "dragonfly.smarthsm.net",
+    remoteEndpoint: "site1.enigmabridge.com",
 
     /**
      * Port of the remote endpoint
