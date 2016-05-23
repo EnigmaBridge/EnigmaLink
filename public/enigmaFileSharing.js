@@ -693,6 +693,7 @@ var EnigmaUploader = function(options) {
 EnigmaUploader.TAG_SEC = 0x1;      // security context part. Contains IV, encrypted file encryption key.
 EnigmaUploader.TAG_FNAME = 0x2;    // record with the data/file name.
 EnigmaUploader.TAG_MIME = 0x3;     // record with the data/file mime type.
+EnigmaUploader.TAG_TIME = 0x7;     // record with the tiemstamp of the upload.
 EnigmaUploader.TAG_ENC = 0x4;      // record with the encrypted data/file. Last record in the message (no length field).
 EnigmaUploader.TAG_ENCWRAP = 0x5;  // record with the encrypted container (fname+mime+data). Last unencrypted record (no length field).
 EnigmaUploader.TAG_PADDING = 0x6;  // padding record. Null bytes (skipped in parsing), may be used to conceal true file size or align blocks.
@@ -768,6 +769,13 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
     var baMime = sjcl.codec.utf8String.toBits(this.contentTypeOrig);
     toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_MIME, w.bitLength(baMime)/8)));
     toEnc = w.concat(toEnc, baMime);
+
+    // Timestamp of the upload
+    var time = Date.now();
+    var baTime = eb.misc.serialize64bit(time);
+    toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_TIME, w.bitLength(baTime)/8)));
+    toEnc = w.concat(toEnc, baTime);
+    log("Time in meta block: " + time);
 
     // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
     var metaBlockSizeNoPadded = w.bitLength(toEnc)/8;
@@ -1283,6 +1291,7 @@ var EnigmaDownloader = function(options){
     this.fsize = 0;             // Filesize.
     this.fname = undefined;     // Filename extracted from the meta block.
     this.mimetype = undefined;  // Mime type extracted from the meta block.
+    this.uploadTime = undefined;// UTC milliseconds when the file was uploaded.
     this.sha1 = undefined;      // SHA1 checksum of the message.
     this.sha256 = undefined;    // SHA256 checksum of the message.
 };
@@ -1648,6 +1657,16 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
 
             case EnigmaUploader.TAG_MIME:
                 this.mimetype = sjcl.codec.utf8String.fromBits(this.tps.cdata);
+                break;
+
+            case EnigmaUploader.TAG_TIME:
+                if (this.tps.tlen == 8){
+                    this.uploadTime = eb.misc.deserialize64bit(this.tps.cdata);
+                    if (this.uploadTime > eb.misc.MAX_SAFE_INTEGER){
+                        throw new eb.exception.invalid("Upload timestamp too big");
+                    }
+                }
+
                 break;
 
             default:
