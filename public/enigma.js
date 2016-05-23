@@ -1629,7 +1629,7 @@ eb.comm.processDataRequestBodyBuilder.prototype = {
         var hmac = new sjcl.misc.hmac_cbc(aesMac, 16, eb.padding.empty);
 
         // IV is null, nonce in the first block is kind of IV.
-        var IV = h.toBits('00'.repeat(16));
+        var IV = [0, 0, 0, 0];
         var encryptedData = sjcl.mode.cbc.encrypt(aes, baBuff, IV, [], true);
         this._log('Encrypted ProcessData input ENC(PDIN): ' + h.fromBits(encryptedData) + ", len=" + ba.bitLength(encryptedData));
 
@@ -2041,7 +2041,7 @@ eb.comm.processDataResponseParser.inheritsFrom(eb.comm.responseParser, {
         }
 
         // IV is null, nonce in the first block is kind of IV.
-        var IV = h.toBits('00'.repeat(16));
+        var IV = [0, 0, 0, 0];
         var decryptedData = sjcl.mode.cbc.decrypt(aes, dataToDecrypt, IV, [], false);
         this._log("decryptedData: " + h.fromBits(decryptedData) + ", len=" + ba.bitLength(decryptedData));
 
@@ -3064,7 +3064,7 @@ eb.comm.hotp = {
         tpl = eb.padding.pkcs7.pad(tpl);
 
         // IV is null, nonce in the first block is kind of IV.
-        var IV = sjcl.codec.hex.toBits('00'.repeat(16));
+        var IV = [0, 0, 0, 0];
         var encryptedData = sjcl.mode.cbc.encrypt(aes, tpl, IV, [], true);
         var hmacData = hmac.mac(encryptedData);
 
