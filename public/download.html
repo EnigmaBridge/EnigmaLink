@@ -569,10 +569,17 @@
         }
 
         function onSuccess(){
-            var fileInfo = sprintf("File name: %s\nMime type: %s\nFile size: %s B\nSHA1:      %s\nSHA256:    %s",
+            var fileInfo = sprintf(
+                    "File name: %s\n" +
+                    "Mime type: %s\n" +
+                    "File size: %s B\n" +
+                    "Uploaded:  %s\n" +
+                    "SHA1:      %s\n" +
+                    "SHA256:    %s",
                     dwn.fname,
                     dwn.mimetype,
                     dwn.fsize,
+                    dwn.uploadTime > 0 ? new Date(dwn.uploadTime).toString() : '-',
                     sjcl.codec.hex.fromBits(dwn.sha1),
                     sjcl.codec.hex.fromBits(dwn.sha256)
             );

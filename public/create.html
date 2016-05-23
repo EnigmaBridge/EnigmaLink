@@ -778,6 +778,9 @@
                 log(sprintf("File name: %s", dwn.fname));
                 log(sprintf("Mime type: %s", dwn.mimetype));
                 log(sprintf("File size: %s", dwn.fsize));
+                log(sprintf("Uploaded:  %s", dwn.uploadTime > 0 ? new Date(dwn.uploadTime).toString() : '-'));
+                log(sprintf("SHA1:      %s", sjcl.codec.hex.fromBits(dwn.sha1)));
+                log(sprintf("SHA256:    %s", sjcl.codec.hex.fromBits(dwn.sha256)));
 
                 // Reconstruct file.
                 var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
