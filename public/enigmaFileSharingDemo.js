@@ -9,7 +9,21 @@ var defaults = {
 var shareConfig = {
     baseUrl: 'https://expert.enigmabridge.com/sharing',
     shareFolderName: 'EnigmaShares',
-    clientId: '1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com'
+    clientId: '1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com',
+    ebConfigUpload: {
+        endpoint:     'site1.enigmabridge.com',
+        userObjectId: 'EE01',
+        method:       'PLAINAES',
+        encKey:       'e134567890123456789012345678901234567890123456789012345678901234',
+        macKey:       'e224262820223456789012345678901234567890123456789012345678901234'
+    },
+    ebConfigDownload: {
+        endpoint:     'site1.enigmabridge.com',
+        userObjectId: 'EE02',
+        method:       'PLAINAES',
+        encKey:       'e134567890123456789012345678901234567890123456789012345678901234',
+        macKey:       'e224262820223456789012345678901234567890123456789012345678901234'
+    }
 };
 
 function getProxyRedirLink(fileId){

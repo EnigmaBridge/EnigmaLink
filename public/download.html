@@ -504,7 +504,9 @@
 
             // Initialize encryption scheme
             var encScheme = new EnigmaShareScheme({
-                lnonce: linkCfg.nonce
+                lnonce: linkCfg.nonce,
+                eb: shareConfig.ebConfigDownload,
+                logger: log
             });
 
             // Init downloader, start download.
