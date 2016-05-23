@@ -409,6 +409,7 @@ var EnigmaShareScheme = function(options){
     this.e1Iv = undefined;         // 128bit IV for E_1 computation.
     this.phSalt = undefined;       // 128bit of entropy for password verification (stored in encrypted file).
     this.passwordSet = false;      // flag indicating whether the password was used or not.
+    this.logger = options.logger || nop; // logger to be used.
 
     // Event handlers.
     this.onError = options.onError || nop;
@@ -640,12 +641,76 @@ EnigmaShareScheme.prototype.buildBlock_ = function(e1){
  * @private
  */
 EnigmaShareScheme.prototype.ebOp_ = function(input, encrypt, ebOptions, onSuccess, onFailure){
-    // TODO: implement EB call.
-    var aes = new sjcl.cipher.aes(eb.misc.inputToBits("11223344556677889900aabbccddeeff"));
-    var iv = [0, 0, 0, 0];
-    var encOp = encrypt ? sjcl.mode.cbc.encrypt : sjcl.mode.cbc.decrypt;
-    var processedData = encOp(aes, input, iv, [], true);
-    onSuccess({data:processedData});
+    var defaultConfig = {
+        remoteEndpoint: "site1.enigmabridge.com",
+        remotePort: 11180,
+        requestMethod: eb.comm.REQ_METHOD_POST,
+        requestScheme: "https",
+        requestTimeout: 30000,
+        debuggingLog: true,
+        apiKey: "API_TEST",
+        callRequestType: "PLAINAES",
+        aesKey: undefined,
+        macKey: undefined,
+        apiKeyLow4Bytes: undefined,
+        userObjectId : undefined
+    };
+    defaultConfig = $.extend(defaultConfig, ebOptions);
+
+    // Create a new request
+    var request = new eb.comm.processData();
+    request.configure(defaultConfig);
+    request.logger = this.logger;
+
+    // On EB call fail.
+    var onEBFail = function(data){
+        this.logger("EB call failed");
+        onFailure({data: data});
+    };
+
+    // On EB call success.
+    var onEBSuccess = function(response, data){
+        var responseStatus = response.statusCode;
+        this.logger(sprintf("EB call finished! Status: %04X", responseStatus));
+        if (responseStatus != eb.comm.status.SW_STAT_OK || response.protectedData === undefined) {
+            // Critical error?
+            onEBFail(data);
+            return;
+        }
+
+        onSuccess({data:response.protectedData});
+    };
+
+    // Request callbacks.
+    request.done((function(response, requestObj, data) {
+        (onEBSuccess.bind(this))(response, data);
+
+    }).bind(this)).fail((function(failType, data){
+        this.logger("fail! type=" + failType);
+        if (failType == eb.comm.status.PDATA_FAIL_RESPONSE_FAILED){
+            (onEBSuccess.bind(this))(data.response); // application level failure.
+
+        } else if (failType == eb.comm.status.PDATA_FAIL_CONNECTION){
+            (onEBFail.bind(this))(data);
+        }
+
+    }).bind(this)).always((function(request, data){
+
+    }).bind(this));
+
+    // Build the request so we can display request in the form.
+    request.build([], input);
+
+    // Submit request.
+    this.logger("Calling EB for SecCtx");
+    request.doRequest();
+
+    // Old mocking code. Local computation.
+    //var aes = new sjcl.cipher.aes(eb.misc.inputToBits("11223344556677889900aabbccddeeff"));
+    //var iv = [0, 0, 0, 0];
+    //var encOp = encrypt ? sjcl.mode.cbc.encrypt : sjcl.mode.cbc.decrypt;
+    //var processedData = encOp(aes, input, iv, [], true);
+    //onSuccess({data:processedData});
 };
 
 /**
