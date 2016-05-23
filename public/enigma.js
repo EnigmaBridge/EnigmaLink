@@ -254,6 +254,11 @@ var eb = {
  */
 eb.misc = {
     name: "misc",
+
+    MAX_SAFE_INTEGER: Math.pow(2, 53) - 1,
+    MIN_SAFE_INTEGER: -(Math.pow(2, 53) - 1),
+    EPSILON: 2.2204460492503130808472633361816E-16,
+
     genNonce: function(length, alphabet){
         var nonce = "";
         var alphabetLen = alphabet.length;
