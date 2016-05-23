@@ -157,7 +157,7 @@ RetryHandler.prototype.getRandomInt_ = function(min, max) {
  * @constructor
  */
 var DataSource = function(){
-
+    this.decorators = []; // array of functions updated with the content as it is read.
 };
 DataSource.prototype = {
     read: function(offsetStart, offsetEnd, handler){
@@ -165,6 +165,11 @@ DataSource.prototype = {
     },
     length: function(){
         throw new eb.exception.invalid("Acessing abstract method");
+    },
+    updateDecorators: function(offsetStart, offsetEnd, ba){
+        for (var index = 0, ln=this.decorators.length; index < ln; ++index) {
+            this.decorators[index](offsetStart, offsetEnd, ba);
+        }
     }
 };
 
@@ -229,6 +234,8 @@ BlobDataSource.inheritsFrom(DataSource, {
 
             var data = evt.target.result;
             var ba = sjcl.codec.arrayBuffer.toBits(data);
+
+            this.updateDecorators(offsetStart, offsetEnd, ba);
             handler(ba);
         };
 
@@ -250,7 +257,9 @@ ConstDataSource.inheritsFrom(DataSource, {
             throw new eb.exception.invalid("Invalid argument");
         }
 
-        handler(w.bitSlice(this.data, cStart, cEnd));
+        var data = w.bitSlice(this.data, cStart, cEnd);
+        this.updateDecorators(offsetStart, offsetEnd, data);
+        handler(data);
     },
     length: function(){
         return sjcl.bitArray.bitLength(this.data)/8;
@@ -258,9 +267,10 @@ ConstDataSource.inheritsFrom(DataSource, {
 });
 WrappedDataSource.inheritsFrom(DataSource, {
     read: function(offsetStart, offsetEnd, handler){
-        this.generator(offsetStart, offsetEnd, function(x){
+        this.generator(offsetStart, offsetEnd, (function(x){
+            this.updateDecorators(offsetStart, offsetEnd, x);
             handler(x);
-        });
+        }).bind(this));
     },
     length: function(){
         return this.len;
@@ -273,6 +283,7 @@ MergedDataSource.inheritsFrom(DataSource, {
         var i;
         var res = [];
         var cShift = 0, cLen = 0, cOffsetStart, cOffsetEnd, desiredLen = offsetEnd-offsetStart;
+        var offsetStartOrig = offsetStart, offsetEndOrig = offsetEnd;
 
         var cHandler = function(x){
             var bl = w.bitLength(x);
@@ -289,6 +300,8 @@ MergedDataSource.inheritsFrom(DataSource, {
                 if (w.bitLength(res)/8 != desiredLen){
                     throw new eb.exception.invalid("Reading returned invalid number of bytes from sub data sources");
                 }
+
+                this.updateDecorators(offsetStartOrig, offsetEndOrig, res);
                 handler(res);
                 return;
             }
