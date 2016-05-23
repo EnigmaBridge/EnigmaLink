@@ -635,6 +635,13 @@
             nonce: eb.sh.misc.inputToLinkBase64(data.lnonce)
         }, shareConfig.baseUrl, true);
 
+        if (data.uploader.sha1){
+            log(sprintf("SHA1:   %s", sjcl.codec.hex.fromBits(data.uploader.sha1)));
+        }
+        if (data.uploader.sha256){
+            log(sprintf("SHA256: %s", sjcl.codec.hex.fromBits(data.uploader.sha256)));
+        }
+
         log(link);
         fldShareLink.val(link);
         enableLinkButtons(link && link.length>0);
