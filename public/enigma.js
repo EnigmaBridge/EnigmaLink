@@ -2744,16 +2744,19 @@ eb.comm.processData.inheritsFrom(eb.comm.apiRequest, {
         if ("userObjectId" in configObject){
             toConfig = $.extend(true, toConfig, {apiKeyLow4Bytes : configObject.userObjectId});
         }
+        if ("encKey" in configObject){
+            toConfig = $.extend(true, toConfig, {aesKey : configObject.encKey});
+        }
 
         // Configure with parent.
         eb.comm.processData.superclass.configure.call(this, toConfig);
 
         // Configure this.
         var ak = eb.misc.absorbKey;
-        ak(this, configObject, "aesKey");
-        ak(this, configObject, "macKey");
-        ak(this, configObject, "userObjectId");
-        ak(this, configObject, "callRequestType");
+        ak(this, toConfig, "aesKey");
+        ak(this, toConfig, "macKey");
+        ak(this, toConfig, "userObjectId");
+        ak(this, toConfig, "callRequestType");
     },
 
     /**
