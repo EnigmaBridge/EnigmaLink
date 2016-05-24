@@ -1482,6 +1482,18 @@ EnigmaSharingUpload.sizeConcealPadFnc = function(curSize){
  * Downloader object.
  * Quite universal if you have a direct link for the file.
  * @param options
+ * @param {string} options.token access token for Google Drive.
+ * @param {function} [options.onComplete] event handler.
+ * @param {function} [options.onProgress] event handler.
+ * @param {function} [options.onError] event handler.
+ * @param {function} [options.onPasswordNeeded] event handler.
+ * @param {function} [options.onPasswordFail] event handler.
+ * @param {function} [options.onPasswordOK] event handler.
+ * @param {Number} [options.chunkSize] chunk size for download. First chunk must contain meta block. 256kB or 512kB is ideal.
+ * @param {string} [options.url] direct URL for file to download.
+ * @param {string} [options.proxyRedirUrl] proxy link for the file to download.
+ * @param {EnigmaShareScheme} options.encScheme access token for google drive
+ * @param {string|Array|*} [options.encKey] AES GCM master key, used only for debugging, scheme derives the key.
  * @constructor
  */
 var EnigmaDownloader = function(options){
