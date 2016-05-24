@@ -49,8 +49,7 @@
         // Share folder drive ID where to put uploaded files in the Google Drive.
         var shareFolderId;
 
-        // Downloader & uploader objects
-        var dwn;
+        // Uploader object.
         var uploader;
 
         // Upload context.
@@ -79,7 +78,6 @@
         var divQrCode;
         var spnBtnShare;
         var btnShare;
-        var btnDownload;
         var fldEndpoint;
     </script>
 </head>
@@ -247,7 +245,6 @@
         </div>
         <div class="button-section">
             <input type="button" id="btnShare" value="Share" disabled="disabled"/>
-            <input type="button" id="btnDownload" value="Download" disabled="disabled"/><br/>
             <span id="spnBtnShare">Cannot share until you allow access to your Google Drive</span>
         </div>
 </div>
@@ -647,7 +644,6 @@
         enableLinkButtons(link && link.length>0);
         divQrCode.html("");
         divQrCode.qrcode(link);
-        setDisabled(btnDownload, false);
         $('#aDownloadLink').attr("href", link);
     }
 
@@ -661,7 +657,6 @@
 
         $form.addClass( 'is-uploading' ).removeClass( 'is-error' );
         onUploadProgress(0);
-        setDisabled(btnDownload, true);
 
         if (!isAdvancedUpload){
             alert("Unsupported browser");
@@ -743,80 +738,6 @@
 
         });
         uploader.upload();
-    }
-
-    function downloadClicked(){
-        var link = fldShareLink.val();
-        var linkCfg = {
-            uoid:       eb.sh.misc.getURLParameter('uoid', link, true),
-            aesKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('encKey', link, true)),
-            macKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('macKey', link, true)),
-            fid:        eb.sh.misc.getURLParameter('fid', link, true),
-            nonce:      eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('nonce', link, true))
-        };
-
-        var fileLink = eb.sh.misc.getDriveDownloadLink(linkCfg.fid);
-        var directLink = eb.sh.misc.getDriveDirectLink(linkCfg.fid);
-        var proxyLink = getProxyRedirLink(linkCfg.fid);
-        log("Parsed link data: " + JSON.stringify(linkCfg));
-        log("DownloadLink: " + fileLink);
-        log("DirectLink: " + directLink);
-        log("ProxyRedirLink: " + proxyLink);
-
-        // Initialize encryption scheme
-        var encScheme = new EnigmaShareScheme({
-            lnonce: linkCfg.nonce,
-            eb: shareConfig.ebConfigDownload,
-            logger: log
-        });
-
-        // Init downloader, start download.
-        // Google APIs do not support CORS for not authorized users. In order to have CORS,
-        // we need access token. It means we need to bother user with signing in to the google drive/plus.
-        //
-        // If we have no access_token, we need to use proxy to obtain file location we can download.
-        // proxy-redir.php reads redirect URL and provides it in a form of a JSON.
-        // Another proxy approach is to stream the whole file = greater overhead, we don't have Google's bandwidth.
-        dwn = new EnigmaDownloader({
-            url:directLink,
-            proxyRedirUrl: proxyLink,
-            encScheme: encScheme,
-            onProgress: function(oEvent, aux){
-                if (oEvent && oEvent.lengthComputable && oEvent.loaded && aux && aux.offset && aux.total) {
-                    var totalPercent = (aux.offset+oEvent.loaded) / aux.total;
-                    onUploadProgress(totalPercent);
-                }
-            },
-            onComplete: function(data) {
-                log("Download complete: " + data);
-                log(sprintf("File name: %s", dwn.fname));
-                log(sprintf("Mime type: %s", dwn.mimetype));
-                log(sprintf("File size: %s", dwn.fsize));
-                log(sprintf("Uploaded:  %s", dwn.uploadTime > 0 ? new Date(dwn.uploadTime).toString() : '-'));
-                log(sprintf("SHA1:      %s", sjcl.codec.hex.fromBits(dwn.sha1)));
-                log(sprintf("SHA256:    %s", sjcl.codec.hex.fromBits(dwn.sha256)));
-
-                // Reconstruct file.
-                var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
-                saveAs(blob, dwn.fname);
-            },
-            onError: function(data) {
-                log("Critical error: " + JSON.stringify(data));
-            },
-            onPasswordNeeded: function(data){
-                log("Password needed");
-                dwn.tryPassword(fldPassword.val());
-            },
-            onPasswordFail: function(data){
-                log("Password is invalid");
-                alert("Password is invalid");
-            },
-            onPasswordOK: function(data){
-                log("Password is OK");
-            }
-        });
-
-        dwn.fetch();
     }
 
     /**
@@ -948,7 +869,6 @@
         divQrCode = $('#qrcode');
         spnBtnShare = $('#spnBtnShare');
         btnShare = $('#btnShare');
-        btnDownload = $('#btnDownload');
         catConfig = $('#divConfigHead');
         catDrive = $('#gDriveConfigHead');
         fldEndpoint = $('#endpoint');
@@ -966,10 +886,6 @@
         // Button click handling.
         btnShare.click(function(){
             processClicked();
-        });
-
-        btnDownload.click(function(){
-            downloadClicked();
         });
 
         chkMask.click(function(){
