@@ -968,6 +968,7 @@ EnigmaUploader.prototype.upload = function() {
     }.bind(this);
     xhr.onerror = this.onUploadError_.bind(this);
 
+    this.retryHandler.reset();
     log("Starting session with metadata: " + JSON.stringify(this.metadata));
     xhr.send(JSON.stringify(this.metadata));
 };
@@ -1573,6 +1574,7 @@ EnigmaDownloader.ERROR_CODE_PROXY_FAILED = 4;
 EnigmaDownloader.prototype.fetch = function() {
     // TODO: implement multiple fetching strategies as described in the documentation.
     // TODO: split google drive download logic from the overall download logic. So it is usable also for dropbox & ...
+    this.retryHandler.reset();
     if (this.proxyRedirUrl) {
         this.fetchProxyRedir_();
     } else if (this.url) {
