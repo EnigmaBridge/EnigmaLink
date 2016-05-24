@@ -21,9 +21,13 @@ function formatDate(date) {
 }
 
 function append_message(msg) {
-    var status = $("#status");
-    var newMsg = formatDate(new Date()) + " - " + he.encode(msg);
-    status.html(status.html() + "<br/>\n" + newMsg);
+    try {
+        var status = $("#status");
+        var newMsg = formatDate(new Date()) + " - " + he.encode(msg);
+        status.html(status.html() + "<br/>\n" + newMsg);
+    } catch(e){
+
+    }
 }
 
 function successBg(x, success){
@@ -104,6 +108,18 @@ function scrollToElementBottom(D)
 function scrollToIfNotVisible(elem, partially){
     if (!isVisibleOnScreen(elem, partially)){
         scrollToElementBottom(elem);
+    }
+}
+
+/**
+ * Switches main loading overlay.
+ * @param started if true overlay is displayed. Hidden otherwise.
+ */
+function bodyProgress(started){
+    if (started){
+        $("body").addClass("loading");
+    } else {
+        $("body").removeClass("loading");
     }
 }
 

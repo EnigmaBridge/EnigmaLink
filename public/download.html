@@ -537,6 +537,9 @@
                     saveAs(blob, dwn.fname);
                     onSuccess(data);
                 },
+                onStateChange: function(data){
+                    onStateChanged(data);
+                },
                 onError: function(data) {
                     log("Critical error: " + JSON.stringify(data));
                     onError(data);
@@ -559,6 +562,7 @@
             divStatusInfo.text("Downloading...");
             divStatusNotif.hide();
             divPasswdNotif.hide();
+            bodyProgress(true);
             dwn.fetch();
         }
 
@@ -605,9 +609,19 @@
             displayNotifyGlobal("Error: " + (data && data.reason ? data.reason : JSON.stringify(data)), true, true);
         }
 
+        function onStateChanged(data){
+            log("State change: " + data.state);
+            if (data.state == EnigmaDownloader.STATE_SECURITY_BLOCK_PROCESSING
+                    || data.state == EnigmaDownloader.STATE_SECURITY_BLOCK_FINISHED)
+            {
+                bodyProgress(false);
+            }
+        }
+
         function onPasswordRequired(required){
             passwdRequired = required;
             if (required){
+                bodyProgress(false);
                 onDownloadStateChange("Password verification required");
                 setDisabled(btnPasswordUse, false);
                 setDisabled(fldPassword, false);
@@ -623,14 +637,16 @@
         }
 
         function onPasswordFail(){
-            displayNotify(divPasswdNotif, "Invalid password", true, true);
+            bodyProgress(false);
             setDisabled(btnPasswordUse, false);
+            displayNotify(divPasswdNotif, "Invalid password", true, true);
         }
 
         function onPasswordOk(){
-            onDownloadStateChange("Downloading ...");
+            bodyProgress(false);
             divPassword.hide('slow');
 
+            onDownloadStateChange("Downloading ...");
             setDisabled(btnPasswordUse, true);
             setDisabled(fldPassword, true);
             displayNotify(divPasswdNotif, "Password is correct", false, false);
@@ -638,6 +654,7 @@
 
         function onPasswordSubmitted(){
             setDisabled(btnPasswordUse, true);
+            bodyProgress(true);
             dwn.tryPassword(fldPassword.val());
         }
 
