@@ -862,6 +862,8 @@ EnigmaShareScheme.prototype.derive_ = function(input, extra, salt, iterations, o
  * @param {string} [options.contentType] Content-type, if overriding the type of the blob. Public info (non-protected).
  * @param {object} [options.metadata] File metadata
  * @param {object} [options.fname] Filename to use.
+ * @param {object} [options.fnameOrig] Original file name to be stored to the encrypted meta block.
+ * @param {object} [options.retry] Options for RetryHandler.
  * @param {Array} [options.parents] Parent folder IDs of the uploaded file. If null, root directory is the only parent.
  * @param {function} [options.onComplete] Callback for when upload is complete
  * @param {function} [options.onProgress] Callback for status for the in-progress upload
@@ -945,7 +947,6 @@ EnigmaUploader.LENGTH_BYTES = 0x4;
  * Store file metadata, start resumable upload to obtain upload ID.
  */
 EnigmaUploader.prototype.upload = function() {
-    var self = this;
     var xhr = new XMLHttpRequest();
 
     xhr.open(this.httpMethod, this.url, true);
@@ -956,8 +957,7 @@ EnigmaUploader.prototype.upload = function() {
 
     xhr.onload = function(e) {
         if (e.target.status < 400) {
-            var location = e.target.getResponseHeader('Location');
-            this.url = location;
+            this.url = e.target.getResponseHeader('Location');
             log("Upload session started. Url: " + this.url);
 
             this.sendFile_();
@@ -1259,12 +1259,9 @@ EnigmaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
  */
 EnigmaUploader.prototype.sendFile_ = function() {
     var end = this.totalSize;
-    var lstBlock = false;
-
     if (this.offset || this.chunkSize) {
         if (this.chunkSize) {
             end = Math.min(this.offset + this.chunkSize, this.totalSize);
-            lstBlock = end >= this.totalSize;
         }
     }
 
