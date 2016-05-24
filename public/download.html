@@ -624,6 +624,7 @@
 
         function onPasswordFail(){
             displayNotify(divPasswdNotif, "Invalid password", true, true);
+            setDisabled(btnPasswordUse, false);
         }
 
         function onPasswordOk(){
@@ -636,6 +637,7 @@
         }
 
         function onPasswordSubmitted(){
+            setDisabled(btnPasswordUse, true);
             dwn.tryPassword(fldPassword.val());
         }
 
