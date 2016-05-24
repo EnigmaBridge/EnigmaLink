@@ -894,7 +894,7 @@ var EnigmaUploader = function(options) {
     this.onError = options.onError || noop;
     this.chunkSize = options.chunkSize || 262144*2; // requirement by Google, minimal size of a chunk.
     this.offset = 0;
-    this.retryHandler = new RetryHandler();
+    this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
     this.url = options.url;
 
     if (!this.url) {
@@ -957,6 +957,7 @@ EnigmaUploader.prototype.upload = function() {
 
     xhr.onload = function(e) {
         if (e.target.status < 400) {
+            this.retryHandler.reset();
             this.url = e.target.getResponseHeader('Location');
             log("Upload session started. Url: " + this.url);
 
@@ -1365,7 +1366,11 @@ EnigmaUploader.prototype.onContentUploadError_ = function(e) {
  * @param {object} e XHR event
  */
 EnigmaUploader.prototype.onUploadError_ = function(e) {
-    this.onError(e.target.response); // TODO - Retries for initial upload
+    if (this.retryHandler.limitReached()){
+        this.onError(e ? e.target.response : e);
+    } else {
+        this.retryHandler.retry(this.upload.bind(this));
+    }
 };
 
 EnigmaUploader.prototype.progressHandler_ = function(meta, evt){
