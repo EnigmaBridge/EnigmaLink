@@ -1494,6 +1494,7 @@ EnigmaSharingUpload.sizeConcealPadFnc = function(curSize){
  * @param {string} [options.proxyRedirUrl] proxy link for the file to download.
  * @param {EnigmaShareScheme} options.encScheme access token for google drive
  * @param {string|Array|*} [options.encKey] AES GCM master key, used only for debugging, scheme derives the key.
+ * @param {object} [options.retry] Options for RetryHandler.
  * @constructor
  */
 var EnigmaDownloader = function(options){
@@ -1512,7 +1513,7 @@ var EnigmaDownloader = function(options){
     this.offset = 0;
     this.downloaded = false;        // If file was downloaded entirely.
     this.encWrapDetected = false;   // Encryption tag encountered already? If yes, data goes through GCM layer.
-    this.retryHandler = new RetryHandler();
+    this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
 
     this.url = options.url;
     this.proxyRedirUrl = options.proxyRedirUrl;
@@ -1629,7 +1630,7 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
 
             if (downloadedLen < 0){
                 log("Invalid downloaded length");
-                this.onDownloadError_({'reason':'Download length invalid', 'code':EnigmaDownloader.ERROR_CODE_INVALID_CHUNK_LEN});
+                this.onError({'reason':'Download length invalid', 'code':EnigmaDownloader.ERROR_CODE_INVALID_CHUNK_LEN});
                 return;
             }
 
@@ -2146,6 +2147,7 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
     xhr.open("GET", this.proxyRedirUrl, true);
     xhr.onload = function(e) {
         if (e.target.status < 400) {
+            this.retryHandler.reset();
             try {
                 var json = JSON.parse(xhr.responseText);
                 console.log(json);
@@ -2200,7 +2202,7 @@ EnigmaDownloader.prototype.resume_ = function() {
  */
 EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
     log("Chunk download error");
-    if (e.target.status && e.target.status < 400) {
+    if (e && e.target && e.target.status && e.target.status < 400) {
         this.onError(e.target.response);
     } else {
         this.retryHandler.retry(this.resume_.bind(this));
@@ -2214,7 +2216,11 @@ EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
  * @param {object} data aux data
  */
 EnigmaDownloader.prototype.onDownloadError_ = function(data) {
-    this.onError(data); // TODO - Retries for initial download
+    if (this.retryHandler.limitReached()){
+        this.onError(data);
+    } else {
+        this.retryHandler.retry(this.fetchProxyRedir_.bind(this));
+    }
 };
 
 EnigmaDownloader.prototype.progressHandler_ = function(meta, evt){
