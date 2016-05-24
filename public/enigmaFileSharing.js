@@ -461,10 +461,12 @@ var EnigmaShareScheme = function(options){
     this.phSalt = undefined;       // 128bit of entropy for password verification (stored in encrypted file).
     this.passwordSet = false;      // flag indicating whether the password was used or not.
     this.logger = options.logger || nop; // logger to be used.
+    this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
 
     // Event handlers.
     this.onError = options.onError || nop;
     this.onComplete = options.onComplete || nop;
+    this.onRetry = options.onRetry || nop;
     this.onPasswordNeeded = options.onPasswordNeeded || nop;
     this.onPasswordFail = options.onPasswordFail || nop;
     this.onPasswordOK = options.onPasswordOK || nop;
@@ -515,8 +517,13 @@ EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
     // Plainsec block = phSalt || (lKey + fKey)
     var plainSecBlock = w.concat(this.phSalt, eb.misc.xor8(this.lKey, this.fKey));
 
+    // EB function to call
+    var ebOpFnc = undefined;
+
     // Call EB to compute E2, for now it is mocked with static key encryption.
-    var onEbOpSuccess = function(data){
+    var onEbOpSuccess = (function(data){
+        this.retryHandler.reset();
+
         var e2 = data.data;
         if (w.bitLength(e2) != w.bitLength(plainSecBlock)){
             throw new eb.exception.invalid("Returned encrypted block has invalid length");
@@ -528,16 +535,27 @@ EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
 
         // Build final block & signalize completion.
         this.buildBlock_(this.e1);
-        this.onComplete({});
-    };
+        this.onComplete({data:data, scheme:this});
+    }).bind(this);
 
-    var onEbOpFailure = function(data){
-        console.log("EB failure");
-        // TODO: retry handler.
-    };
+    var onEbOpFailure = (function(data){
+        this.logger("EB failure");
+        if (this.retryHandler.limitReached()){
+            this.onError({'reason':'retry attempts limit reached', data: data, scheme: this});
+            return;
+        }
+
+        var interval = this.retryHandler.retry(ebOpFnc.bind(this));
+        this.onRetry({'interval': interval, 'scheme':this});
+    }).bind(this);
 
     // Call EB operation.
-    this.ebOp_(plainSecBlock, true, this.ebOptions, onEbOpSuccess.bind(this), onEbOpFailure.bind(this));
+    ebOpFnc = (function(){
+        this.ebOp_(plainSecBlock, true, this.ebOptions, onEbOpSuccess.bind(this), onEbOpFailure.bind(this));
+    }).bind(this);
+
+    this.retryHandler.reset();
+    ebOpFnc();
 };
 
 /**
@@ -629,15 +647,18 @@ EnigmaShareScheme.prototype.tryDecrypt_ = function(password){
     var aes = new sjcl.cipher.aes(eb.misc.inputToBits(this.pKey));
     var e2 = sjcl.mode.cbc.decrypt(aes, this.e1, this.e1Iv, [], true);
 
+    // EB function to call
+    var ebOpFnc = undefined;
+
     // Call EB decryption on e2.
-    var onEbOpSuccess = function(data){
+    var onEbOpSuccess = (function(data){
         var plainSecBlock = data.data;
         var phSaltPrime = w.bitSlice(plainSecBlock, 0, 128);
 
         // Test password correctness
         if (!w.equal(phSaltPrime, this.phSalt)){
             // Password is invalid.
-            this.onPasswordFail({});
+            this.onPasswordFail({data:data, scheme:this});
             return;
         }
 
@@ -646,16 +667,27 @@ EnigmaShareScheme.prototype.tryDecrypt_ = function(password){
 
         // Completed!
         this.onPasswordOK({});
-        this.onComplete({});
-    };
+        this.onComplete({data:data, scheme:this});
+    }).bind(this);
 
-    var onEbOpFailure = function(data){
-        console.log("EB failure");
-        // TODO: retry handler.
-    };
+    var onEbOpFailure = (function(data){
+        this.logger("EB failure");
+        if (this.retryHandler.limitReached()){
+            this.onError({'reason':'retry attempts limit reached', data: data, scheme:this});
+            return;
+        }
+
+        var interval = this.retryHandler.retry(ebOpFnc.bind(this));
+        this.onRetry({'interval': interval, 'scheme':this});
+    }).bind(this);
 
     // Call EB operation.
-    this.ebOp_(e2, false, this.ebOptions, onEbOpSuccess.bind(this), onEbOpFailure.bind(this));
+    ebOpFnc = (function(){
+        this.ebOp_(e2, false, this.ebOptions, onEbOpSuccess.bind(this), onEbOpFailure.bind(this));
+    }).bind(this);
+
+    this.retryHandler.reset();
+    ebOpFnc();
 };
 
 /**
@@ -714,13 +746,13 @@ EnigmaShareScheme.prototype.ebOp_ = function(input, encrypt, ebOptions, onSucces
     request.logger = this.logger;
 
     // On EB call fail.
-    var onEBFail = function(data){
+    var onEBFail = (function(data){
         this.logger("EB call failed");
         onFailure({data: data});
-    };
+    }).bind(this);
 
     // On EB call success.
-    var onEBSuccess = function(response, data){
+    var onEBSuccess = (function(response, data){
         var responseStatus = response.statusCode;
         this.logger(sprintf("EB call finished! Status: %04X", responseStatus));
         if (responseStatus != eb.comm.status.SW_STAT_OK || response.protectedData === undefined) {
@@ -729,8 +761,13 @@ EnigmaShareScheme.prototype.ebOp_ = function(input, encrypt, ebOptions, onSucces
             return;
         }
 
+        //if(this.retryHandler.numAttempts() < 5){
+        //    onEBFail(data);
+        //    return;
+        //}
+
         onSuccess({data:response.protectedData});
-    };
+    }).bind(this);
 
     // Request callbacks.
     request.done((function(response, requestObj, data) {
