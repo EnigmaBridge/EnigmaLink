@@ -611,9 +611,7 @@
 
         function onStateChanged(data){
             log("State change: " + data.state);
-            if (data.state == EnigmaDownloader.STATE_SECURITY_BLOCK_PROCESSING
-                    || data.state == EnigmaDownloader.STATE_SECURITY_BLOCK_FINISHED)
-            {
+            if (data.state == EnigmaDownloader.STATE_SECURITY_BLOCK_FINISHED) {
                 bodyProgress(false);
             }
         }
