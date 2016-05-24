@@ -676,9 +676,12 @@
                 onUploadKeyCreated(encScheme);
             },
             onError: function(data){
-                log("Critical error: " + JSON.stringify(data));
+                log("Critical error: " + (data.reason ? data.reason : JSON.stringify(data)));
                 $form.removeClass( 'is-uploading' ).addClass( 'is-error' );
-                $fldErrorMsg.text( JSON.stringify(data) );
+                $fldErrorMsg.text( data.reason ? data.reason : JSON.stringify(data) );
+            },
+            onRetry: function(data){
+                log("EB operation retry in: " + data.interval + " ms");
             }
         });
 
