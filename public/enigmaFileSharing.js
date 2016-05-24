@@ -517,13 +517,8 @@ EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
     // Plainsec block = phSalt || (lKey + fKey)
     var plainSecBlock = w.concat(this.phSalt, eb.misc.xor8(this.lKey, this.fKey));
 
-    // EB function to call
-    var ebOpFnc = undefined;
-
     // Call EB to compute E2, for now it is mocked with static key encryption.
     var onEbOpSuccess = (function(data){
-        this.retryHandler.reset();
-
         var e2 = data.data;
         if (w.bitLength(e2) != w.bitLength(plainSecBlock)){
             throw new eb.exception.invalid("Returned encrypted block has invalid length");
@@ -539,23 +534,11 @@ EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
     }).bind(this);
 
     var onEbOpFailure = (function(data){
-        this.logger("EB failure");
-        if (this.retryHandler.limitReached()){
-            this.onError({'reason':'retry attempts limit reached', data: data, scheme: this});
-            return;
-        }
-
-        var interval = this.retryHandler.retry(ebOpFnc.bind(this));
-        this.onRetry({'interval': interval, 'scheme':this});
+        this.onError({'reason':'retry attempts limit reached', data: data, scheme: this});
     }).bind(this);
 
     // Call EB operation.
-    ebOpFnc = (function(){
-        this.ebOp_(plainSecBlock, true, this.ebOptions, onEbOpSuccess.bind(this), onEbOpFailure.bind(this));
-    }).bind(this);
-
-    this.retryHandler.reset();
-    ebOpFnc();
+    this.ebOpWithRetry_(plainSecBlock, true, this.ebOptions, onEbOpSuccess.bind(this), onEbOpFailure.bind(this));
 };
 
 /**
@@ -671,23 +654,11 @@ EnigmaShareScheme.prototype.tryDecrypt_ = function(password){
     }).bind(this);
 
     var onEbOpFailure = (function(data){
-        this.logger("EB failure");
-        if (this.retryHandler.limitReached()){
-            this.onError({'reason':'retry attempts limit reached', data: data, scheme:this});
-            return;
-        }
-
-        var interval = this.retryHandler.retry(ebOpFnc.bind(this));
-        this.onRetry({'interval': interval, 'scheme':this});
+        this.onError({'reason':'retry attempts limit reached', data: data, scheme:this});
     }).bind(this);
 
     // Call EB operation.
-    ebOpFnc = (function(){
-        this.ebOp_(e2, false, this.ebOptions, onEbOpSuccess.bind(this), onEbOpFailure.bind(this));
-    }).bind(this);
-
-    this.retryHandler.reset();
-    ebOpFnc();
+    this.ebOpWithRetry_(e2, false, this.ebOptions, onEbOpSuccess.bind(this), onEbOpFailure.bind(this));
 };
 
 /**
@@ -712,6 +683,54 @@ EnigmaShareScheme.prototype.buildBlock_ = function(e1){
 
     this.secCtx = ba;
     return ba;
+};
+
+/**
+ * Cancels enqueued backoff.
+ */
+EnigmaShareScheme.prototype.cancel = function(){
+    this.retryHandler.cancel();
+};
+
+/**
+ * Performing EB encryption operation on the input.
+ * @param input
+ * @param encrypt
+ * @param ebOptions
+ * @param onSuccess
+ * @param onFailure
+ * @private
+ */
+EnigmaShareScheme.prototype.ebOpWithRetry_ = function(input, encrypt, ebOptions, onSuccess, onFailure){
+    // EB function to call
+    var ebOpFnc = undefined;
+
+    // Success handler - reset retry handler, call success CB.
+    var onEbOpSuccess = (function(data){
+        this.retryHandler.reset();
+        onSuccess(data);
+    }).bind(this);
+
+    // Failure handler - try to retry if limit is not reached.
+    var onEbOpFailure = (function(data){
+        if (this.retryHandler.limitReached()){
+            this.logger("EB failure - limit reached");
+            onFailure($.extend(data, {retry:{'reason':'retry attempts limit reached'}}));
+            return;
+        }
+
+        var interval = this.retryHandler.retry(ebOpFnc.bind(this));
+        this.onRetry({'interval': interval, 'scheme':this});
+        this.logger("EB failure, next attempt: " + interval + " ms");
+    }).bind(this);
+
+    // Call EB operation.
+    ebOpFnc = (function(){
+        this.ebOp_(input, encrypt, ebOptions, onEbOpSuccess.bind(this), onEbOpFailure.bind(this));
+    }).bind(this);
+
+    this.retryHandler.reset();
+    ebOpFnc();
 };
 
 /**
