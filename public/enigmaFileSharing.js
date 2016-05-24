@@ -974,6 +974,15 @@ EnigmaUploader.prototype.upload = function() {
 };
 
 /**
+ * Cancels current operation - mainly for cancelling backoff waiting.
+ */
+EnigmaUploader.prototype.cancel = function() {
+    this.retryHandler.cancel();
+    // TODO: cancellation of download, encryption.
+    // TODO: handling of cancellation. Eventing?
+};
+
+/**
  * Builds meta info block. File is prepended with this information.
  * Contains information required for decryption and encrypted meta data block.
  * Meta data block contains e.g., original file name, mime type, ...
@@ -1582,6 +1591,15 @@ EnigmaDownloader.prototype.fetch = function() {
     } else {
         throw new eb.exception.invalid("URL not valid");
     }
+};
+
+/**
+ * Cancels current operation - mainly for cancelling backoff waiting.
+ */
+EnigmaDownloader.prototype.cancel = function() {
+    this.retryHandler.cancel();
+    // TODO: cancellation of download, decryption
+    // TODO: handling of cancellation. Eventing?
 };
 
 /**
