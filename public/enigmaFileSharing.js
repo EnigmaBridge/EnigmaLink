@@ -1499,6 +1499,7 @@ EnigmaSharingUpload.sizeConcealPadFnc = function(curSize){
  * @param {function} [options.onPasswordNeeded] event handler.
  * @param {function} [options.onPasswordFail] event handler.
  * @param {function} [options.onPasswordOK] event handler.
+ * @param {function} [options.onStateChange] event handler.
  * @param {Number} [options.chunkSize] chunk size for download. First chunk must contain meta block. 256kB or 512kB is ideal.
  * @param {string} [options.url] direct URL for file to download.
  * @param {string} [options.proxyRedirUrl] proxy link for the file to download.
@@ -1518,12 +1519,15 @@ var EnigmaDownloader = function(options){
     this.onPasswordNeeded = options.onPasswordNeeded || noop;
     this.onPasswordFail = options.onPasswordFail || noop;
     this.onPasswordOK = options.onPasswordOK || noop;
+    this.onStateChange = options.onStateChange || noop;
 
     this.chunkSize = options.chunkSize || 262144*2; // All security relevant data should be present in the first chunk.
     this.offset = 0;
     this.downloaded = false;        // If file was downloaded entirely.
     this.encWrapDetected = false;   // Encryption tag encountered already? If yes, data goes through GCM layer.
     this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
+    this.curState = EnigmaDownloader.STATE_INIT;
+    this.downloadStarted = false;
 
     this.url = options.url;
     this.proxyRedirUrl = options.proxyRedirUrl;
@@ -1575,6 +1579,16 @@ EnigmaDownloader.ERROR_CODE_PROXY_JSON = 1;
 EnigmaDownloader.ERROR_CODE_PROXY_INVALID_URL = 2;
 EnigmaDownloader.ERROR_CODE_INVALID_CHUNK_LEN = 3;
 EnigmaDownloader.ERROR_CODE_PROXY_FAILED = 4;
+EnigmaDownloader.STATE_INIT = 1;
+EnigmaDownloader.STATE_PROXY_FETCH = 2;
+EnigmaDownloader.STATE_SECURITY_BLOCK_PROCESSING = 3;
+EnigmaDownloader.STATE_SECURITY_BLOCK_FINISHED = 4;
+EnigmaDownloader.STATE_DOWNLOADING = 5;
+EnigmaDownloader.STATE_PROCESSING = 6;
+EnigmaDownloader.STATE_DONE = 7;
+EnigmaDownloader.STATE_CANCELLED = 8;
+EnigmaDownloader.STATE_ERROR = 9;
+EnigmaDownloader.STATE_BACKOFF = 10;
 
 /**
  * Initiate the upload.
@@ -1584,6 +1598,8 @@ EnigmaDownloader.prototype.fetch = function() {
     // TODO: implement multiple fetching strategies as described in the documentation.
     // TODO: split google drive download logic from the overall download logic. So it is usable also for dropbox & ...
     this.retryHandler.reset();
+    this.changeState_(EnigmaDownloader.STATE_INIT);
+
     if (this.proxyRedirUrl) {
         this.fetchProxyRedir_();
     } else if (this.url) {
@@ -1598,6 +1614,7 @@ EnigmaDownloader.prototype.fetch = function() {
  */
 EnigmaDownloader.prototype.cancel = function() {
     this.retryHandler.cancel();
+    this.changeState_(EnigmaDownloader.STATE_CANCELLED);
     // TODO: cancellation of download, decryption
     // TODO: handling of cancellation. Eventing?
 };
@@ -1623,6 +1640,9 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
         this.processDownloadBuffer_();
         return;
     }
+
+    this.downloadStarted = true;
+    this.changeState_(EnigmaDownloader.STATE_DOWNLOADING);
 
     // Start downloading a next chunk we don't have.
     var xhr = new XMLHttpRequest();
@@ -1742,6 +1762,7 @@ EnigmaDownloader.prototype.mergeDownloadBuffers_ = function(from, to, buffer){
  */
 EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
     var w = sjcl.bitArray;
+    this.changeState_(EnigmaDownloader.STATE_PROCESSING);
 
     // If the first block has not been processed yet - process encryption block, get IV, encKey.
     if (!this.encryptionInitialized){
@@ -2086,6 +2107,7 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
         this.encryptionInitialized = true;
 
         // Finish the processing of current download chunk. Continues in download operation.
+        this.changeState_(EnigmaDownloader.STATE_SECURITY_BLOCK_FINISHED);
         this.processDownloadBuffer_();
 
     }).bind(this);
@@ -2108,6 +2130,7 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
     }).bind(this);
 
     // Process security block, async call.
+    this.changeState_(EnigmaDownloader.STATE_SECURITY_BLOCK_PROCESSING);
     this.encScheme.process(this.secCtx);
 };
 
@@ -2199,6 +2222,7 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
     }.bind(this);
     xhr.onerror = this.onDownloadError_.bind(this);
 
+    this.changeState_(EnigmaDownloader.STATE_PROXY_FETCH);
     log(sprintf("Fetching direct link using redir proxy: %s", this.proxyRedirUrl));
     xhr.send(null);
 };
@@ -2223,8 +2247,10 @@ EnigmaDownloader.prototype.resume_ = function() {
 EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
     log("Chunk download error");
     if (e && e.target && e.target.status && e.target.status < 400) {
+        this.changeState_(EnigmaDownloader.STATE_ERROR);
         this.onError(e.target.response);
     } else {
+        this.changeState_(EnigmaDownloader.STATE_BACKOFF);
         this.retryHandler.retry(this.resume_.bind(this));
     }
 };
@@ -2237,12 +2263,19 @@ EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
  */
 EnigmaDownloader.prototype.onDownloadError_ = function(data) {
     if (this.retryHandler.limitReached()){
+        this.changeState_(EnigmaDownloader.STATE_ERROR);
         this.onError(data);
     } else {
+        this.changeState_(EnigmaDownloader.STATE_BACKOFF);
         this.retryHandler.retry(this.fetchProxyRedir_.bind(this));
     }
 };
 
 EnigmaDownloader.prototype.progressHandler_ = function(meta, evt){
     this.onProgress(evt, meta);
+};
+
+EnigmaDownloader.prototype.changeState_ = function(newState, data){
+    this.curState = newState;
+    this.onStateChange({'state':newState, data:data||{}});
 };
