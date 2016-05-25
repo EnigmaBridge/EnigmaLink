@@ -20,6 +20,15 @@ eb.sh = {
  */
 eb.sh.misc = {
     /**
+     * Takes maximally N characters from the string - length limit.
+     * @param string
+     * @param n
+     */
+    takeMaxN: function(string, n){
+        return string === undefined ? undefined : ((string || {}).substring(0, n));
+    },
+
+    /**
      * Simple helper for building query string from hash map.
      *
      * @param {object} [params] Key/value pairs for query string
@@ -1016,13 +1025,13 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
     //
     // Filename
     log("FileName in meta block: " + this.fnameOrig);
-    var baName = sjcl.codec.utf8String.toBits(this.fnameOrig);
+    var baName = sjcl.codec.utf8String.toBits(eb.sh.misc.takeMaxN(this.fnameOrig, 256));
     toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_FNAME, w.bitLength(baName)/8)));
     toEnc = w.concat(toEnc, baName);
 
     // Mime type
     log("MimeType in meta block: " + this.contentTypeOrig);
-    var baMime = sjcl.codec.utf8String.toBits(this.contentTypeOrig);
+    var baMime = sjcl.codec.utf8String.toBits(eb.sh.misc.takeMaxN(this.contentTypeOrig, 256));
     toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_MIME, w.bitLength(baMime)/8)));
     toEnc = w.concat(toEnc, baMime);
 
