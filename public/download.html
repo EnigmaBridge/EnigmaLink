@@ -363,6 +363,7 @@
                     log(sprintf("Mime type: %s", dwn.mimetype));
                     log(sprintf("File size: %s", dwn.fsize));
                     log(sprintf("File size meta: %s", dwn.fsizeMeta));
+                    log(sprintf("Extra msg: %s", dwn.extraMessage));
 
                     // Reconstruct file.
                     var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
@@ -413,13 +414,15 @@
                     "File size: %s B\n" +
                     "Uploaded:  %s\n" +
                     "SHA1:      %s\n" +
-                    "SHA256:    %s",
-                    dwn.fname,
-                    dwn.mimetype,
-                    dwn.fsize,
-                    dwn.uploadTime > 0 ? new Date(dwn.uploadTime).toString() : '-',
-                    sjcl.codec.hex.fromBits(dwn.sha1),
-                    sjcl.codec.hex.fromBits(dwn.sha256)
+                    "SHA256:    %s\n" +
+                    "Message:   %s",
+                    he.encode(dwn.fname),
+                    he.encode(dwn.mimetype),
+                    he.encode(dwn.fsize),
+                    he.encode(dwn.uploadTime > 0 ? new Date(dwn.uploadTime).toString() : '-'),
+                    he.encode(sjcl.codec.hex.fromBits(dwn.sha1)),
+                    he.encode(sjcl.codec.hex.fromBits(dwn.sha256)),
+                    he.encode(dwn.extraMessage ? dwn.extraMessage : "-")
             );
 
             setDisabled(btnDownload, false);

@@ -101,7 +101,7 @@
             <label>Message
                 <input type="text" name="message" id="message" value="" placeholder="Message to encrypt & share"/>
                 <span>Message to be encrypted and shared in a secure way, using simple insecure storage, such as Google Drive.
-                In case a file is selected, message is not used.</span>
+                In case a file is selected, message is attached to the file.</span>
             </label>
 
             <label>File name
@@ -348,9 +348,6 @@
             fldFname.val(isChecked(chkMask) ? genRandomName() : files[0].name);
             fldFnameOrig.val(files[0].name);
         }
-
-        // Text message not allowed if file is provided.
-        setDisabled(fldMsg, files.length > 0);
     }
 
     function enableLinkButtons(enable){
@@ -556,10 +553,13 @@
 
         // Encrypt file in the browser, upload to drive, first file.
         var fFile = droppedFiles && droppedFiles.length > 0 ? droppedFiles[0] : undefined;
+        var extraMessage = undefined;
         // If file is not provided, use text message.
         if (fFile === undefined){
             log("File not provided, using text message only");
             fFile = new Blob(["" + fldMsg.val()], {"type": "text/plain"});
+        } else {
+            extraMessage = fldMsg.val();
         }
 
         uploader = new EnigmaUploader({
@@ -570,6 +570,7 @@
             chunkSize: 262144*5,
             fname: fldFname.val(),
             fnameOrig: fldFnameOrig.val(),
+            extraMessage: extraMessage,
             parents: [shareFolderId],
             contentType: isChecked(chkMask) ? 'application/octet-stream' : undefined,
             padFnc: isChecked(chkMask) ? EnigmaSharingUpload.sizeConcealPadFnc : undefined,

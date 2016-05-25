@@ -872,6 +872,7 @@ EnigmaShareScheme.prototype.derive_ = function(input, extra, salt, iterations, o
  * @param {object} [options.metadata] File metadata
  * @param {object} [options.fname] Filename to use.
  * @param {object} [options.fnameOrig] Original file name to be stored to the encrypted meta block.
+ * @param {object} [options.extraMessage] Extra text message to share with the file.
  * @param {object} [options.retry] Options for RetryHandler.
  * @param {Array} [options.parents] Parent folder IDs of the uploaded file. If null, root directory is the only parent.
  * @param {function} [options.onComplete] Callback for when upload is complete
@@ -890,6 +891,7 @@ var EnigmaUploader = function(options) {
     this.contentTypeOrig = this.file.type || 'application/octet-stream';
     this.fname = options.fname || this.file.name || 'note';
     this.fnameOrig = options.fnameOrig || this.file.name || 'note';
+    this.extraMessage = options.extraMessage;
     this.metadata = options.metadata || {
             'name': this.fname,
             'mimeType': this.contentType
@@ -1047,6 +1049,14 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
     toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_FSIZE, w.bitLength(baSize)/8)));
     toEnc = w.concat(toEnc, baSize);
     log("FileSize in meta block: " + time);
+
+    // Extra file share message.
+    if (this.extraMessage && this.extraMessage.length > 0){
+        var baExtraMsg = sjcl.codec.utf8String.toBits(eb.sh.misc.takeMaxN(this.extraMessage, 1024*5));
+        toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_MSG, w.bitLength(baExtraMsg)/8)));
+        toEnc = w.concat(toEnc, baExtraMsg);
+        log("Extra message in meta block: " + this.extraMessage);
+    }
 
     // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
     var metaBlockSizeNoPadded = w.bitLength(toEnc)/8;
@@ -1590,11 +1600,12 @@ var EnigmaDownloader = function(options){
     this.blobs = [];
     this.fsize = 0;             // Filesize.
     this.fname = undefined;     // Filename extracted from the meta block.
-    this.fsizeMeta = undefined;     // File size extracted from the meta block.
+    this.fsizeMeta = undefined; // File size extracted from the meta block.
     this.mimetype = undefined;  // Mime type extracted from the meta block.
     this.uploadTime = undefined;// UTC milliseconds when the file was uploaded.
     this.sha1 = undefined;      // SHA1 checksum of the message.
     this.sha256 = undefined;    // SHA256 checksum of the message.
+    this.extraMessage = undefined; // Extra text message shared with the file.
 };
 
 EnigmaDownloader.ERROR_CODE_PROXY_JSON = 1;
@@ -2005,6 +2016,9 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
                     }
                 }
 
+                break;
+            case EnigmaUploader.TAG_MSG:
+                this.extraMessage = sjcl.codec.utf8String.fromBits(this.tps.cdata);
                 break;
 
             default:
