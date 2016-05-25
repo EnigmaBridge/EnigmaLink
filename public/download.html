@@ -362,6 +362,7 @@
                     log(sprintf("File name: %s", dwn.fname));
                     log(sprintf("Mime type: %s", dwn.mimetype));
                     log(sprintf("File size: %s", dwn.fsize));
+                    log(sprintf("File size meta: %s", dwn.fsizeMeta));
 
                     // Reconstruct file.
                     var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
