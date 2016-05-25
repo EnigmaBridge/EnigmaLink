@@ -418,10 +418,10 @@
                     "Message:   %s",
                     he.encode(dwn.fname),
                     he.encode(dwn.mimetype),
-                    he.encode(dwn.fsize),
-                    he.encode(dwn.uploadTime > 0 ? new Date(dwn.uploadTime).toString() : '-'),
-                    he.encode(sjcl.codec.hex.fromBits(dwn.sha1)),
-                    he.encode(sjcl.codec.hex.fromBits(dwn.sha256)),
+                    dwn.fsize,
+                    dwn.uploadTime > 0 ? new Date(dwn.uploadTime).toString() : '-',
+                    sjcl.codec.hex.fromBits(dwn.sha1),
+                    sjcl.codec.hex.fromBits(dwn.sha256),
                     he.encode(dwn.extraMessage ? dwn.extraMessage : "-")
             );
 
