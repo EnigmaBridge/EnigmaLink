@@ -79,6 +79,9 @@
         var spnBtnShare;
         var btnShare;
         var fldEndpoint;
+        var fldEbStatus;
+        var fldStatus;
+        var fldLog;
     </script>
 </head>
 <body>
@@ -214,9 +217,20 @@
 
         <div class="section"><span>4</span>Response</div>
         <div class="inner-wrap">
-            <label>Status code
-                <input type="text" name="hotpStatus" id="hotpStatus" placeholder="EB status code" readonly="readonly"/>
-                <span>9000 means success</span>
+            <label>Status
+                <input type="text" name="fldStatus" id="fldStatus" placeholder="Upload status" readonly="readonly"/>
+                <span>Upload status</span>
+            </label>
+
+            <label>EnigmaBridge Status
+                <input type="text" name="ebStatus" id="ebStatus" placeholder="EB status code" readonly="readonly"/>
+                <span>EB status computation</span>
+            </label>
+
+
+            <label>Last log
+                <input type="text" name="fldLog" id="fldLog" placeholder="last log line" readonly="readonly"/>
+                <span>Last log line</span>
             </label>
 
             <label>Share link
@@ -263,6 +277,11 @@
     function log(msg){
         console.log(msg);
         append_message(msg);
+        try {
+            fldLog.val(msg);
+        }catch(e){
+
+        }
     }
 
     function genRandomName(){
@@ -422,6 +441,7 @@
 
         // Share with general public by default.
         shareUploadedFile(data);
+        statusFieldSet(fldStatus, "Setting up sharing");
     }
 
     function onUploadProgress(progress){
@@ -476,6 +496,7 @@
         divQrCode.html("");
         divQrCode.qrcode(link);
         $('#aDownloadLink').attr("href", link);
+        statusFieldSet(fldStatus, "Upload finished", true);
     }
 
     function processClicked(){
@@ -499,19 +520,26 @@
             eb: shareConfig.ebConfigUpload,
             logger: log,
             onComplete: function(data){
+                statusFieldSet(fldEbStatus, "Encryption key computed", true);
                 onUploadKeyCreated(encScheme);
             },
             onError: function(data){
+                statusFieldSet(fldEbStatus, "Encryption key computation failed", false);
+                statusFieldSet(fldStatus, "Upload failed");
+
                 log("Critical error: " + (data.reason ? data.reason : JSON.stringify(data)));
                 $form.removeClass( 'is-uploading' ).addClass( 'is-error' );
                 $fldErrorMsg.text( data.reason ? data.reason : JSON.stringify(data) );
             },
             onRetry: function(data){
+                statusFieldSet(fldEbStatus, "Computing encryption key...");
                 log("EB operation retry in: " + data.interval + " ms");
             }
         });
 
         // Generate the file encryption key.
+        statusFieldSet(fldEbStatus, "Computing encryption key...");
+        statusFieldSet(fldStatus, "Preparing upload");
         encScheme.build(fldPassword.val());
     }
 
@@ -549,6 +577,7 @@
                 if (oEvent.lengthComputable) {
                     var totalPercent = (aux.offset+oEvent.loaded) / aux.total;
                     onUploadProgress(totalPercent);
+                    statusFieldSet(fldStatus, sprintf("Uploading: %02.2f%%", totalPercent*100));
                 }
             },
             onComplete: function(data) {
@@ -562,6 +591,7 @@
                 }));
             },
             onError: function(data) {
+                statusFieldSet(fldStatus, "Upload failed", false);
                 log("Critical error: " + JSON.stringify(data));
                 $form.removeClass( 'is-uploading' ).addClass( data.success == true ? 'is-success' : 'is-error' );
                 $fldErrorMsg.text( data );
@@ -704,6 +734,9 @@
         catDrive = $('#gDriveConfigHead');
         fldEndpoint = $('#endpoint');
         fldPassword = $('#password');
+        fldEbStatus = $('#ebStatus');
+        fldStatus = $('#fldStatus');
+        fldLog = $('#fldLog');
 
         // HTML5 support?
         isAdvancedUpload = function() {
