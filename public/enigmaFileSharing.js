@@ -889,9 +889,11 @@ var EnigmaUploader = function(options) {
         this.metadata.parents = options.parents;    // parent folders for the uploaded file. if null -> root
     }
     this.token = options.token;
+
     this.onComplete = options.onComplete || noop;
     this.onProgress = options.onProgress || noop;
     this.onError = options.onError || noop;
+
     this.chunkSize = options.chunkSize || 262144*2; // requirement by Google, minimal size of a chunk.
     this.offset = 0;
     this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
@@ -936,7 +938,9 @@ var EnigmaUploader = function(options) {
 EnigmaUploader.TAG_SEC = 0x1;      // security context part. Contains IV, encrypted file encryption key.
 EnigmaUploader.TAG_FNAME = 0x2;    // record with the data/file name.
 EnigmaUploader.TAG_MIME = 0x3;     // record with the data/file mime type.
-EnigmaUploader.TAG_TIME = 0x7;     // record with the tiemstamp of the upload.
+EnigmaUploader.TAG_TIME = 0x7;     // record with the timestamp of the upload.
+EnigmaUploader.TAG_MSG = 0x8;      // record with the user provided message (will be encrypted + auth together with the file).
+EnigmaUploader.TAG_FSIZE = 0x9;    // record with the file size.
 EnigmaUploader.TAG_ENC = 0x4;      // record with the encrypted data/file. Last record in the message (no length field).
 EnigmaUploader.TAG_ENCWRAP = 0x5;  // record with the encrypted container (fname+mime+data). Last unencrypted record (no length field).
 EnigmaUploader.TAG_PADDING = 0x6;  // padding record. Null bytes (skipped in parsing), may be used to conceal true file size or align blocks.
@@ -1029,6 +1033,12 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
     toEnc = w.concat(toEnc, baTime);
     log("Time in meta block: " + time);
 
+    // FileSize
+    var baSize = eb.misc.serialize64bit(this.file.size);
+    toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_FSIZE, w.bitLength(baSize)/8)));
+    toEnc = w.concat(toEnc, baSize);
+    log("FileSize in meta block: " + time);
+
     // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
     var metaBlockSizeNoPadded = w.bitLength(toEnc)/8;
     if ((metaBlockSizeNoPadded % 16) != 0){
@@ -1076,6 +1086,7 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
 
     // Encryption block, the last tag in the message - without length
     var encSc = new ConstDataSource(h.toBits(sprintf("%02x", EnigmaUploader.TAG_ENC)));
+    // File/message content wrapped with hashing data source - computes sha1, sha256 over input data.
     var blobSc = new BlobDataSource(this.file);
     this.inputHashingDs = new HashingDataSource(blobSc, (function(ofStart, ofEnd, len, data){
         this.sha1Digest.update(data);
@@ -1086,6 +1097,7 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
         }
     }).bind(this));
 
+    // Message size concealing padding data sources.
     if (!paddingEnabled){
         this.dataSource = new MergedDataSource([encSc, this.inputHashingDs]);
 
@@ -1569,6 +1581,7 @@ var EnigmaDownloader = function(options){
     this.blobs = [];
     this.fsize = 0;             // Filesize.
     this.fname = undefined;     // Filename extracted from the meta block.
+    this.fsizeMeta = undefined;     // File size extracted from the meta block.
     this.mimetype = undefined;  // Mime type extracted from the meta block.
     this.uploadTime = undefined;// UTC milliseconds when the file was uploaded.
     this.sha1 = undefined;      // SHA1 checksum of the message.
@@ -1970,6 +1983,16 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
                     this.uploadTime = eb.misc.deserialize64bit(this.tps.cdata);
                     if (this.uploadTime > eb.misc.MAX_SAFE_INTEGER){
                         throw new eb.exception.invalid("Upload timestamp too big");
+                    }
+                }
+
+                break;
+
+            case EnigmaUploader.TAG_FSIZE:
+                if (this.tps.tlen == 8){
+                    this.fsizeMeta = eb.misc.deserialize64bit(this.tps.cdata);
+                    if (this.fsizeMeta > eb.misc.MAX_SAFE_INTEGER){
+                        throw new eb.exception.invalid("File size too big");
                     }
                 }
 
