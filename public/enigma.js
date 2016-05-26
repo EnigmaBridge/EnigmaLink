@@ -4473,10 +4473,8 @@ eb.comm.createUO.templateFiller.prototype = {
         var iKeyBl = key.type == 'rsa2048' ? 2048 : 1024;
         var data = eb.padding.pkcs15.pad(input, iKeyBl, 2);
 
-        return data;
-
         // ASN.1 get.
-        var pubKey = this._readSerializedPubKey(key.publickey);
+        var pubKey = this._readSerializedPubKey(key.key);
         var msg = sjcl.bn.fromBits(data);
         var mod = sjcl.bn.fromBits(pubKey.n);
         var exp = sjcl.bn.fromBits(pubKey.e);
@@ -4487,6 +4485,7 @@ eb.comm.createUO.templateFiller.prototype = {
     },
 
     _readSerializedPubKey: function(pubKey){
+        // ASN1:
         //PublicKeyInfo ::= SEQUENCE {
         //    algorithm       AlgorithmIdentifier,
         //    PublicKey       BIT STRING
@@ -4499,10 +4498,35 @@ eb.comm.createUO.templateFiller.prototype = {
         //    modulus           INTEGER,  -- n
         //    publicExponent    INTEGER   -- e
         //}
+        //
+        // We encode it differently...
+        // TAG|len-2B|value. 81 = exponent, 82 = modulus
         var w = sjcl.bitArray;
         var ba = eb.misc.inputToBits(pubKey);
-        // TODO: do it.
+        var result = {};
 
+        var tag, len, pos = 0, dat, ln = w.bitLength(ba)/8;
+        for(;pos < ln;){
+            tag = w.extract(ba, 8*pos, 8); pos+=1;
+            len = w.extract(ba, 8*pos, 16); pos+=2;
+            dat = w.bitSlice(ba, 8*pos, 8*(pos+len)); pos+=len;
+            switch(tag){
+                case 0x81:
+                    result.e = dat;
+                    break;
+                case 0x82:
+                    result.n = dat;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if (result.n === undefined || result.e === undefined){
+            throw new eb.exception.invalid("Invalid public key");
+        }
+
+        return result;
     },
 
     _getBestImportKey: function(importKeys){
