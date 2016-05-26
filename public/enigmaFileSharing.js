@@ -1129,6 +1129,143 @@ EnigmaShareScheme.prototype.derive_ = function(input, extra, salt, iterations, o
 };
 
 /**
+ * PNG creator
+ * @type {{}}
+ */
+eb.sh.png = function(options){
+    options = options || {};
+    this.png = sjcl.codec.base64.toBits(options.png); // base64 encoded.
+    this.pngLen = sjcl.bitArray.bitLength(this.png)/8;
+
+    this.chunks = {};
+    this.pngHead = [];  // header + IHDR
+    this.pngData = [];  // PNG data before IEND
+    this.pngTrail = []; // IEND
+    this.pngHeadChunks = []; // PNG chunks to place after IHDR
+    this.pngTailChunks = []; // PNG chunks to place before IEND
+    this.pngTailDataSources = []; // PNG chunks to place before IEND, DataSources
+    this.parsePng();
+};
+
+eb.sh.png.prototype = {
+    genTag: function(str){
+        return sjcl.bitArray.extract32(sjcl.codec.utf8String.toBits(str), 0);
+    },
+
+    parsePng: function(){
+        var w = sjcl.bitArray;
+        var pos = 8; // length of the standard PNG header.
+        var tag, length, data, chunk, crc, tagStart;
+        this.chunks = {hdr:undefined, end:undefined, idat:undefined};
+
+        for(;pos < this.pngLen;){
+            tagStart = pos;
+            length = w.extract32(this.png, pos*8); pos+=4;
+            tag = w.extract32(this.png, pos*8); pos+=4;
+            data = w.bitSlice(this.png, pos*8, (pos+length)*8); pos+=length;
+            crc = w.extract32(this.png, pos*8); pos+=4;
+            chunk = {tag:tag, len: length, crc:crc, data:data, offset:tagStart, offsetEnd: tagStart+4+4+4+length};
+
+            switch(tag){
+                case this.genTag("IHDR"):
+                    this.chunks.hdr = chunk;
+                    console.log(sprintf("HEADER, %s", tagStart));
+                    break;
+                case this.genTag("IDAT"):
+                    if (this.chunks.idat === undefined) {
+                        this.chunks.idat = chunk;
+                        console.log(sprintf("IDAT, %s", tagStart));
+                    }
+                    break;
+                case this.genTag("IEND"):
+                    this.chunks.end = chunk;
+                    console.log(sprintf("END, %s", tagStart));
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        this.pngHead = w.bitSlice(this.png, 0, this.chunks.idat.offset*8);
+        this.pngData = w.bitSlice(this.png, this.chunks.idat.offset*8, this.chunks.end.offset*8);
+        this.pngTrail = w.bitSlice(this.png, this.chunks.end.offset*8);
+    },
+
+    createChunk: function(tag, data2add){
+        var w = sjcl.bitArray;
+        var ba = [(w.bitLength(data2add)/8)|0, tag|0];
+        ba = w.concat(ba, data2add);
+
+        // CRC32, TODO: compute CRC with sjcl
+        var xx = [], i, ln;
+        for(i=0, ln = w.bitLength(data2add)/8; i<ln; i++){
+            xx.push(w.extract(data2add, i*8, 8));
+        }
+        ba = w.concat(ba, [CRC32.buf(xx)|0]);
+        return ba;
+    },
+
+    createTxtChunk: function(keyword, str){
+        var w = sjcl.bitArray;
+        var data2add = [];
+        data2add = w.concat(data2add, sjcl.codec.utf8String.toBits(keyword));
+        data2add = w.concat(data2add, eb.misc.getZeroBits(8*5));
+        data2add = w.concat(data2add, sjcl.codec.utf8String.toBits(str));
+
+        var ba = [(w.bitLength(data2add)/8)|0, (this.genTag("iTXt"))|0];
+        ba = w.concat(ba, data2add);
+
+        // CRC32, TODO: compute CRC with sjcl
+        var xx = [ba[0], ba[1]], i, ln;
+        for(i=0, ln = w.bitLength(data2add)/8; i<ln; i++){
+            xx.push(w.extract(data2add, i*8, 8));
+        }
+
+        var crc = CRC32.buf(xx);
+        ba = w.concat(ba, [crc|0]);
+
+        return ba;
+    },
+
+    addHeaderTxtChunk: function(keyword, str){
+        var tag = this.createTxtChunk(keyword, str);
+        this.pngHeadChunks.push(tag);
+    },
+
+    addTrailUmphChunk: function(data){
+        var tag = this.createChunk(this.genTag("umPh"), data);
+        this.pngTailChunks.push(tag);
+    },
+
+    build: function(){
+        var w = sjcl.bitArray, i, ln;
+        var ba = [];
+        ba = w.concat(ba, this.pngHead);
+
+        // head chunks
+        for(i=0, ln = this.pngHeadChunks.length; i<ln; i++){
+            ba = w.concat(ba, this.pngHeadChunks[i]);
+        }
+
+        // png data
+        ba = w.concat(ba, this.pngData);
+
+        // png tailing chunks
+        for(i=0, ln = this.pngTailChunks.length; i<ln; i++){
+            ba = w.concat(ba, this.pngTailChunks[i]);
+        }
+
+        // png trailing
+        ba = w.concat(ba, this.pngTrail);
+        return ba;
+    },
+
+    getDataSource: function(){
+        // TODO:
+    }
+};
+
+/**
  * Helper class for resumable uploads using XHR/CORS. Can upload any Blob-like item, whether
  * files or in-memory constructs.
  *
