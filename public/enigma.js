@@ -75,7 +75,6 @@ sjcl.hash.sha1 = function (hash) {
 sjcl.hash.sha1.hash = function (data) {
     return (new sjcl.hash.sha1()).update(data).finalize();
 };
-
 sjcl.hash.sha1.prototype = {
     /**
      * The hash's block size, in bits.
