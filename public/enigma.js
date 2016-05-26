@@ -4225,3 +4225,40 @@ eb.comm.createUO.consts = {
         COMP3: 4
     }
 };
+
+/**
+ * pubKey response.
+ * @extends eb.comm.response
+ */
+eb.comm.createUO.UOTemplateResponse = function(x){
+    eb.misc.absorb(this, x);
+};
+eb.comm.createUO.UOTemplateResponse.inheritsFrom(eb.comm.response, {
+    /**
+     * Response fields
+     */
+    uot: {
+        "objectid": undefined,
+        "version": undefined, //<integer>,
+        "protocol": undefined, //<integer>,
+        "encryptionoffset": undefined, //<decimal_number>,
+        "flagoffset": undefined, //<decimal_number>,
+        "policyoffset": undefined, //<decimal_number>,
+        "scriptoffset": undefined, //<decimal_number,
+        "keyoffsets": [
+            //{"type": "commk",  offset: 180, length: 20,  "tlvtype":1},
+            //{"type": "comenc",  offset: 200, length: 10,  "tlvtype":1},
+            //{"type": "commac",  offset: 210, length: 10,  "tlvtype":2},
+            //{"type": "billing", offset: 220, length: 10,  "tlvtype":3},
+            //{"type": "comnextenc", offset: 230, length: 10,  "tlvtype":4},
+            //{"type": "conextmac", offset: 240, length: 10,  "tlvtype":5},
+            //{"type": "app",    offset: 250, length: 200, "tlvtype":6}
+        ],
+        "template": undefined, // hexcoded
+        "templatehs": undefined, // hexcoded
+        "importkeys": [
+            //{"id": <string>, "type":<"rsa2048"|"rsa1024">, "publickey": <string-serialized public key> },
+        ],
+        "authorization": undefined //<string>
+    }
+});
