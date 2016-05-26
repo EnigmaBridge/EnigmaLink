@@ -4115,3 +4115,113 @@ eb.comm.hotp.authContextUpdateRequest.inheritsFrom(eb.comm.hotp.hotpRequest, {
     }
 });
 
+/**
+ * Create user object name space.
+ * @type {{}}
+ */
+eb.comm.createUO = {};
+eb.comm.createUO.consts = {
+    YES: "yes",
+    NO: "no",
+
+    uoType:{
+        HMAC: 0x0001,
+        SCRAMBLE: 0x0002,
+        ENSCRAMBLE: 0x0003,
+        PLAINAES: 0x0004,
+        RSA1024DECRYPT_NOPAD: 0x0005,
+        RSA2048DECRYPT_NOPAD: 0x0006,
+        EC_FP192SIGN: 0x0007,
+        AUTH_HOTP: 0x0008,
+        AUTH_NEW_USER_CTX: 0x0009,
+        AUTH_PASSWORD: 0x000a,
+        AUTH_UPDATE_USER_CTX: 0x000b,
+        TOKENIZE: 0x000c,
+        DETOKENIZE: 0x000d,
+        TOKENIZEWRAP: 0x000e,
+        PLAINAESDECRYPT: 0x000f,
+        RANDOMDATA: 0x0010,
+        CREATENEWUO: 0x0011,
+        RSA1024ENCRYPT_NOPAD: 0x0012,
+        RSA2048ENCRYPT_NOPAD: 0x0013
+    },
+
+    environment:{
+        DEV: "dev",
+        TEST: "test",
+        PROD: "prod"
+    },
+
+    maxtps: {
+        _1: "one",
+        _10: "ten",
+        _20: "twenty",
+        _50: "fifty",
+        _100: "one_hundred",
+        _200: "two_hundred",
+        _500: "five_hundred",
+        _1000: "one_thousand",
+        _2000: "two_thousand",
+        _5000: "five_thousand",
+        _10000: "ten_thousand",
+        _50000: "fifty_thousand",
+        _100000: "hundred_thousand",
+        UNLIMITED: "unlimited"
+    },
+
+    core: {
+        EMPTY: "empty",
+        _1: "one",
+        _2: "two",
+        _3: "three",
+        _5: "five",
+        _10: "ten",
+        _20: "twenty",
+        CLUSTER: "cluster"
+    },
+
+    persistence: {
+        _1min: "one_minute",
+        _2min: "two_minutes",
+        _5min: "five_minutes",
+        _15min: "fifteen_minutes",
+        _30min: "thirty_minutes",
+        _1h: "one_hour",
+        _2h: "two_hours",
+        _6h: "six_hours",
+        _12h: "twelve_hours",
+        _1d: "one_day",
+        _2d: "two_days",
+        _7d: "seven_days",
+        _14d: "forteen_days",
+        _28d: "twentyeight_days",
+        _1mon: "one_month"
+    },
+
+    priority: {
+        LOW: "low",
+        DEFAULT: "default",
+        HIGH: "high",
+        MAX: "maximum"
+    },
+
+    separation: {
+        TIME: "time",
+        COMPLETE: "complete"
+    },
+
+    resource: {
+        GLOBAL: "global",
+        INSTANCE: "instance",
+        CLUSTER: "cluster",
+        CARD: "card"
+    },
+
+    genKey: {
+        LOCAL: 0,
+        SERVER: 1,
+        COMP1: 2,
+        COMP2: 3,
+        COMP3: 4
+    }
+};
