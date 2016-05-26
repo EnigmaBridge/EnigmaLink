@@ -174,6 +174,9 @@
             };
         }
 
+        /**
+         * EB call - get create new UO template.
+         */
         function createClicked(){
             var settings = getSettings();
             var request = new eb.comm.createUO.getUOTemplateRequest();
@@ -217,6 +220,7 @@
             }).always(function(request, data){
                 bodyProgress(false);
                 setDisabled(btnCreate, false);
+
             });
 
             // Build the request so we can display request in the form.
@@ -234,6 +238,10 @@
             statusFieldSet(fldStatus, "Connection error", false);
         }
 
+        /**
+         * On template was fetched
+         * @param {eb.comm.createUO.UOTemplateResponse} response
+         */
         function onTemplateFetched(response){
             var responseStatus = response.statusCode;
             var status = sprintf("0x%04X", responseStatus);
@@ -244,6 +252,99 @@
             }
 
             statusFieldSet(fldStatus, status, responseStatus == eb.comm.status.SW_STAT_OK);
+            if (responseStatus != eb.comm.status.SW_STAT_OK){
+                return;
+            }
+
+            // Create a new user object.
+            var tpl = response.uot;
+            var builder = new eb.comm.createUO.templateFiller({template: tpl});
+
+            // New keys.
+            var keys = {
+                comenc:{
+                    key:[0,0,0,0,0,0,0,0]},
+                commac:{
+                    key:[0,0,0,0,0,0,0,0]},
+                comnextenc:{
+                    key:[0,0,0,0,0,0,0,0]},
+                conextmac:{
+                    key:[0,0,0,0,0,0,0,0]},
+                app:{
+                    key:[0,0,0,0,0,0,0,0]}
+            };
+            var buildReq = builder.build({keys: keys});
+
+            // Create a new request.
+            importUo({templateResponse: response, template:tpl, request: buildReq});
+        }
+
+        /**
+         * Import UO - new EB operation.
+         * @param data
+         */
+        function importUo(data){
+            var settings = getSettings();
+            var request = new eb.comm.createUO.importUOResponse();
+            request.configure(settings);
+            request.logger = append_message;
+
+            var requestData = {
+                "uoid": data.templateResponse.objectid,
+                "tblob": data.request.uo
+            };
+
+            // Callbacks settings.
+            request.done(function(response, requestObj, data) {
+                onUOCreated(response);
+
+            }).fail(function(failType, data){
+                if (failType == eb.comm.status.PDATA_FAIL_RESPONSE_FAILED){
+                    onUOCreated(data.response);
+
+                } else if (failType == eb.comm.status.PDATA_FAIL_CONNECTION){
+                    log("Connection error");
+                    connectionError(data);
+                }
+
+            }).always(function(request, data){
+                bodyProgress(false);
+                setDisabled(btnCreate, false);
+
+            });
+
+            // Build the request so we can display request in the form.
+            request.build(requestData);
+            log("UO Import Request: ");
+            console.log(requestData);
+            log(JSON.stringify(requestData));
+
+            //setDisabled(btnCreate, true);
+            bodyProgress(true);
+            request.doRequest();
+        }
+
+        /**
+         * Response on importUORequest
+         * @param {eb.comm.createUO.importUOResponse} response
+         */
+        function onUOCreated(response){
+            var responseStatus = response.statusCode;
+            var status = sprintf("0x%04X", responseStatus);
+            if (responseStatus == eb.comm.status.SW_STAT_OK){
+                status += ' - Request successful';
+            } else {
+                status += ' - Failed, unknown error';
+            }
+
+            statusFieldSet(fldStatus, status, responseStatus == eb.comm.status.SW_STAT_OK);
+            if (responseStatus != eb.comm.status.SW_STAT_OK){
+                return;
+            }
+
+            log("UO Import Response: ");
+            console.log(response);
+            log(JSON.stringify(response));
         }
 
         $(function(){
