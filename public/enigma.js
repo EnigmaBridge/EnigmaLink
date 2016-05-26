@@ -4227,7 +4227,7 @@ eb.comm.createUO.consts = {
 };
 
 /**
- * pubKey response.
+ * getUOTemplate response.
  * @extends eb.comm.response
  */
 eb.comm.createUO.UOTemplateResponse = function(x){
@@ -4299,10 +4299,6 @@ eb.comm.createUO.getUOTemplateRequest.inheritsFrom(eb.comm.apiRequest, {
         }
     },
 
-    //getNonce: function(){
-    //    return "";
-    //},
-
     /**
      * Process configuration from the config object.
      * @param configObject java object with the configuration.
@@ -4324,6 +4320,7 @@ eb.comm.createUO.getUOTemplateRequest.inheritsFrom(eb.comm.apiRequest, {
 
     /**
      * Initializes state and builds request
+     * @param {object} request
      */
     build: function(request){
         this._log("Building request body");
@@ -4352,7 +4349,7 @@ eb.comm.createUO.getUOTemplateRequest.inheritsFrom(eb.comm.apiRequest, {
         // Generic parser with given parsing function.
         var parser = new eb.comm.responseParser();
         parser.parsingFunction(function(data, resp, parser){
-            var response = new eb.comm.UOTemplateResponse(resp);
+            var response = new eb.comm.createUO.UOTemplateResponse(resp);
             if (!data.data ) {
                 parser._log("Invalid response");
                 throw new eb.exception.invalid("Invalid response");
@@ -4366,3 +4363,284 @@ eb.comm.createUO.getUOTemplateRequest.inheritsFrom(eb.comm.apiRequest, {
         return this.responseParser;
     }
 });
+
+eb.comm.asn1decoder = function(options){
+
+};
+eb.comm.asn1decoder.prototype = {
+
+
+
+
+
+};
+
+/**
+ * Template filler
+ *
+ * @param {object} options
+ * @param {object} options.template
+ * @param {boolean} options.debuggingLog
+ */
+eb.comm.createUO.templateFiller = function(options){
+    options = options || {};
+    this.template = options.template;
+    this.debuggingLog = options.debuggingLog || true;
+};
+eb.comm.createUO.templateFiller.prototype = {
+    /**
+     * Builds template to import.
+     * keys:
+     *  commk: {key: bits}
+     *  app: {key: bits}
+     */
+    build: function(options){
+        options = options || {};
+        var template = options.template || this.template;
+        var keys = options.keys || {};
+
+        // Vars.
+        var h = sjcl.codec.hex, w = sjcl.bitArray, i, ln, cKeyOff, cKey, cKeyVal, baOrig;
+        var baPlain, baProtected;
+
+        // Message shortcuts.
+        var encOffset = template.encryptionoffset;
+        var keysOffset = template.keyoffsets || [];
+        var importKeys = template.importkeys || [];
+
+        // Raw template to fill-in.
+        var ba = eb.misc.inputToBits(template.template);
+
+        // Fill in template keys?
+        for(i = 0, ln = keysOffset.length; i < ln; ++i){
+            cKeyOff = keysOffset[i];
+            if (!cKeyOff || !cKeyOff.type || !(cKeyOff.type in keys)){
+                this._log("Key not found: " + cKeyOff.type);
+                continue;
+            }
+
+            cKey = keys[cKeyOff.type];
+            cKeyVal = eb.misc.inputToBits(cKey.key);
+            if (w.bitLength(cKeyVal) != cKeyOff.length){
+                this._log("Key bitLength does not match: " + w.bitLength(cKeyVal) + " vs " + cKeyOff.length);
+                continue;
+            }
+
+            // before + key + after
+            baOrig = ba;
+            ba = w.concat(w.bitSlice(baOrig, 0, cKeyOff.offset), cKeyVal); // before + key
+            ba = w.concat(ba, w.bitSlice(baOrig, cKeyOff.offset + cKeyOff.length)); // after
+        }
+
+        // Encrypt template from encOffset.
+        baPlain = w.bitSlice(ba, 0, encOffset);
+        baProtected = w.bitSlice(ba, encOffset);
+
+        var tek, tmk;
+        tek = sjcl.random.randomWords(8);
+        tmk = sjcl.random.randomWords(8);
+        baProtected = eb.padding.pkcs7.pad(baProtected);
+
+        // Symmetric Encryption
+        var aes = new sjcl.cipher.aes(tek);
+        var hmac = new sjcl.misc.hmac_cbc(new sjcl.cipher.aes(tmk), 16, eb.padding.empty);
+        var IV = [0, 0, 0, 0];
+        baProtected = sjcl.mode.cbc.encrypt(aes, baProtected, IV, [], true);
+        this._log('Encrypted template: ' + h.fromBits(baProtected) + ", len=" + ba.bitLength(baProtected));
+
+        // To mac, mac
+        ba = w.concat(baPlain, baProtected);
+        ba = w.concat(ba, hmac.mac(ba));
+
+        // RSA encryption.
+        var iKey = this._getBestImportKey();
+        var encTek = this._rsaEncrypt(tek, iKey);
+        var encTmk = this._rsaEncrypt(tmk, iKey);
+
+        // Final template
+        var keysBlob = w.concat(encTek, encTmk);
+        ba = w.concat(keysBlob, ba);
+
+        // Return encrypted template.
+        return {uo:ba};
+    },
+
+    _protect: function(options){
+        // TODO:
+    },
+
+    _rsaEncrypt: function(input, key){
+        var iKeyBl = key.type == 'rsa2048' ? 2048 : 1024;
+        var data = eb.padding.pkcs15.pad(input, iKeyBl, 2);
+
+        return data;
+
+        // ASN.1 get.
+        var pubKey = this._readSerializedPubKey(key.publickey);
+        var msg = sjcl.bn.fromBits(data);
+        var mod = sjcl.bn.fromBits(pubKey.n);
+        var exp = sjcl.bn.fromBits(pubKey.e);
+
+        // Encryption.
+        msg.powermod(exp, mod);
+        return msg.toBits();
+    },
+
+    _readSerializedPubKey: function(pubKey){
+        //PublicKeyInfo ::= SEQUENCE {
+        //    algorithm       AlgorithmIdentifier,
+        //    PublicKey       BIT STRING
+        //}
+        //AlgorithmIdentifier ::= SEQUENCE {
+        //    algorithm       OBJECT IDENTIFIER,
+        //    parameters      ANY DEFINED BY algorithm OPTIONAL
+        //}
+        //RSAPublicKey ::= SEQUENCE {
+        //    modulus           INTEGER,  -- n
+        //    publicExponent    INTEGER   -- e
+        //}
+        var w = sjcl.bitArray;
+        var ba = eb.misc.inputToBits(pubKey);
+        // TODO: do it.
+
+    },
+
+    _getBestImportKey: function(importKeys){
+        var i, ln, cKey;
+        importKeys = importKeys || [];
+
+        // Search RSA2048.
+        var kRsa2048 = undefined;
+        var kRsa1024 = undefined;
+        for(i=0, ln=importKeys.length; i<ln; i++){
+            cKey = importKeys[i];
+            if (kRsa1024 === undefined && cKey.type == "rsa1024"){
+                kRsa1024 = cKey;
+            }
+            if (kRsa2048 === undefined && cKey.type == "rsa2048"){
+                kRsa2048 = cKey;
+            }
+        }
+
+        return (kRsa2048 === undefined) ? kRsa1024 : kRsa2048;
+    },
+
+    _log:  function(x) {
+        if (!this.debuggingLog){
+            return;
+        }
+
+        if (console && console.log){
+            console.log(x);
+        }
+
+        if (this.logger){
+            this.logger(x);
+        }
+    }
+};
+
+/**
+ * getUOTemplate response.
+ * @extends eb.comm.response
+ */
+eb.comm.createUO.importUOResponse = function(x){
+    eb.misc.absorb(this, x);
+};
+eb.comm.createUO.importUOResponse.inheritsFrom(eb.comm.response, {
+    /**
+     * Response fields
+     */
+    uoi: {
+        "uoid": undefined
+    }
+});
+
+/**
+ * Import UO request
+ * @extends eb.comm.apiRequest
+ */
+eb.comm.createUO.importUORequest = function(){
+    this.callFunction = "ImportUserObject";
+};
+eb.comm.createUO.importUORequest.inheritsFrom(eb.comm.apiRequest, {
+    objName: "ImportUserObject",
+
+    /**
+     * Default request values.
+     * @const
+     */
+    defaults: {
+        "uoid": undefined,       // 0x10
+        "tblob": undefined       // '0011223344556677'
+    },
+
+    //getNonce: function(){
+    //    return "";
+    //},
+
+    /**
+     * Process configuration from the config object.
+     * @param configObject java object with the configuration.
+     */
+    configure: function(configObject){
+        if (!configObject){
+            this._log("Invalid config object");
+            return;
+        }
+
+        var toConfig = configObject;
+        if ("userObjectId" in configObject){
+            toConfig = $.extend(true, toConfig, {apiKeyLow4Bytes : configObject.userObjectId});
+        }
+
+        // Configure with parent.
+        eb.comm.createUO.importUORequest.superclass.configure.call(this, toConfig);
+    },
+
+    /**
+     * Initializes state and builds request
+     * @param {object} request
+     */
+    build: function(request){
+        this._log("Building request body");
+
+        // Request header data.
+        this.buildApiBlock(this.apiKey, this.userObjectId);
+        this.buildReqHeader();
+        this.reqBody = {data:this.defaults};
+        this.reqBody.data = $.extend(true, this.reqBody.data, request || {});
+
+        var nonce = this.getNonce();
+        var url = this.getApiUrl();
+        this._log("Nonce generated: " + nonce);
+        this._log("URL: " + url + ", method: " + this.requestMethod);
+        this._log("SocketReq: " + JSON.stringify(this.getSocketRequest()));
+        this._log("Data: " + JSON.stringify(this.reqBody));
+    },
+
+    /**
+     * Returns response parser when is needed. May lazily initialize parser.
+     * Override point.
+     *
+     * @returns {*}
+     */
+    getResponseParser: function(){
+        // Generic parser with given parsing function.
+        var parser = new eb.comm.responseParser();
+        parser.parsingFunction(function(data, resp, parser){
+            var response = new eb.comm.createUO.importUOResponse(resp);
+            if (!data.data ) {
+                parser._log("Invalid response");
+                throw new eb.exception.invalid("Invalid response");
+            }
+
+            response.uoi = data.data;
+            return response;
+        });
+
+        this.responseParser = parser;
+        return this.responseParser;
+    }
+});
+
