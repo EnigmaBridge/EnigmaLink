@@ -4262,3 +4262,107 @@ eb.comm.createUO.UOTemplateResponse.inheritsFrom(eb.comm.response, {
         "authorization": undefined //<string>
     }
 });
+
+/**
+ * Create new UO requests
+ */
+eb.comm.createUO.getUOTemplateRequest = function(){
+    this.callFunction = "GetUserObjectTemplate";
+};
+eb.comm.createUO.getUOTemplateRequest.inheritsFrom(eb.comm.apiRequest, {
+    objName: "getUOTemplateRequest",
+
+    /**
+     * Default request values.
+     * @const
+     */
+    defaults: {
+        "format": 1,        //<integer, starting with 1>,
+        "protocol": 1,      //<integer, starting with 1>,
+        "type": eb.comm.createUO.consts.uoType.PLAINAES,        //<32bit integer>,
+        "environment": eb.comm.createUO.consts.environment.DEV, // shows whether the UO should be for production (live), test (pre-production testing), or dev (development)
+        "maxtps": eb.comm.createUO.consts.maxtps.UNLIMITED, // maximum guaranteed TPS
+        "core": eb.comm.createUO.consts.core.EMPTY, // how many cards have UO loaded permanently
+        "persistence": eb.comm.createUO.consts.persistence._1min, // once loaded onto card, how long will the UO stay there without use (this excludes the "core")
+        "priority": eb.comm.createUO.consts.priority.DEFAULT, // this defines a) priority when the server capacity is fully utilised and it also defines how quickly new copies of UO are installed (pre-empting icreasing demand)
+        "separation": eb.comm.createUO.consts.separation.TIME, // "complete" = only one UO can be loaded on a smartcard at one one time
+        "bcr": eb.comm.createUO.consts.YES,      // "yes" will ensure the UO is replicated to provide high availability for any possible service disruption
+        "unlimited": eb.comm.createUO.consts.YES,
+        "clientiv": eb.comm.createUO.consts.YES, //  if "yes", we expect the data starts with an IV to initialize decryption of data - this is for communication security
+        "clientdiv": eb.comm.createUO.consts.NO, // if "yes", we expect the data starting with a diversification 16B for communication keys
+        "resource": eb.comm.createUO.consts.resource.GLOBAL,
+        "credit": 256, // <1-32767>, a limit a seed card can provide to the EB service
+        "generation": {
+            "commkey": eb.comm.createUO.consts.genKey.SERVER,
+            "billingkey": eb.comm.createUO.consts.genKey.SERVER,
+            "appkey": eb.comm.createUO.consts.genKey.SERVER
+        }
+    },
+
+    //getNonce: function(){
+    //    return "";
+    //},
+
+    /**
+     * Process configuration from the config object.
+     * @param configObject java object with the configuration.
+     */
+    configure: function(configObject){
+        if (!configObject){
+            this._log("Invalid config object");
+            return;
+        }
+
+        var toConfig = configObject;
+        if ("userObjectId" in configObject){
+            toConfig = $.extend(true, toConfig, {apiKeyLow4Bytes : configObject.userObjectId});
+        }
+
+        // Configure with parent.
+        eb.comm.createUO.getUOTemplateRequest.superclass.configure.call(this, toConfig);
+    },
+
+    /**
+     * Initializes state and builds request
+     */
+    build: function(request){
+        this._log("Building request body");
+
+        // Request header data.
+        this.buildApiBlock(this.apiKey, this.userObjectId);
+        this.buildReqHeader();
+        this.reqBody = {data:this.defaults};
+        this.reqBody.data = $.extend(true, this.reqBody.data, request || {});
+
+        var nonce = this.getNonce();
+        var url = this.getApiUrl();
+        this._log("Nonce generated: " + nonce);
+        this._log("URL: " + url + ", method: " + this.requestMethod);
+        this._log("SocketReq: " + JSON.stringify(this.getSocketRequest()));
+        this._log("Data: " + JSON.stringify(this.reqBody));
+    },
+
+    /**
+     * Returns response parser when is needed. May lazily initialize parser.
+     * Override point.
+     *
+     * @returns {*}
+     */
+    getResponseParser: function(){
+        // Generic parser with given parsing function.
+        var parser = new eb.comm.responseParser();
+        parser.parsingFunction(function(data, resp, parser){
+            var response = new eb.comm.UOTemplateResponse(resp);
+            if (!data.data ) {
+                parser._log("Invalid response");
+                throw new eb.exception.invalid("Invalid response");
+            }
+
+            response.uot = data.data;
+            return response;
+        });
+
+        this.responseParser = parser;
+        return this.responseParser;
+    }
+});
