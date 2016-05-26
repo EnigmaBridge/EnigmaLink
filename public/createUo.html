@@ -290,8 +290,8 @@
             request.logger = append_message;
 
             var requestData = {
-                "uoid": data.templateResponse.objectid,
-                "tblob": data.request.uo
+                "uoid": data.templateResponse.uot.objectid,
+                "tblob": eb.misc.inputToHex(data.request.uo)
             };
 
             // Callbacks settings.
