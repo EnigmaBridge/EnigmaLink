@@ -499,7 +499,7 @@
             log(sprintf("URL hash: %s", location.hash));
             var params = location.hash;
             linkCfg = {
-                uoid:       eb.sh.misc.getURLParameter('uoid', params, true),
+                uoid:       eb.misc.inputToHexNum(eb.sh.misc.getURLParameter('uoid', params, true)),
                 aesKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('encKey', params, true) || ""),
                 macKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('macKey', params, true) || ""),
                 fid:        eb.sh.misc.getURLParameter('fid', params, true),
@@ -516,7 +516,7 @@
                 fldMacKey.val(sjcl.codec.hex.fromBits(linkCfg.macKey));
             }
             if (linkCfg.uoid > 0){
-                fldUserObjectID.val(linkCfg.uoid);
+                fldUserObjectID.val(eb.misc.inputToHex(linkCfg.uoid));
             }
 
             if (linkCfg.fid !== null && linkCfg.fid.length > 0 && linkCfg.nonce != null && w.bitLength(linkCfg.nonce) > 0){
