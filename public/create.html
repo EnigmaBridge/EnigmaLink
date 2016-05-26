@@ -473,7 +473,7 @@
     function onFileShared(data){
         var settings = getSettings();
         var link = eb.sh.misc.buildUrl("/download.html", {
-            uoid: eb.misc.inputToHex(shareConfig.ebConfigDownload.userObjectId),
+            uoid: eb.sh.misc.inputToLinkBase64(eb.misc.inputToBits(shareConfig.ebConfigDownload.userObjectId)),
             encKey: eb.sh.misc.inputToLinkBase64(settings.aesKey),
             macKey: eb.sh.misc.inputToLinkBase64(settings.macKey),
             fid: data.id,

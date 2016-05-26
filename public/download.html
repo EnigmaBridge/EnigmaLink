@@ -499,7 +499,7 @@
             log(sprintf("URL hash: %s", location.hash));
             var params = location.hash;
             linkCfg = {
-                uoid:       eb.misc.inputToHexNum(eb.sh.misc.getURLParameter('uoid', params, true)),
+                uoid:       eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('uoid', params, true) || ""),
                 aesKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('encKey', params, true) || ""),
                 macKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('macKey', params, true) || ""),
                 fid:        eb.sh.misc.getURLParameter('fid', params, true),
