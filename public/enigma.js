@@ -4446,14 +4446,14 @@ eb.comm.createUO.templateFiller.prototype = {
         var hmac = new sjcl.misc.hmac_cbc(new sjcl.cipher.aes(tmk), 16, eb.padding.empty);
         var IV = [0, 0, 0, 0];
         baProtected = sjcl.mode.cbc.encrypt(aes, baProtected, IV, [], true);
-        this._log('Encrypted template: ' + h.fromBits(baProtected) + ", len=" + ba.bitLength(baProtected));
+        this._log('Encrypted template: ' + h.fromBits(baProtected) + ", len=" + w.bitLength(baProtected));
 
         // To mac, mac
         ba = w.concat(baPlain, baProtected);
         ba = w.concat(ba, hmac.mac(ba));
 
         // RSA encryption.
-        var iKey = this._getBestImportKey();
+        var iKey = this._getBestImportKey(importKeys);
         var encTek = this._rsaEncrypt(tek, iKey);
         var encTmk = this._rsaEncrypt(tmk, iKey);
 
