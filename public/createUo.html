@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create user object demo</title>
+    <link rel="shortcut icon" type="image/png" href="favicon.png" />
+    <style>
+        body,p,td,input {font-family: Arial, Helvetica, sans-serif; font-size: 10pt;}
+        h1 {font-size: 14pt; }
+        h2 {font-size: 12pt; }
+        button[disabled],
+        input[disabled]{
+            background-color: #F8F8F8 !important;
+        }
+
+    </style>
+    <link href='css/googleapi-FamilyBitter.css' rel='stylesheet' type='text/css'/>
+    <link href="forms.css" rel="stylesheet" type="text/css"/>
+    <link href="create.css" rel="stylesheet" type="text/css"/>
+
+    <script src="jquery-1.12.1.min.js"></script>
+    <script src="sprintf.js"></script>
+    <script src="sjcl.js"></script>
+    <script src="jquery.qrcode.min.js"></script>
+    <script src="he.js"></script>
+    <script src="enigma.js"></script>
+    <script src="demo.js"></script>
+    <script>
+        "use strict";
+        var defaults = {
+            site: "site1.enigmabridge.com"
+        };
+
+        // Other fields.
+        var catConfig;
+        var btnCreate;
+        var fldEndpoint;
+        var fldStatus;
+        var fldLog;
+    </script>
+</head>
+<body>
+
+<!-- form design: http://www.sanwebe.com/2014/08/css-html-forms-designs -->
+<div class="form-style-10">
+    <h1>Create UO<span>EnigmaBridge demo</span></h1>
+    <div>
+        <div class="section"><span>1</span>Input</div>
+        <div class="inner-wrap">
+            <label>UO setting1
+                <input type="text" name="message" id="message" value="" placeholder="UO settings"/>
+                <span>UOSetting1 TODO: UO template settings</span>
+            </label>
+        </div>
+
+        <div class="section" id="divConfigHead">
+            <span>2</span>
+            Configuration
+            <div class="collapser">[-]</div>
+        </div>
+        <div class="inner-wrap" id="divConfig">
+            <label>API Key
+                <input type="text" name="apiKey" id="apiKey" value="TEST_API"/>
+                <span>Your EB API key</span>
+            </label>
+
+            <label>User object ID
+                <input type="text" name="userObjectID" id="userObjectID" value="0004"/>
+                <span>UO to use for creating a new UOs</span>
+            </label>
+
+            <label>Endpoint
+                <input type="text" name="endpoint" id="endpoint" placeholder="endpoint.address.com"/>
+                <span>Hostname of the EB API
+                    <a onclick="$('#endpoint').val(defaults.site1);">site1</a>,
+                    <a onclick="$('#endpoint').val(defaults.site2);">site2</a></span>
+            </label>
+
+            <label>Port
+                <input type="text" name="fldPort" id="fldPort" placeholder="11182" value="11182"/>
+                <span>Port number</span>
+            </label>
+
+            <label>Method
+                <select id="requestMethod" name="requestMethod">
+                    <option value="POST">POST</option>
+                    <option value="GET">GET</option>
+                </select>
+            </label>
+
+            <label>Scheme
+                <select id="requestScheme" name="requestScheme">
+                    <option value="https">https</option>
+                    <option value="http">http</option>
+                </select>
+            </label>
+
+            <label>AES encryption key
+                <input type="text" name="aesKey" id="aesKey" value="1234567890123456789012345678901234567890123456789012345678901234"/>
+                <span>Hexcoded encryption API key
+                </span>
+            </label>
+
+            <label>MAC key
+                <input type="text" name="macKey" id="macKey" value="2224262820223456789012345678901234567890123456789012345678901234"/>
+                <span>Hexcoded hmac API key
+                </span>
+            </label>
+        </div>
+
+        <div class="section"><span>3</span>Response</div>
+        <div class="inner-wrap">
+            <label>Status
+                <input type="text" name="fldStatus" id="fldStatus" placeholder="Status" readonly="readonly"/>
+                <span>Upload status</span>
+            </label>
+
+            <label>Last log
+                <input type="text" name="fldLog" id="fldLog" placeholder="last log line" readonly="readonly"/>
+                <span>Last log line</span>
+            </label>
+        </div>
+        <div class="button-section">
+            <input type="button" id="btnCreate" value="Create"/>
+        </div>
+    </div>
+
+    <br/>
+    <label for="reqRest">Request: </label>
+    <div id="reqRest" class="logbox"></div>
+    <br/>
+
+    <label for="status">Log: </label>
+    <div id="status" class="logbox"></div>
+
+    <script>
+        "use strict";
+
+        function log(msg){
+            console.log(msg);
+            append_message(msg);
+            try {
+                fldLog.val(msg);
+            }catch(e){
+
+            }
+        }
+
+        /**
+         * Get settings from the form.
+         */
+        function getSettings(){
+            var apiKey = $('#apiKey').val();
+            var keyId = parseInt($('#userObjectID').val(), 16);
+            var endpoint = $('#endpoint').val();
+            var port = $('#fldPort').val();
+            var method = $('#requestMethod').val();
+            var scheme = $('#requestScheme').val();
+            var aesKey = $('#aesKey').val();
+            var macKey = $('#macKey').val();
+
+            return {
+                remoteEndpoint: endpoint,
+                remotePort: port,
+                requestMethod: method,
+                requestScheme: scheme,
+                requestTimeout: 30000,
+                debuggingLog: true,
+                apiKey: apiKey,
+                apiKeyLow4Bytes: keyId,
+                userObjectId : keyId,
+                aesKey: aesKey,
+                macKey: macKey,
+            };
+        }
+
+        function createClicked(){
+            var settings = getSettings();
+            var request = new eb.comm.createUO.getUOTemplateRequest();
+            request.configure(settings);
+            request.logger = append_message;
+
+            var requestData = {
+                "type": eb.comm.createUO.consts.uoType.PLAINAES,        //<32bit integer>,
+                "environment": eb.comm.createUO.consts.environment.DEV, // shows whether the UO should be for production (live), test (pre-production testing), or dev (development)
+                "maxtps": eb.comm.createUO.consts.maxtps.UNLIMITED, // maximum guaranteed TPS
+                "core": eb.comm.createUO.consts.core.EMPTY, // how many cards have UO loaded permanently
+                "persistence": eb.comm.createUO.consts.persistence._1min, // once loaded onto card, how long will the UO stay there without use (this excludes the "core")
+                "priority": eb.comm.createUO.consts.priority.DEFAULT, // this defines a) priority when the server capacity is fully utilised and it also defines how quickly new copies of UO are installed (pre-empting icreasing demand)
+                "separation": eb.comm.createUO.consts.separation.TIME, // "complete" = only one UO can be loaded on a smartcard at one one time
+                "bcr": eb.comm.createUO.consts.YES,      // "yes" will ensure the UO is replicated to provide high availability for any possible service disruption
+                "unlimited": eb.comm.createUO.consts.YES,
+                "clientiv": eb.comm.createUO.consts.YES, //  if "yes", we expect the data starts with an IV to initialize decryption of data - this is for communication security
+                "clientdiv": eb.comm.createUO.consts.NO, // if "yes", we expect the data starting with a diversification 16B for communication keys
+                "resource": eb.comm.createUO.consts.resource.GLOBAL,
+                "credit": 256, // <1-32767>, a limit a seed card can provide to the EB service
+                "generation": {
+                    "commkey": eb.comm.createUO.consts.genKey.LOCAL,
+                    "billingkey": eb.comm.createUO.consts.genKey.LOCAL,
+                    "appkey": eb.comm.createUO.consts.genKey.LOCAL
+                }
+            };
+
+            // Callbacks settings.
+            request.done(function(response, requestObj, data) {
+                onTemplateFetched(response);
+
+            }).fail(function(failType, data){
+                if (failType == eb.comm.status.PDATA_FAIL_RESPONSE_FAILED){
+                    onTemplateFetched(data.response);
+
+                } else if (failType == eb.comm.status.PDATA_FAIL_CONNECTION){
+                    log("Connection error");
+                    connectionError(data);
+                }
+
+            }).always(function(request, data){
+                bodyProgress(false);
+                setDisabled(btnCreate, false);
+            });
+
+            // Build the request so we can display request in the form.
+            request.build(requestData);
+            log("Request: ");
+            console.log(requestData);
+            log(JSON.stringify(requestData));
+
+            //setDisabled(btnCreate, true);
+            bodyProgress(true);
+            request.doRequest();
+        }
+
+        function connectionError(data){
+            statusFieldSet(fldStatus, "Connection error", false);
+        }
+
+        function onTemplateFetched(response){
+            var responseStatus = response.statusCode;
+            var status = sprintf("0x%04X", responseStatus);
+            if (responseStatus == eb.comm.status.SW_STAT_OK){
+                status += ' - Request successful';
+            } else {
+                status += ' - Failed, unknown error';
+            }
+
+            statusFieldSet(fldStatus, status, responseStatus == eb.comm.status.SW_STAT_OK);
+        }
+
+        $(function(){
+            // Start random number collectors.
+            sjcl.random.startCollectors();
+
+            // Init
+            btnCreate = $('#btnCreate');
+            catConfig = $('#divConfigHead');
+            fldEndpoint = $('#endpoint');
+            fldStatus = $('#fldStatus');
+            fldLog = $('#fldLog');
+
+            // Button click handling.
+            btnCreate.click(function(){
+                createClicked();
+            });
+
+            // Behavior.
+            fldEndpoint.val(defaults.site);
+            catConfig.click(toggleCategory);
+            catConfig.click();
+        });
+
+    </script>
+    <div class="modal"><div class="modal-wrap"></div></div>
+</body>
+</html>
