@@ -4949,10 +4949,14 @@ eb.comm.createUO.getUOTemplateRequest.inheritsFrom(eb.comm.apiRequest, {
     }
 });
 
-eb.comm.asn1decoder = function(options){};
+eb.comm.asn1decoder = function(options){
+    this.logger = options.logger;
+};
 eb.comm.asn1decoder.prototype = {
     llog: function(lvl, msg){
-        console.log("|" + ("--".repeat(lvl)) + msg);
+        if (this.logger){
+            this.logger("|" + ("--".repeat(lvl)) + msg);
+        }
     },
     parse: function(buffer, lvl) {
         var w = sjcl.bitArray;
