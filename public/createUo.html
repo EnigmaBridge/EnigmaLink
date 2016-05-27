@@ -284,14 +284,18 @@
          * @param data
          */
         function importUo(data){
+            $('#userObjectID').val(data.templateResponse.uot.objectid);
+
             var settings = getSettings();
             var request = new eb.comm.createUO.importUORequest();
             request.configure(settings);
             request.logger = append_message;
 
             var requestData = {
-                "uoid": data.templateResponse.uot.objectid,
-                "tblob": eb.misc.inputToHex(data.request.uo)
+                "objectid": data.templateResponse.uot.objectid,
+                "importkey": data.request.keyUsed.id,
+                "object": eb.misc.inputToHex(data.request.uo),
+                "authorization": data.templateResponse.uot.authorization
             };
 
             // Callbacks settings.
