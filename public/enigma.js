@@ -5262,18 +5262,19 @@ eb.comm.createUO.importUOResponse.inheritsFrom(eb.comm.response, {
  * @extends eb.comm.apiRequest
  */
 eb.comm.createUO.importUORequest = function(){
-    this.callFunction = "ImportUserObject";
+    this.callFunction = "CreateUserObject";
 };
 eb.comm.createUO.importUORequest.inheritsFrom(eb.comm.apiRequest, {
-    objName: "ImportUserObject",
+    objName: "CreateUserObject",
 
     /**
      * Default request values.
      * @const
      */
     defaults: {
-        "uoid": undefined,       // 0x10
-        "tblob": undefined       // '0011223344556677'
+        "objectid": undefined,       // 0x10
+        "object": undefined,       // '0011223344556677'
+        "authorization": ""
     },
 
     //getNonce: function(){
