@@ -1191,17 +1191,25 @@ eb.sh.png.prototype = {
         this.pngTrail = w.bitSlice(this.png, this.chunks.end.offset*8);
     },
 
-    createChunk: function(tag, data2add){
+    crc32: function(ba, tag){
+        var xx = [], i, ln, w = sjcl.bitArray;
+        if (tag){
+            xx = w.concat([tag], ba);
+        }
+        for(i=0, ln = w.bitLength(ba)/8; i<ln; i++){
+            xx.push(w.extract(ba, i*8, 8));
+        }
+        return [CRC32.buf(xx)|0];
+    },
+
+    createChunk: function(tag, data2add, crc){
         var w = sjcl.bitArray;
         var ba = [(w.bitLength(data2add)/8)|0, tag|0];
         ba = w.concat(ba, data2add);
 
         // CRC32, TODO: compute CRC with sjcl
-        var xx = [], i, ln;
-        for(i=0, ln = w.bitLength(data2add)/8; i<ln; i++){
-            xx.push(w.extract(data2add, i*8, 8));
-        }
-        ba = w.concat(ba, [CRC32.buf(xx)|0]);
+        var crc2put = crc || this.crc32(data2add, tag);
+        ba = w.concat(ba, crc2put);
         return ba;
     },
 
@@ -1215,15 +1223,9 @@ eb.sh.png.prototype = {
         var ba = [(w.bitLength(data2add)/8)|0, (this.genTag("iTXt"))|0];
         ba = w.concat(ba, data2add);
 
-        // CRC32, TODO: compute CRC with sjcl
-        var xx = [ba[0], ba[1]], i, ln;
-        for(i=0, ln = w.bitLength(data2add)/8; i<ln; i++){
-            xx.push(w.extract(data2add, i*8, 8));
-        }
-
-        var crc = CRC32.buf(xx);
-        ba = w.concat(ba, [crc|0]);
-
+        // CRC32
+        var crc2put = this.crc32(data2add, this.genTag("iTXt"));
+        ba = w.concat(ba, crc2put);
         return ba;
     },
 
@@ -1237,7 +1239,11 @@ eb.sh.png.prototype = {
         this.pngTailChunks.push(tag);
     },
 
-    build: function(){
+    getUmphChunkSize: function(numDataBytes){
+        return 4+4+4+numDataBytes;
+    },
+
+    buildPngHead: function(){
         var w = sjcl.bitArray, i, ln;
         var ba = [];
         ba = w.concat(ba, this.pngHead);
@@ -1249,6 +1255,16 @@ eb.sh.png.prototype = {
 
         // png data
         ba = w.concat(ba, this.pngData);
+        return ba;
+    },
+
+    buildPngTrail: function(){
+        return this.pngTrail;
+    },
+
+    build: function(){
+        var w = sjcl.bitArray, i, ln;
+        var ba = this.buildPngHead();
 
         // png tailing chunks
         for(i=0, ln = this.pngTailChunks.length; i<ln; i++){
