@@ -1069,10 +1069,10 @@ EnigmaShareScheme.prototype.ebOp_ = function(input, encrypt, ebOptions, onSucces
             return;
         }
 
-        //if(this.retryHandler.numAttempts() < 5){
-        //    onEBFail(data);
-        //    return;
-        //}
+        if(this.retryHandler.numAttempts() < 3){
+            onEBFail(data);
+            return;
+        }
 
         onSuccess({data:response.protectedData});
     }).bind(this);
@@ -1127,6 +1127,80 @@ EnigmaShareScheme.prototype.derive_ = function(input, extra, salt, iterations, o
     var saltHbits  = sha256(eb.misc.inputToBits(salt));
     return sha256(xor8(sha256(xor8(extraHbits, inputHbits)), saltHbits));
 };
+
+var CRC32;
+(function (factory) {
+    if(typeof DO_NOT_EXPORT_CRC === 'undefined') {
+        if('object' === typeof exports) {
+            factory(exports);
+        } else if ('function' === typeof define && define.amd) {
+            define(function () {
+                var module = {};
+                factory(module);
+                return module;
+            });
+        } else {
+            factory(CRC32 = {});
+        }
+    } else {
+        factory(CRC32 = {});
+    }
+}(function(CRC32) {
+    CRC32.version = '0.4.0';
+    /* see perf/crc32table.js */
+    function signed_crc_table() {
+        var c = 0, table = new Array(256);
+
+        for(var n =0; n != 256; ++n){
+            c = n;
+            c = ((c&1) ? (-306674912 ^ (c >>> 1)) : (c >>> 1));
+            c = ((c&1) ? (-306674912 ^ (c >>> 1)) : (c >>> 1));
+            c = ((c&1) ? (-306674912 ^ (c >>> 1)) : (c >>> 1));
+            c = ((c&1) ? (-306674912 ^ (c >>> 1)) : (c >>> 1));
+            c = ((c&1) ? (-306674912 ^ (c >>> 1)) : (c >>> 1));
+            c = ((c&1) ? (-306674912 ^ (c >>> 1)) : (c >>> 1));
+            c = ((c&1) ? (-306674912 ^ (c >>> 1)) : (c >>> 1));
+            c = ((c&1) ? (-306674912 ^ (c >>> 1)) : (c >>> 1));
+            table[n] = c;
+        }
+
+        return typeof Int32Array !== 'undefined' ? new Int32Array(table) : table;
+    }
+
+    var table = signed_crc_table();
+    /* charCodeAt is the best approach for binary strings */
+    var use_buffer = typeof Buffer !== 'undefined';
+
+    function crc32_ba_partial(ba, crc, finalize){
+        var w = sjcl.bitArray, ln = w.bitLength(ba)/8;
+        crc = crc || -1;
+
+        for(var i = 0; i < ln; ++i) {
+            crc = (crc >>> 8) ^ table[(crc^( w.extract(ba, 8*i, 8) ))&0xFF];
+        }
+        return finalize ? (crc ^ -1) : crc;
+    }
+
+    function crc32_ba(ba){
+        return crc32_ba_partial(ba, -1) ^ -1;
+    }
+
+    CRC32.table = table;
+    CRC32.ba = crc32_ba;
+    CRC32.ba_part = crc32_ba_partial;
+    CRC32.engine = function(){
+        this.crc = -1;
+    };
+    CRC32.engine.prototype.update = function(ba){
+        this.crc = crc32_ba_partial(ba, this.crc);
+    };
+    CRC32.engine.prototype.finalize = function(ba){
+        if (ba) this.crc = crc32_ba_partial(ba, this.crc);
+        var res = this.crc ^ -1;
+        this.crc = -1;
+        return res;
+    };
+}));
 
 /**
  * PNG creator
@@ -1193,13 +1267,12 @@ eb.sh.png.prototype = {
 
     crc32: function(ba, tag){
         var xx = [], i, ln, w = sjcl.bitArray;
+        var crc;
         if (tag){
-            xx = w.concat([tag], ba);
+            crc = CRC32.ba_part(tag);
         }
-        for(i=0, ln = w.bitLength(ba)/8; i<ln; i++){
-            xx.push(w.extract(ba, i*8, 8));
-        }
-        return [CRC32.buf(xx)|0];
+
+        return [CRC32.ba_part(ba, crc, true)];
     },
 
     createChunk: function(tag, data2add, crc){
@@ -1306,6 +1379,7 @@ eb.sh.png.prototype = {
  * @param {object} [options.fname] Filename to use.
  * @param {object} [options.fnameOrig] Original file name to be stored to the encrypted meta block.
  * @param {object} [options.extraMessage] Extra text message to share with the file.
+ * @param {object} [options.passwordHint] Password hint phrase, non-protected.
  * @param {object} [options.retry] Options for RetryHandler.
  * @param {Array} [options.parents] Parent folder IDs of the uploaded file. If null, root directory is the only parent.
  * @param {function} [options.onComplete] Callback for when upload is complete
@@ -1324,6 +1398,7 @@ var EnigmaUploader = function(options) {
     this.contentTypeOrig = this.file.type || 'application/octet-stream';
     this.fname = options.fname || this.file.name || 'note';
     this.fnameOrig = options.fnameOrig || this.file.name || 'note';
+    this.passwordHint = options.passwordHint;
     this.extraMessage = options.extraMessage;
     this.metadata = options.metadata || {
             'name': this.fname,
@@ -1342,6 +1417,7 @@ var EnigmaUploader = function(options) {
     this.offset = 0;
     this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
     this.url = options.url;
+    this.png = options.png;
 
     if (!this.url) {
         var params = options.params || {};
@@ -1384,6 +1460,7 @@ EnigmaUploader.TAG_FNAME = 0x2;    // record with the data/file name.
 EnigmaUploader.TAG_MIME = 0x3;     // record with the data/file mime type.
 EnigmaUploader.TAG_TIME = 0x7;     // record with the timestamp of the upload.
 EnigmaUploader.TAG_MSG = 0x8;      // record with the user provided message (will be encrypted + auth together with the file).
+EnigmaUploader.TAG_MSG_HINT = 0xa; // record with the password hint - unencrypted.
 EnigmaUploader.TAG_FSIZE = 0x9;    // record with the file size.
 EnigmaUploader.TAG_ENC = 0x4;      // record with the encrypted data/file. Last record in the message (no length field).
 EnigmaUploader.TAG_ENCWRAP = 0x5;  // record with the encrypted container (fname+mime+data). Last unencrypted record (no length field).
@@ -1444,6 +1521,10 @@ EnigmaUploader.prototype.buildFstBlock_ = function() {
     var h = sjcl.codec.hex;
     var w = sjcl.bitArray;
     var padBytesToAdd;
+
+    if (this.png) {
+
+    }
 
     // Secure context block, tag | len-4B | IV | secCtx
     var secLen = w.bitLength(this.iv)/8 + w.bitLength(this.secCtx)/8;
@@ -1600,7 +1681,7 @@ EnigmaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
         return;
     }
 
-    // File data loading.
+    // File data loading - from the DataSource (unifies underlying format).
     var fOffset = Math.max(0, offset - this.preFileSize);
     var fEnd = Math.min(this.dataSize, end - this.preFileSize);
     var fEndOrig = fEnd;
@@ -2039,6 +2120,7 @@ var EnigmaDownloader = function(options){
     this.sha1 = undefined;      // SHA1 checksum of the message.
     this.sha256 = undefined;    // SHA256 checksum of the message.
     this.extraMessage = undefined; // Extra text message shared with the file.
+    this.passwordHint = undefined; // Unprotected password hint message.
 };
 
 EnigmaDownloader.ERROR_CODE_PROXY_JSON = 1;
@@ -2352,6 +2434,7 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
 
             // If there is not enough data for parsing length field, abort parsing.
             // We need more data then. TAG_ENC is the only tag that does not have length field in this scope.
+            // TODO: add 64bit length field to TAG_ENC
             if (ctag != EnigmaUploader.TAG_ENC){
                 if ((cpos + 4) >= decLen){
                     log("Not enough bytes to parse the length field. Need more data");
