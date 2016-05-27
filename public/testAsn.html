@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create user object demo</title>
+    <link rel="shortcut icon" type="image/png" href="favicon.png" />
+    <style>
+        body,p,td,input {font-family: Arial, Helvetica, sans-serif; font-size: 10pt;}
+        h1 {font-size: 14pt; }
+        h2 {font-size: 12pt; }
+        button[disabled],
+        input[disabled]{
+            background-color: #F8F8F8 !important;
+        }
+
+    </style>
+    <link href='css/googleapi-FamilyBitter.css' rel='stylesheet' type='text/css'/>
+    <link href="forms.css" rel="stylesheet" type="text/css"/>
+    <link href="create.css" rel="stylesheet" type="text/css"/>
+
+    <script src="jquery-1.12.1.min.js"></script>
+    <script src="sprintf.js"></script>
+    <script src="sjcl.js"></script>
+    <script src="jquery.qrcode.min.js"></script>
+    <script src="he.js"></script>
+    <script src="enigma.js"></script>
+    <script src="demo.js"></script>
+    <script>
+        "use strict";
+        var defaults = {
+            site: "site1.enigmabridge.com"
+        };
+
+        // Other fields.
+        var catConfig;
+        var btnCreate;
+        var fldEndpoint;
+        var fldStatus;
+        var fldLog;
+    </script>
+</head>
+<body>
+
+<!-- form design: http://www.sanwebe.com/2014/08/css-html-forms-designs -->
+<div class="form-style-10">
+    <h1>ASN1 parser<span>EnigmaBridge demo</span></h1>
+    <div>
+        <div class="section"><span>1</span>Input</div>
+        <div class="inner-wrap">
+            <label>ASN1 base64
+                <textarea name="input" id="input" rows="5">MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDUbulr7sUH582MGu120Hhr6LHYXTo8jKmLKDpUQ8a/bp8DA5TFac+Mvt1wplr0MKrGjx6y3Ci+ELW9HQo3gavDrd4xoOEhtqv9BS7A2IR0hZmVULUM+hnIKeCErVoakigYzKVveRNrbtS0/sbuB+jJhtQfPNXy/SPWr2uYPzowiQIDAQAB</textarea>
+                <span>ASN1 input</span>
+            </label>
+        </div>
+
+        <div class="section"><span>3</span>Response</div>
+        <div class="inner-wrap">
+            <label>Status
+                <textarea name="output" id="output" rows="10"></textarea>
+                <span>Status</span>
+            </label>
+
+            <label>Last log
+                <input type="text" name="fldLog" id="fldLog" placeholder="last log line" readonly="readonly"/>
+                <span>Last log line</span>
+            </label>
+        </div>
+        <div class="button-section">
+            <input type="button" id="btnTest" value="Test"/>
+        </div>
+    </div>
+
+    <br/>
+
+    <label for="status">Log: </label>
+    <div id="status" class="logbox"></div>
+
+    <script>
+        "use strict";
+
+        function log(msg){
+            console.log(msg);
+            append_message(msg);
+            try {
+                fldLog.val(msg);
+            }catch(e){
+
+            }
+        }
+
+        function testasn(){
+            var dec = new eb.comm.asn1decoder({logger: log});
+            var res = dec.parse(sjcl.codec.base64.toBits($('#input').val().trim()));
+            $('#output').val(JSON.stringify(res));
+            console.log(res);
+        }
+
+        $(function(){
+            // Start random number collectors.
+            sjcl.random.startCollectors();
+
+            // Init
+            btnCreate = $('#btnCreate');
+            catConfig = $('#divConfigHead');
+            fldEndpoint = $('#endpoint');
+            fldStatus = $('#fldStatus');
+            fldLog = $('#fldLog');
+
+            $('#btnTest').click(function(){
+                testasn();
+            });
+
+            // Behavior.
+            fldEndpoint.val(defaults.site);
+            catConfig.click(toggleCategory);
+            catConfig.click();
+        });
+
+    </script>
+    <div class="modal"><div class="modal-wrap"></div></div>
+</body>
+</html>
