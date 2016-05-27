@@ -37,6 +37,12 @@
         var fldEndpoint;
         var fldStatus;
         var fldLog;
+
+        var fldAppKey;
+        var fldCommKey;
+        var fldEncKey;
+        var fldMacKey;
+        var fldUoType;
     </script>
 </head>
 <body>
@@ -47,10 +53,29 @@
     <div>
         <div class="section"><span>1</span>Input</div>
         <div class="inner-wrap">
-            <label>UO setting1
-                <input type="text" name="message" id="message" value="" placeholder="UO settings"/>
-                <span>UOSetting1 TODO: UO template settings</span>
+            <label>App key
+                <input type="text" id="fldAppKey" placeholder="App key" value="0000000000000000000000000000000000000000000000000000000000000000"/>
+                <span>Application key in UO</span>
             </label>
+            <label>Comm key - Single derivation
+                <input type="text" id="fldCommKey" placeholder="Comm key deriv" value="00000000000000000000000000000000"/>
+                <span>Single comm key derivation source - if changed, encKey, macKey changes</span>
+            </label>
+            <label>Comm key - EncKey
+                <input type="text" id="fldEncKey" placeholder="Enc key" value="0000000000000000000000000000000000000000000000000000000000000000"/>
+                <span>Application key in UO</span>
+            </label>
+            <label>Comm key - MacKey
+                <input type="text" id="fldMacKey" placeholder="Mac key" value="0000000000000000000000000000000000000000000000000000000000000000"/>
+                <span>Application key in UO</span>
+            </label>
+            <label>UO type
+                <select id="fldUoType">
+                    <option value="4">PLAINAES</option>
+                    <option value="f">PLAINAESDECRYPT</option>
+                </select>
+            </label>
+
         </div>
 
         <div class="section" id="divConfigHead">
@@ -90,8 +115,8 @@
 
             <label>Scheme
                 <select id="requestScheme" name="requestScheme">
-                    <option value="https">https</option>
                     <option value="http">http</option>
+                    <option value="https">https</option>
                 </select>
             </label>
 
@@ -174,6 +199,21 @@
             };
         }
 
+        function regenerateCommKeys(input){
+            var w = sjcl.bitArray;
+            var baInput = eb.misc.inputToBits(input);
+            var baEnc = sjcl.hash.sha256.hash(w.concat(baInput, [0x01]));
+            var baMac = sjcl.hash.sha256.hash(w.concat(baInput, [0x02]));
+            return {enc:baEnc, mac:baMac};
+        }
+
+        function onCommChanged(){
+            var inp = sjcl.codec.hex.toBits(fldCommKey.val());
+            var res = regenerateCommKeys(inp);
+            fldEncKey.val(sjcl.codec.hex.fromBits(res.enc));
+            fldMacKey.val(sjcl.codec.hex.fromBits(res.mac));
+        }
+
         /**
          * EB call - get create new UO template.
          */
@@ -184,7 +224,7 @@
             request.logger = append_message;
 
             var requestData = {
-                "type": eb.comm.createUO.consts.uoType.PLAINAES,        //<32bit integer>,
+                "type": fldUoType.val(), //eb.comm.createUO.consts.uoType.PLAINAES,        //<32bit integer>,
                 "environment": eb.comm.createUO.consts.environment.DEV, // shows whether the UO should be for production (live), test (pre-production testing), or dev (development)
                 "maxtps": eb.comm.createUO.consts.maxtps.UNLIMITED, // maximum guaranteed TPS
                 "core": eb.comm.createUO.consts.core.EMPTY, // how many cards have UO loaded permanently
@@ -263,15 +303,15 @@
             // New keys.
             var keys = {
                 comenc:{
-                    key:[0,0,0,0,0,0,0,0]},
+                    key:sjcl.codec.hex.toBits(fldEncKey.val())},
                 commac:{
-                    key:[0,0,0,0,0,0,0,0]},
+                    key:sjcl.codec.hex.toBits(fldMacKey.val())},
                 comnextenc:{
-                    key:[0,0,0,0,0,0,0,0]},
+                    key:[0,0,0,0,0,0,0,0]}, // TODO: randomize
                 conextmac:{
-                    key:[0,0,0,0,0,0,0,0]},
+                    key:[0,0,0,0,0,0,0,0]}, // TODO: randomize
                 app:{
-                    key:[0,0,0,0,0,0,0,0]}
+                    key:sjcl.codec.hex.toBits(fldAppKey.val())}
             };
             var buildReq = builder.build({keys: keys});
 
@@ -361,10 +401,18 @@
             fldEndpoint = $('#endpoint');
             fldStatus = $('#fldStatus');
             fldLog = $('#fldLog');
+            fldAppKey = $('#fldAppKey');
+            fldCommKey = $('#fldCommKey');
+            fldEncKey = $('#fldEncKey');
+            fldMacKey = $('#fldMacKey');
+            fldUoType = $('#fldUoType');
 
             // Button click handling.
             btnCreate.click(function(){
                 createClicked();
+            });
+            fldCommKey.keyup(function(evt) {
+                onCommChanged();
             });
 
             // Behavior.
