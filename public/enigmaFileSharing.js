@@ -1266,7 +1266,6 @@ eb.sh.png.prototype = {
     },
 
     crc32: function(ba, tag){
-        var xx = [], i, ln, w = sjcl.bitArray;
         var crc;
         if (tag){
             crc = CRC32.ba_part(tag);
@@ -1280,7 +1279,7 @@ eb.sh.png.prototype = {
         var ba = [(w.bitLength(data2add)/8)|0, tag|0];
         ba = w.concat(ba, data2add);
 
-        // CRC32, TODO: compute CRC with sjcl
+        // CRC32
         var crc2put = crc || this.crc32(data2add, tag);
         ba = w.concat(ba, crc2put);
         return ba;
