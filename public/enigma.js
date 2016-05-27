@@ -5115,15 +5115,23 @@ eb.comm.createUO.templateFiller.prototype = {
 
         // RSA encryption.
         var iKey = this._getBestImportKey(importKeys);
-        var encTek = this._rsaEncrypt(tek, iKey);
-        var encTmk = this._rsaEncrypt(tmk, iKey);
+        var baRsaEnc = [];
+        baRsaEnc = w.concat(baRsaEnc, [parseInt(template.objectid, 16)]);
+        baRsaEnc = w.concat(baRsaEnc, tek);
+        baRsaEnc = w.concat(baRsaEnc, tmk);
+        var wrapped = this._rsaEncrypt(baRsaEnc, iKey);
 
         // Final template
-        var keysBlob = w.concat(encTek, encTmk);
-        ba = w.concat(keysBlob, ba);
+        var finalTpl = [w.partial(8, 0xa1)];
+        finalTpl = w.concat(finalTpl, [w.partial(16, w.bitLength(wrapped)/8)]);
+        finalTpl = w.concat(finalTpl, wrapped);
+
+        finalTpl = w.concat(finalTpl, [w.partial(8, 0xa2)]);
+        finalTpl = w.concat(finalTpl, [w.partial(16, w.bitLength(ba)/8)]);
+        finalTpl = w.concat(finalTpl, ba);
 
         // Return encrypted template.
-        return {uo:ba};
+        return {uo:finalTpl, keyUsed:iKey};
     },
 
     _protect: function(options){
