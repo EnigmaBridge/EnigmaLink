@@ -5136,11 +5136,11 @@ eb.comm.createUO.templateFiller.prototype = {
         baProtected = sjcl.mode.cbc.encrypt(aes, baProtected, IV, [], true);
         this._log('Encrypted template: ' + h.fromBits(baProtected) + ", len=" + w.bitLength(baProtected));
 
-        // To mac, mac
+        // baPlain | baProtected | MAC(baPlain | baProtected)
         ba = w.concat(baPlain, baProtected);
         ba = w.concat(ba, hmac.mac(ba));
 
-        // RSA encryption.
+        // RSA encryption: UOID-4B | TEK | TMK
         var iKey = this._getBestImportKey(importKeys);
         var baRsaEnc = [];
         baRsaEnc = w.concat(baRsaEnc, [parseInt(template.objectid, 16)]);
@@ -5148,7 +5148,7 @@ eb.comm.createUO.templateFiller.prototype = {
         baRsaEnc = w.concat(baRsaEnc, tmk);
         var wrapped = this._rsaEncrypt(baRsaEnc, iKey);
 
-        // Final template
+        // Final template: 0xa1 | len-2B | RSA-ENC-BLOB | 0xa2 | len-2B | encrypted-maced-template
         var finalTpl = [w.partial(8, 0xa1)];
         finalTpl = w.concat(finalTpl, [w.partial(16, w.bitLength(wrapped)/8)]);
         finalTpl = w.concat(finalTpl, wrapped);
@@ -5161,15 +5161,11 @@ eb.comm.createUO.templateFiller.prototype = {
         return {uo:finalTpl, keyUsed:iKey};
     },
 
-    _protect: function(options){
-        // TODO:
-    },
-
     _rsaEncrypt: function(input, key){
         var iKeyBl = key.type == 'rsa2048' ? 2048 : 1024;
         var data = eb.padding.pkcs15.pad(input, iKeyBl, 2);
 
-        // ASN.1 get.
+        // Deserialize public key, convert to integers, result = (message ^ exponent) mod modulus
         var pubKey = this._readSerializedPubKey(key.key);
 
         var msg = new eb.math.BigInteger(sjcl.codec.hex.fromBits(data), 16);
