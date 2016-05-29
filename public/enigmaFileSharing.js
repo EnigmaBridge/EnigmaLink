@@ -1128,6 +1128,9 @@ EnigmaShareScheme.prototype.derive_ = function(input, extra, salt, iterations, o
     return sha256(xor8(sha256(xor8(extraHbits, inputHbits)), saltHbits));
 };
 
+/**
+ * CRC32 computation.
+ */
 var CRC32;
 (function (factory) {
     if(typeof DO_NOT_EXPORT_CRC === 'undefined') {
@@ -1145,7 +1148,8 @@ var CRC32;
     } else {
         factory(CRC32 = {});
     }
-}(function(CRC32) {
+}(function(CRC32)
+{
     CRC32.version = '0.4.0';
     /* see perf/crc32table.js */
     function signed_crc_table() {
@@ -1168,8 +1172,6 @@ var CRC32;
     }
 
     var table = signed_crc_table();
-    /* charCodeAt is the best approach for binary strings */
-    var use_buffer = typeof Buffer !== 'undefined';
 
     function crc32_ba_partial(ba, crc, finalize){
         var w = sjcl.bitArray, ln = w.bitLength(ba)/8;
@@ -1182,7 +1184,7 @@ var CRC32;
     }
 
     function crc32_ba(ba){
-        return crc32_ba_partial(ba, -1) ^ -1;
+        return crc32_ba_partial(ba, -1, true);
     }
 
     CRC32.table = table;
@@ -1200,6 +1202,9 @@ var CRC32;
         this.crc = -1;
         return res;
     };
+    CRC32.getInstance = function() {
+        return new CRC32.engine();
+    }
 }));
 
 /**
