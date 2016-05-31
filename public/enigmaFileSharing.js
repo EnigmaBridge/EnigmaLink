@@ -1530,11 +1530,10 @@ var EnigmaUploader = function(options) {
     // Construct first meta block now, compute file sizes.
     this.paddingToAdd = options.padding || 0;       // Concealing padding size.
     this.paddingFnc = options.padFnc;               // Padding size function. If set, determines the padding length.
-    this.dataSource = undefined;                    // Data source for data/file/padding...
-    this.buildFstBlock_();
+    this.formatHeader = undefined;                  // UMPHIO1
+    this.dataSource = undefined;                    // Data source for data/file/padding.
     this.inputHashingDs = undefined;                // Input hashing data source. For computing of a hash of input data.
-    this.preFileSize = this.preFileSize_();         // Number of bytes in the upload stream before file contents.
-    this.totalSize = this.totalSize_();             // Total size of the upload stream.
+    this.totalSize = undefined;                     // Total size of the upload stream.
     this.sha1 = undefined;                          // SHA1 of the input data.
     this.sha256 = undefined;                        // SHA256 of the input data.
 
@@ -1544,6 +1543,9 @@ var EnigmaUploader = function(options) {
     this.cached.end = -1;     // Data end offset that is cached in the buff. Absolute data offset address of the last buff byte.
     this.cached.buff = [];    // Cached processed data buffer. Size = cached.end - cached.offset.
     this.cached.tag = [];     // Computed final auth tag for the data.
+
+    // Initializes data sources, encryption.
+    this.initialize_();
 };
 
 EnigmaUploader.TAG_SEC = 0x1;      // security context part. Contains IV, encrypted file encryption key.
@@ -1553,9 +1555,11 @@ EnigmaUploader.TAG_TIME = 0x7;     // record with the timestamp of the upload.
 EnigmaUploader.TAG_MSG = 0x8;      // record with the user provided message (will be encrypted + auth together with the file).
 EnigmaUploader.TAG_MSG_HINT = 0xa; // record with the password hint - unencrypted.
 EnigmaUploader.TAG_FSIZE = 0x9;    // record with the file size.
-EnigmaUploader.TAG_ENC = 0x4;      // record with the encrypted data/file. Last record in the message (no length field).
-EnigmaUploader.TAG_ENCWRAP = 0x5;  // record with the encrypted container (fname+mime+data). Last unencrypted record (no length field).
+EnigmaUploader.TAG_ENC = 0x4 | 0x80;      // record with the encrypted data/file. Last record in the message. 64bit length field.
+EnigmaUploader.TAG_ENCWRAP = 0x5 | 0x80;  // record with the encrypted container (fname+mime+data). Last unencrypted record. 64bit length field.
 EnigmaUploader.TAG_PADDING = 0x6;  // padding record. Null bytes (skipped in parsing), may be used to conceal true file size or align blocks.
+EnigmaUploader.TAG_GCMTAG = 0xd;  // final tag int the encrypted part (ENCRWAP), contains GCM tag of all previous data.
+EnigmaUploader.TAG_END = 0xf;     // final tag, no more tags in the current envelope. Closes scheme.
 EnigmaUploader.LENGTH_BYTES = 0x4;
 
 /**
@@ -1606,52 +1610,194 @@ EnigmaUploader.prototype.cancel = function() {
  * First block is padded on a cipher block size with TLV padding so the further
  * data/file processing is faster and aligned on blocks.
  */
-EnigmaUploader.prototype.buildFstBlock_ = function() {
-    var block = [], encrypted;
+EnigmaUploader.prototype.initialize_ = function() {
+    var block = [], encWrapHeader, fstBlockSize;
     var h = sjcl.codec.hex;
     var w = sjcl.bitArray;
 
-    // Secure context block, tag | len-4B | IV | secCtx
+    // Format header, magic string + version number. Defines file format (useful if wrapped in another format).
+    this.formatHeader = w.concat(sjcl.codec.utf8String.toBits("UMPHIO"), [w.partial(8, 1)]);
+    block = w.concat(block, this.formatHeader);
+
+    // Secure context block, TAG_SEC | len-4B | IV-16B | secCtx
     var secLen = w.bitLength(this.iv)/8 + w.bitLength(this.secCtx)/8;
     block = w.concat(block, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_SEC, secLen)));
     block = w.concat(block, this.iv);
     block = w.concat(block, this.secCtx);
 
-    // Encryption wrap tag - the end of the message is encrypted with AES-256-GCM. Last tag in unencrypted part. No length.
-    block = w.concat(block, h.toBits(sprintf("%02x", EnigmaUploader.TAG_ENCWRAP)));
+    // Build meta block (fname, mime, fsize, message), unencrypted, for length computation. No state modification.
+    // toEnc is already padded to multiple of 16.
+    var toEnc = this.buildMetaBlock_();
 
-    // Build encrypted meta data block.
-    encrypted = this.buildEncryptedMetaBlock_();
+    // Build padding of the first block so the whole first block is multiple of 16B.
+    // fstBlock = format | secCtx | TAG_ENCWRAP | len-8B | ENC($meta | $padding)
+    var fstBlockWoPadding = w.bitLength(block)/8 + (1 + 8) + w.bitLength(toEnc)/8;
+    var padBlock = this.buildPaddingBlock_(fstBlockWoPadding);
+
+    // Add padding block to the block, then TAG_ENCWRAP comes.
+    block = w.concat(block, padBlock);
+
+    // Compute first block size (no data sources included, static data).
+    // toEnc is aligned to 16B, encrypted size will be the same.
+    fstBlockSize = fstBlockWoPadding + w.bitLength(padBlock)/8;
+
+    // Compute overall sizes required for the format.
+    // For this we need to compute concealing padding size first.
+    var blobSc = new BlobDataSource(this.file);
+
+    // Total size (header, data, footer), without concealing padding.
+    var totalSize = this.computeTotalSize_(fstBlockSize, blobSc.length(), 0, 0);
+    var concealingSize = this.computeConcealPaddingSize_(totalSize);
+    var encWrapSize = this.computeEncryptedPartSize_(blobSc.length()) + concealingSize;
+    log(sprintf("TotalSize: %d, concealingSize: %d, encWrapSize: %d, fileSize: %d, fstCompSize: %d",
+        totalSize, concealingSize, encWrapSize, blobSc.length(), fstBlockSize));
+
+    // Encryption wrap tag - the end of the message is encrypted with AES-256-GCM.
+    // ENCWRAP length = metablock + padding-conceal + data + gcm-tag-16B
+    encWrapHeader = w.concat([w.partial(8, EnigmaUploader.TAG_ENCWRAP)], eb.misc.serialize64bit(encWrapSize));
+    block = w.concat(block, encWrapHeader);
+
+    // Encrypt meta block, append to the first block data.
+    var encrypted = this.buildEncryptedMetaBlock_(toEnc);
     block = w.concat(block, encrypted);
     log(sprintf("FBlockSize: %s, encPartSize: %s", w.bitLength(block)/8, w.bitLength(encrypted)/8));
-
-    // For easy/fast encryption with aligning, add padding bytes to the plaintext so the whole fstBlock is multiple of 16.
-    block = this.padBlockToBlockSize_(block, true);
-    log(sprintf("FBlockSize after pad: %s", w.bitLength(block)/8));
     this.fstBlock = block;
 
     // Data source setup (with concealing padding).
-    this.setupDataSource_();
-    return block;
+    // Prepares input data for processing, length computation.
+    this.setupDataSource_(blobSc, concealingSize);
 };
 
-EnigmaUploader.prototype.setupDataSource_ = function(){
+/**
+ * Returns true if concealing padding is enabled.
+ * @returns {boolean}
+ * @private
+ */
+EnigmaUploader.prototype.isPaddingEnabled_ = function(){
+    return this.paddingToAdd > 0 || this.paddingFnc !== undefined;
+};
+
+/**
+ * Computes size of size concealing padding if enabled.
+ * Returns 0 if no padding should be added or if 0 padding bytes should be added - warning, need to check for padding condition.
+ *
+ * @param curTotalSize
+ * @returns {*}
+ * @private
+ */
+EnigmaUploader.prototype.computeConcealPaddingSize_ = function(curTotalSize){
+    return this.isPaddingEnabled_() ? (this.paddingFnc ? this.paddingFnc(curTotalSize) : this.paddingToAdd) : 0;
+};
+
+/**
+ * Computes overall file format size. Required for computation of the concealing padding size.
+ * Contains padding block if size concealing padding is enabled.
+ *
+ * @param fstBlockSize
+ * @param dataLen
+ * @param trailExtraLen
+ * @param headerExtraLen
+ * @returns {Number}
+ * @private
+ */
+EnigmaUploader.prototype.computeTotalSize_ = function(fstBlockSize, dataLen, trailExtraLen, headerExtraLen){
+    var totalSize = 0;
+
+    // Exta header
+    totalSize += headerExtraLen || 0;
+    // fstBlock size: pad(|formatHeader| + |secCtx| + (1 + 8) + pad(meta))
+    totalSize += fstBlockSize;
+    // conceal padding hdr + enc hdr + data.
+    totalSize += this.computeEncryptedPartSize_(dataLen);
+    // GCM + end tag.
+    totalSize += (1 + 4 + 16) + (1 + 4);
+    // TrailExtraLen = extra length with trailing
+    totalSize += trailExtraLen || 0;
+    return totalSize;
+};
+
+/**
+ * Computes size of the encrypted data block.
+ * Concealing padding is not taken into account, but if enabled, concealing padding headers are.
+ *
+ * @param dataLen
+ * @returns {Number}
+ * @private
+ */
+EnigmaUploader.prototype.computeEncryptedPartSize_ = function(dataLen){
+    var totalSize = 0;
+    // conceal padding hdr
+    totalSize += this.isPaddingEnabled_() ? (1 + 4) : 0;
+    // encHdr + data len
+    totalSize += (1 + 8) + dataLen;
+    return totalSize;
+};
+
+/**
+ * Generates DataSource for the terminating tag.
+ * Helps to declare there will be no next tag for processing, to tell parser to stop the parsing.
+ * Useful when file format is embedded in another file format.
+ *
+ * @returns {ConstDataSource}
+ * @private
+ */
+EnigmaUploader.prototype.buildEndTagDataSource_ = function(){
+    var w = sjcl.bitArray;
+    return new ConstDataSource(w.concat([w.partial(8, EnigmaUploader.TAG_END)], [0]));
+};
+
+/**
+ * Builds GCM tag data source.
+ * TAG_GCMTAG | len4B | gcmtag
+ *
+ * Uses internal state to fill in GCM tag when requested by caller.
+ * If GCM tag is not computed in time of requesting GCM tag data, data source
+ * finalizes GCM encryption, generates GCM tag and uses this new one.
+ *
+ * @returns {MergedDataSource}
+ * @private
+ */
+EnigmaUploader.prototype.buildGcmTagDataSource_ = function(){
+    var w = sjcl.bitArray;
+    var tagFnc = function(offsetStart, offsetEnd, handler){
+        log("GCM tag requested");
+        if (w.bitLength(this.cached.tag)/8 != 16){
+            log("GCM tag not computed yet. Finalizing GCM encryption");
+            var res = this.gcm.finalize([], {returnTag: true});
+            this.cached.tag = res.tag;
+            if (res.data.length > 0){
+                throw new eb.exception.invalid("");
+            }
+        }
+
+        handler(w.bitSlice(this.cached.tag, offsetStart*8, offsetEnd*8));
+    };
+
+    var hrd = new ConstDataSource(w.concat([w.partial(8, EnigmaUploader.TAG_GCMTAG)], [16]));
+    var tag = new WrappedDataSource(tagFnc.bind(this), 16);
+    return new MergedDataSource([hrd, tag]);
+};
+
+/**
+ * Builds data source that is fed into the encryption routine.
+ * Contains size concealing padding + input data (message/file).
+ *
+ * @param {DataSource} blobSc Data source containing input data to protect/share (main user input).
+ * @param {Number} concealingSize Number of concealing bytes to add. Has to be pre-computed when calling this.
+ * @returns {MergedDataSource}
+ * @private
+ */
+EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, concealingSize){
     var h = sjcl.codec.hex;
     var w = sjcl.bitArray;
+    var paddingEnabled = this.isPaddingEnabled_();
 
-    // Prepare data sources for encryption & fetching data. Processing engine fetches data from the data source
-    // querying fragments of data. This abstraction helps to access multiple different sources
-    // as it was only one continuous data source (underflow buffering logic is simpler).
-    //
-    // If padding is disabled, data source consists of a static tag source + blob source.
-    var paddingEnabled = this.paddingToAdd > 0 || this.paddingFnc !== undefined;
-
-    // Main blob containing input data / file.
-    var blobSc = new BlobDataSource(this.file);
+    // Main blob containing input data / file size.
     var blobScSize = blobSc.length();
 
     // Encryption block, the last tag in the message - without length
-    var encSc = new ConstDataSource(h.toBits(sprintf("%02x", EnigmaUploader.TAG_ENC)));
+    var encHdr = w.concat([w.partial(8, EnigmaUploader.TAG_ENC)], eb.misc.serialize64bit(blobScSize));
+    var encHdrDs = new ConstDataSource(encHdr);
 
     // File/message content wrapped with hashing data source - computes sha1, sha256 over input data.
     this.inputHashingDs = new HashingDataSource(blobSc, (function(ofStart, ofEnd, len, data){
@@ -1665,35 +1811,185 @@ EnigmaUploader.prototype.setupDataSource_ = function(){
 
     // Message size concealing padding data sources.
     if (!paddingEnabled){
-        this.dataSource = new MergedDataSource([encSc, this.inputHashingDs]);
+        return new MergedDataSource([encHdrDs, this.inputHashingDs]);
 
-    } else {
-        // Simple padding data source generator - stream of zero bytes, generated on demand.
-        var padGenerator = function(offsetStart, offsetEnd, handler){
-            handler(eb.misc.getZeroBits((offsetEnd-offsetStart)*8));
-        };
-
-        // If function is defined, gen number of padding bytes to add.
-        // FstBlock + TAG_PADDING + len4B + TAG_ENC + len(message) + GCM-TAG-16B
-        var curTotalSize = this.preFileSize_() + 1 + 4 + 1 + this.inputHashingDs.length() + 16;
-        if (this.paddingFnc){
-            this.paddingToAdd = this.paddingFnc(curTotalSize);
-        }
-        if (this.paddingToAdd < 0){
-            throw new eb.exception.invalid("Padding cannot be negative");
-        }
-
-        // Padding tag source + padding generator.
-        var padConst = new ConstDataSource(h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_PADDING, this.paddingToAdd)));
-        var padGen = new WrappedDataSource(padGenerator, this.paddingToAdd);
-        this.dataSource = new MergedDataSource([padConst, padGen, encSc, this.inputHashingDs]);
-        log("Concealing padding added: " + this.paddingToAdd + ", total file size: " + (curTotalSize+this.paddingToAdd));
     }
 
-    this.dataSize = this.dataSource.length();
+    // Simple padding data source generator - stream of zero bytes, generated on demand.
+    var padGenerator = function(offsetStart, offsetEnd, handler){
+        handler(eb.misc.getZeroBits((offsetEnd-offsetStart)*8));
+    };
+
+    if (concealingSize < 0){
+        throw new eb.exception.invalid("Padding cannot be negative");
+    }
+
+    // Padding tag source + padding generator.
+    var padConst = new ConstDataSource(h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_PADDING, concealingSize)));
+    var padGen = new WrappedDataSource(padGenerator, concealingSize);
+
+    // Padding + data to encrypt
+    return new MergedDataSource([padConst, padGen, encHdrDs, this.inputHashingDs]);
 };
 
-EnigmaUploader.prototype.buildEncryptedMetaBlock_ = function(){
+/**
+ * Builds data source that encrypts underlying inputDs.
+ * Modifies the state (gcm) and cache object.
+ * @param inputDs
+ * @private
+ */
+EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
+    var h = sjcl.codec.hex;
+    var w = sjcl.bitArray;
+    var ln = inputDs.length();
+
+    // Encrypts all underlying data sources with the GCM engine.
+    var encryptionFnc = function(fOffset, fEnd, handler) {
+        var result = []; // result will be placed here, given to loadedCb.
+        var fChunkLen = fEnd - fOffset;
+        var fEndOrig = fEnd;
+        var aheadBytes = 0;
+
+        if (fEnd > ln){
+            throw new eb.exception.invalid(sprintf("Requesting larger chunk than available, end: %s, len: %s", fEnd, ln));
+        }
+
+        // If old chunk is requested - error, should not happen.
+        // We already discarded processed data in the cache cleanup and it cannot be computed again as
+        // GCM state already moved forward.
+        if (this.cached.offset != -1 && fOffset < this.cached.offset) {
+            throw new sjcl.exception.invalid("Data requested were deleted.");
+        }
+
+        // Drop old processed chunks from the processed buffer. Won't be needed anymore.
+        if (this.cached.end != -1 && this.cached.end <= fOffset) {
+            log(sprintf("Dropping old chunk (end). Cached: %s - %s. FileReq: %s - %s", this.cached.offset, this.cached.end, fOffset, fEnd));
+            this.cached.offset = -1;
+            this.cached.end = -1;
+            this.cached.buff = [];
+        }
+
+        // Cleanup. Keep only last chunk in the buffer just in case a weird reupload request comes.
+        // We assume we won't need more data from the past than 1 upload chunk size. If we do, it is a critical error.
+        if (this.cached.offset != -1 && (this.cached.offset + this.chunkSize) < fOffset) {
+            log(sprintf("Dropping old chunk. Cached: %s - %s. FileReq: %s - %s, newCachedOffset: %s, DropFromPos: %s",
+                this.cached.offset, this.cached.end, fOffset, fEnd, fOffset - this.chunkSize,
+                fOffset - this.chunkSize - this.cached.offset));
+
+            this.cached.buff = w.bitSlice(this.cached.buff, (fOffset - this.chunkSize - this.cached.offset) * 8);
+            this.cached.offset = fOffset - this.chunkSize;
+            eb.misc.assert(w.bitLength(this.cached.buff) == 8 * (this.cached.end - this.cached.offset), "Invariant broken");
+        }
+
+        // If we have some data already prepared in the buffer - provide it. (fOffset is in the cached buffer range).
+        if (this.cached.offset <= fOffset && this.cached.end >= fOffset) {
+            var curStart = fOffset - this.cached.offset;
+            var curStop = Math.min(this.cached.end - this.cached.offset, curStart + (fEnd - fOffset));
+            var toUse = w.bitSlice(this.cached.buff, curStart * 8, curStop * 8);
+            result = w.concat(result, toUse);
+
+            // Update fOffset, fEnd, reflect loaded data from buffer.
+            // It may be still needed to load & process (encrypt) additional data.
+            fOffset += curStop - curStart;
+            fChunkLen = fEnd - fOffset;
+
+            log(sprintf("Partially provided from the buffer, provided: %s B, newDataOffset: %s B, dataToLoad: %s B",
+                w.bitLength(toUse) / 8, fOffset, fChunkLen));
+        }
+
+        // If enough is loaded, do not load data from source. Provide just processed data from the buffer.
+        if (fOffset >= fEnd) {
+            log(sprintf("Everything served from the internal buffer"));
+            handler(result);
+            return;
+        }
+
+        // To prevent underflow, read more data than requested (align to the cipher block size).
+        // If end is in the unaligned position, GCM won't output it and underflow happens as we get fewer data than
+        // we are supposed to in the upload request.
+        if (fEnd < ln && (fChunkLen % 16) != 0) {
+            fEnd = Math.min(ln, fOffset + eb.misc.padToBlockSize(fChunkLen, 16));
+            aheadBytes = fEnd - fEndOrig;
+            log(sprintf("Possible underflow, read ahead, oldLen: %s, newLen: %s, oldEnd: %s, newEnd: %s, extra bytes: %s",
+                fChunkLen, fEnd - fOffset, fEndOrig, fEnd, aheadBytes));
+        }
+
+        // Event handler called when data is loaded from the underlying data source.
+        var onLoadFnc = function (ba) {
+            log(sprintf("Read bytes: %s - %s of %s B file. TotalUploadSize: %s B, bitArray: %s B",
+                fOffset, fEnd, ln, this.totalSize, w.bitLength(ba) / 8));
+
+            // Encrypt this chunk with GCM mode.
+            // Output length is cipher-block aligned, this can cause underflows in certain situations. To make it easier
+            // padding records are inserted to the first block so it is all blocksize aligned (16B).
+            ba = this.gcm.update(ba);
+
+            // Includes tag?
+            // Due to pre-buffering it should not happen end ends up in the unaligned part of the buffer.
+            // It is either aligned or the final byte of the file.
+            if (fEnd >= ln) {
+                var res = this.gcm.finalize([], {returnTag: true});
+                this.cached.tag = res.tag;
+
+                // Add the last data block, finalizing result.
+                ba = w.concat(ba, res.data);
+            }
+
+            // Update cached prepared data. If reupload happens, data is taken from buffer, no encryption of the same
+            // data. It would break tag & counters in GCM.
+            if (this.cached.offset == -1) {
+                this.cached.offset = fOffset;
+            }
+            this.cached.end = fEnd;
+            this.cached.buff = w.concat(this.cached.buff, ba);
+
+            // Add appropriate amount of bytes from cres to result.
+            var resultBl = w.bitLength(result);
+            var baBl = w.bitLength(ba);
+            result = w.concat(result, w.bitSlice(ba, 0, Math.min(baBl, 8 * (fEndOrig - fOffset))));
+            handler(result);
+        };
+
+        // Start loading.
+        inputDs.read(fOffset, fEnd, onLoadFnc.bind(this));
+    };
+
+    log(sprintf("ToEncrypt DS with length: %s", ln));
+    return new WrappedDataSource(encryptionFnc.bind(this), ln);
+};
+
+EnigmaUploader.prototype.setupDataSource_ = function(blobSc, concealingSize){
+    // File header data source = first block.
+    var hdrDs = new ConstDataSource(this.fstBlock);
+
+    // Build data source for encryption.
+    var toEncDs = this.buildEncryptionInputDataSource_(blobSc, concealingSize);
+
+    // Encryption data source
+    var encDs = this.buildEncryptionDataSource_(toEncDs);
+    var tagDs = this.buildGcmTagDataSource_();
+    var endDs = this.buildEndTagDataSource_();
+    log(sprintf("Size hdrDs: %s, toEncDs: %s, encDs: %s, tagDs: %s, endDs: %s",
+        hdrDs.length(),
+        toEncDs.length(),
+        encDs.length(),
+        tagDs.length(),
+        endDs.length()));
+
+    // Final data source
+    this.dataSource = new MergedDataSource([hdrDs, encDs, tagDs, endDs]);
+    this.totalSize = this.dataSource.length();
+    log(sprintf("TotalSize: %s", this.totalSize));
+};
+
+/**
+ * Builds meta block for this transfer.
+ * Does not modify the state.
+ *
+ * @returns {Array|bitArray}
+ * @private
+ */
+EnigmaUploader.prototype.buildMetaBlock_ = function(){
     var toEnc = [];
     var h = sjcl.codec.hex;
     var w = sjcl.bitArray;
@@ -1724,7 +2020,7 @@ EnigmaUploader.prototype.buildEncryptedMetaBlock_ = function(){
     var baSize = eb.misc.serialize64bit(this.file.size);
     toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_FSIZE, w.bitLength(baSize)/8)));
     toEnc = w.concat(toEnc, baSize);
-    log("FileSize in meta block: " + time);
+    log("FileSize in meta block: " + this.file.size);
 
     // Extra file share message.
     if (this.extraMessage && this.extraMessage.length > 0){
@@ -1736,6 +2032,19 @@ EnigmaUploader.prototype.buildEncryptedMetaBlock_ = function(){
 
     // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
     toEnc = this.padBlockToBlockSize_(toEnc, false);
+    return toEnc;
+};
+
+/**
+ * Encrypts provided meta block with the GCM object.
+ * Modifies the state.
+ *
+ * @param toEnc
+ * @returns {Array|bitArray}
+ * @private
+ */
+EnigmaUploader.prototype.buildEncryptedMetaBlock_ = function(toEnc){
+    var w = sjcl.bitArray;
 
     // Encrypt padded meta data block.
     var encrypted = this.gcm.update(toEnc);
@@ -1744,15 +2053,36 @@ EnigmaUploader.prototype.buildEncryptedMetaBlock_ = function(){
     return encrypted;
 };
 
-EnigmaUploader.prototype.padBlockToBlockSize_ = function(input, beforeInput){
+/**
+ * Returns the size of the input data after padding with TAG_PAD record to the block size.
+ * @param {Number} curSize
+ * @returns {Number}
+ * @private
+ */
+EnigmaUploader.prototype.getSizeAfterBlockPadding_ = function(curSize){
+    // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
+    if ((curSize % 16) != 0){
+        // pad tag + pad length = minimal size for new pad record.
+        return eb.misc.padToBlockSize(curSize + 5, 16); // length after padding to the whole block.
+    } else {
+        return curSize;
+    }
+};
+
+/**
+ * Builds padding block so the padding block + size is multiple of 16B.
+ * @param size
+ * @returns {Array|bitArray}
+ * @private
+ */
+EnigmaUploader.prototype.buildPaddingBlock_ = function(size){
     var h = sjcl.codec.hex;
     var w = sjcl.bitArray;
     var padBytesToAdd;
 
     // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
-    var metaBlockSizeNoPadded = w.bitLength(input)/8;
-    if ((metaBlockSizeNoPadded % 16) != 0){
-        var numBytesAfterPadBlock = metaBlockSizeNoPadded + 5; // pad tag + pad length = minimal size for new pad record.
+    if ((size % 16) != 0){
+        var numBytesAfterPadBlock = size + 5; // pad tag + pad length = minimal size for new pad record.
         var totalFblockSize = eb.misc.padToBlockSize(numBytesAfterPadBlock, 16); // length after padding to the whole block.
         padBytesToAdd = totalFblockSize - numBytesAfterPadBlock;
 
@@ -1762,6 +2092,25 @@ EnigmaUploader.prototype.padBlockToBlockSize_ = function(input, beforeInput){
             padBlock = w.concat(padBlock, eb.misc.getZeroBits(padBytesToAdd * 8));
         }
 
+        return padBlock;
+    }
+
+    return [];
+};
+
+/**
+ * Pads input block with the padding tag to the block size.
+ * @param input
+ * @param beforeInput
+ * @returns {*}
+ * @private
+ */
+EnigmaUploader.prototype.padBlockToBlockSize_ = function(input, beforeInput){
+    var w = sjcl.bitArray;
+    var padBlock = this.buildPaddingBlock_(w.bitLength(input)/8);
+
+    // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
+    if (padBlock.length > 0){
         // Add padding block
         if (beforeInput){
             input = w.concat(padBlock, input);
@@ -1778,144 +2127,152 @@ EnigmaUploader.prototype.padBlockToBlockSize_ = function(input, beforeInput){
  * Uniform access to file structure before sending.
  */
 EnigmaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
-    var needContent = end > this.preFileSize; // end is exclusive border.
-    var result = []; // result will be placed here, given to loadedCb.
-    var w = sjcl.bitArray;
-
-    // If data from the first block is needed, pass the correct chunk.
-    if (offset < this.preFileSize){
-        result = w.concat(result, w.bitSlice(this.fstBlock, offset*8, Math.max(end*8, this.preFileSize*8)));
-    }
-
-    // File loading not needed.
-    if (!needContent){
-        loadedCb(result);
-        return;
-    }
-
-    // File data loading - from the DataSource (unifies underlying format).
-    var fOffset = Math.max(0, offset - this.preFileSize);
-    var fEnd = Math.min(this.dataSize, end - this.preFileSize);
-    var fEndOrig = fEnd;
-    var fChunkLen = fEnd - fOffset;
-    var aheadBytes = 0;
-
-    // If old chunk is requested - error, should not happen.
-    // We already discarded processed data in the cache cleanup and it cannot be computed again as
-    // GCM state already moved forward.
-    if (this.cached.offset != -1 && fOffset < this.cached.offset){
-        throw new sjcl.exception.invalid("Data requested were deleted.");
-    }
-
-    // Drop old processed chunks from the processed buffer. Won't be needed anymore.
-    if (this.cached.end != -1 && this.cached.end <= fOffset){
-        log(sprintf("Dropping old chunk (end). Cached: %s - %s. FileReq: %s - %s", this.cached.offset, this.cached.end, fOffset, fEnd));
-        this.cached.offset = -1;
-        this.cached.end = -1;
-        this.cached.buff = [];
-    }
-
-    // Cleanup. Keep only last chunk in the buffer just in case a weird reupload request comes.
-    // We assume we won't need more data from the past than 1 upload chunk size. If we do, it is a critical error.
-    if (this.cached.offset != -1 && (this.cached.offset+this.chunkSize) < fOffset){
-        log(sprintf("Dropping old chunk. Cached: %s - %s. FileReq: %s - %s, newCachedOffset: %s, DropFromPos: %s",
-            this.cached.offset, this.cached.end, fOffset, fEnd, fOffset - this.chunkSize,
-            fOffset - this.chunkSize - this.cached.offset));
-
-        this.cached.buff = w.bitSlice(this.cached.buff, (fOffset - this.chunkSize - this.cached.offset)*8);
-        this.cached.offset = fOffset - this.chunkSize;
-        eb.misc.assert(w.bitLength(this.cached.buff) == 8*(this.cached.end - this.cached.offset), "Invariant broken");
-    }
-
-    // If we have some data already prepared in the buffer - provide it. (fOffset is in the cached buffer range).
-    if (this.cached.offset <= fOffset && this.cached.end >= fOffset){
-        var curStart = fOffset - this.cached.offset;
-        var curStop = Math.min(this.cached.end - this.cached.offset, curStart + (fEnd - fOffset));
-        var toUse = w.bitSlice(this.cached.buff, curStart*8, curStop*8);
-        result = w.concat(result, toUse);
-
-        // Update fOffset, fEnd, reflect loaded data from buffer.
-        // It may be still needed to load & process (encrypt) additional data.
-        fOffset += curStop - curStart;
-        fChunkLen = fEnd - fOffset;
-
-        log(sprintf("Partially provided from the buffer, provided: %s B, newDataOffset: %s B, dataToLoad: %s B",
-            w.bitLength(toUse)/8, fOffset, fChunkLen));
-    }
-
-    // If enough is loaded, do not load data from source. Provide just processed data from the buffer.
-    if (fOffset >= fEnd){
-        log(sprintf("Everything served from the internal buffer"));
-
-        // Check if tag needs to be provided
-        if (end >= this.preFileSize + this.dataSize){
-            if (w.bitLength(this.cached.tag)/8 != 16){
-                throw new sjcl.exception.invalid("Tag not ready when it should be");
-            }
-
-            var tagStart = Math.max(0, fOffset-this.dataSize);
-            var tagEnd = end-this.preFileSize-this.dataSize;
-            result = w.concat(result, w.bitSlice(this.cached.tag, tagStart*8, tagEnd*8));
-            log(sprintf("Stored tag served. %s - %s pos", tagStart, tagEnd));
-        }
-
-        loadedCb(result);
-        return;
-    }
-
-    // To prevent underflow, read more data than requested (align to the cipher block size).
-    // If end is in the unaligned position, GCM won't output it and underflow happens as we get fewer data than
-    // we are supposed to in the upload request.
-    if (fEnd < this.dataSize && (fChunkLen % 16) != 0){
-        fEnd = Math.min(this.dataSize, fOffset + eb.misc.padToBlockSize(fChunkLen, 16));
-        aheadBytes = fEnd - fEndOrig;
-        log(sprintf("Possible underflow, read ahead, oldLen: %s, newLen: %s, oldEnd: %s, newEnd: %s, extra bytes: %s",
-            fChunkLen, fEnd-fOffset, fEndOrig, fEnd, aheadBytes));
-    }
-
     // Event handler called when data is loaded from the blob/file.
     var onLoadFnc = function(ba) {
-        log(sprintf("Read bytes: %s - %s of %s B file. TotalSize: %s B, PreFileSize: %s, bitArray: %s B",
-            fOffset, fEnd, this.dataSize, this.totalSize, this.preFileSize, w.bitLength(ba)/8));
-
-        // Encrypt this chunk with GCM mode.
-        // Output length is cipher-block aligned, this can cause underflows in certain situations. To make it easier
-        // padding records are inserted to the first block so it is all blocksize aligned (16B).
-        ba = this.gcm.update(ba);
-        var cres = ba;
-
-        // Includes tag?
-        // Due to pre-buffering it should not happen end ends up in the unaligned part of the buffer.
-        // It is either aligned or the final byte of the file.
-        if (end >= this.preFileSize + this.dataSize){
-            var res = this.gcm.finalize([], {returnTag: true});
-            this.cached.tag = res.tag;
-
-            // Ad the last data block.
-            ba = w.concat(ba, res.data);
-
-            // Result - current.
-            cres = w.concat(cres, res.data);
-            cres = w.concat(cres, res.tag);
-        }
-
-        // Update cached prepared data. If reupload happens, data is taken from buffer, no encryption of the same
-        // data. It would break tag & counters in GCM.
-        if (this.cached.offset == -1) {
-            this.cached.offset = fOffset;
-        }
-        this.cached.end = fEnd;
-        this.cached.buff = w.concat(this.cached.buff, ba);
-
-        // Add appropriate amount of bytes from cres to result.
-        var resultBl = w.bitLength(result);
-        var cresBl = w.bitLength(cres);
-        result = w.concat(result, w.bitSlice(cres, 0, Math.min(cresBl, 8*(end-offset) - resultBl) ) );
-        loadedCb(result);
+        loadedCb(ba);
     };
 
     // Initiate file/blob read.
-    this.dataSource.read(fOffset, fEnd, onLoadFnc.bind(this));
+    this.dataSource.read(offset, end, onLoadFnc.bind(this));
+
+    //var needContent = end > this.preFileSize; // end is exclusive border.
+    //var result = []; // result will be placed here, given to loadedCb.
+    //var w = sjcl.bitArray;
+    //
+    //// If data from the first block is needed, pass the correct chunk.
+    //if (offset < this.preFileSize){
+    //    result = w.concat(result, w.bitSlice(this.fstBlock, offset*8, Math.max(end*8, this.preFileSize*8)));
+    //}
+    //
+    //// File loading not needed.
+    //if (!needContent){
+    //    loadedCb(result);
+    //    return;
+    //}
+    //
+    //// File data loading - from the DataSource (unifies underlying format).
+    //var fOffset = Math.max(0, offset - this.preFileSize);
+    //var fEnd = Math.min(this.dataSize, end - this.preFileSize);
+    //var fEndOrig = fEnd;
+    //var fChunkLen = fEnd - fOffset;
+    //var aheadBytes = 0;
+    //
+    //// If old chunk is requested - error, should not happen.
+    //// We already discarded processed data in the cache cleanup and it cannot be computed again as
+    //// GCM state already moved forward.
+    //if (this.cached.offset != -1 && fOffset < this.cached.offset){
+    //    throw new sjcl.exception.invalid("Data requested were deleted.");
+    //}
+    //
+    //// Drop old processed chunks from the processed buffer. Won't be needed anymore.
+    //if (this.cached.end != -1 && this.cached.end <= fOffset){
+    //    log(sprintf("Dropping old chunk (end). Cached: %s - %s. FileReq: %s - %s", this.cached.offset, this.cached.end, fOffset, fEnd));
+    //    this.cached.offset = -1;
+    //    this.cached.end = -1;
+    //    this.cached.buff = [];
+    //}
+    //
+    //// Cleanup. Keep only last chunk in the buffer just in case a weird reupload request comes.
+    //// We assume we won't need more data from the past than 1 upload chunk size. If we do, it is a critical error.
+    //if (this.cached.offset != -1 && (this.cached.offset+this.chunkSize) < fOffset){
+    //    log(sprintf("Dropping old chunk. Cached: %s - %s. FileReq: %s - %s, newCachedOffset: %s, DropFromPos: %s",
+    //        this.cached.offset, this.cached.end, fOffset, fEnd, fOffset - this.chunkSize,
+    //        fOffset - this.chunkSize - this.cached.offset));
+    //
+    //    this.cached.buff = w.bitSlice(this.cached.buff, (fOffset - this.chunkSize - this.cached.offset)*8);
+    //    this.cached.offset = fOffset - this.chunkSize;
+    //    eb.misc.assert(w.bitLength(this.cached.buff) == 8*(this.cached.end - this.cached.offset), "Invariant broken");
+    //}
+    //
+    //// If we have some data already prepared in the buffer - provide it. (fOffset is in the cached buffer range).
+    //if (this.cached.offset <= fOffset && this.cached.end >= fOffset){
+    //    var curStart = fOffset - this.cached.offset;
+    //    var curStop = Math.min(this.cached.end - this.cached.offset, curStart + (fEnd - fOffset));
+    //    var toUse = w.bitSlice(this.cached.buff, curStart*8, curStop*8);
+    //    result = w.concat(result, toUse);
+    //
+    //    // Update fOffset, fEnd, reflect loaded data from buffer.
+    //    // It may be still needed to load & process (encrypt) additional data.
+    //    fOffset += curStop - curStart;
+    //    fChunkLen = fEnd - fOffset;
+    //
+    //    log(sprintf("Partially provided from the buffer, provided: %s B, newDataOffset: %s B, dataToLoad: %s B",
+    //        w.bitLength(toUse)/8, fOffset, fChunkLen));
+    //}
+    //
+    //// If enough is loaded, do not load data from source. Provide just processed data from the buffer.
+    //if (fOffset >= fEnd){
+    //    log(sprintf("Everything served from the internal buffer"));
+    //
+    //    // Check if tag needs to be provided
+    //    if (end >= this.preFileSize + this.dataSize){
+    //        if (w.bitLength(this.cached.tag)/8 != 16){
+    //            throw new sjcl.exception.invalid("Tag not ready when it should be");
+    //        }
+    //
+    //        var tagStart = Math.max(0, fOffset-this.dataSize);
+    //        var tagEnd = end-this.preFileSize-this.dataSize;
+    //        result = w.concat(result, w.bitSlice(this.cached.tag, tagStart*8, tagEnd*8));
+    //        log(sprintf("Stored tag served. %s - %s pos", tagStart, tagEnd));
+    //    }
+    //
+    //    loadedCb(result);
+    //    return;
+    //}
+    //
+    //// To prevent underflow, read more data than requested (align to the cipher block size).
+    //// If end is in the unaligned position, GCM won't output it and underflow happens as we get fewer data than
+    //// we are supposed to in the upload request.
+    //if (fEnd < this.dataSize && (fChunkLen % 16) != 0){
+    //    fEnd = Math.min(this.dataSize, fOffset + eb.misc.padToBlockSize(fChunkLen, 16));
+    //    aheadBytes = fEnd - fEndOrig;
+    //    log(sprintf("Possible underflow, read ahead, oldLen: %s, newLen: %s, oldEnd: %s, newEnd: %s, extra bytes: %s",
+    //        fChunkLen, fEnd-fOffset, fEndOrig, fEnd, aheadBytes));
+    //}
+    //
+    //// Event handler called when data is loaded from the blob/file.
+    //var onLoadFnc = function(ba) {
+    //    log(sprintf("Read bytes: %s - %s of %s B file. TotalSize: %s B, PreFileSize: %s, bitArray: %s B",
+    //        fOffset, fEnd, this.dataSize, this.totalSize, this.preFileSize, w.bitLength(ba)/8));
+    //
+    //    // Encrypt this chunk with GCM mode.
+    //    // Output length is cipher-block aligned, this can cause underflows in certain situations. To make it easier
+    //    // padding records are inserted to the first block so it is all blocksize aligned (16B).
+    //    ba = this.gcm.update(ba);
+    //    var cres = ba;
+    //
+    //    // Includes tag?
+    //    // Due to pre-buffering it should not happen end ends up in the unaligned part of the buffer.
+    //    // It is either aligned or the final byte of the file.
+    //    if (end >= this.preFileSize + this.dataSize){
+    //        var res = this.gcm.finalize([], {returnTag: true});
+    //        this.cached.tag = res.tag;
+    //
+    //        // Ad the last data block.
+    //        ba = w.concat(ba, res.data);
+    //
+    //        // Result - current.
+    //        cres = w.concat(cres, res.data);
+    //        cres = w.concat(cres, res.tag);
+    //    }
+    //
+    //    // Update cached prepared data. If reupload happens, data is taken from buffer, no encryption of the same
+    //    // data. It would break tag & counters in GCM.
+    //    if (this.cached.offset == -1) {
+    //        this.cached.offset = fOffset;
+    //    }
+    //    this.cached.end = fEnd;
+    //    this.cached.buff = w.concat(this.cached.buff, ba);
+    //
+    //    // Add appropriate amount of bytes from cres to result.
+    //    var resultBl = w.bitLength(result);
+    //    var cresBl = w.bitLength(cres);
+    //    result = w.concat(result, w.bitSlice(cres, 0, Math.min(cresBl, 8*(end-offset) - resultBl) ) );
+    //    loadedCb(result);
+    //};
+    //
+    //// Initiate file/blob read.
+    //this.dataSource.read(fOffset, fEnd, onLoadFnc.bind(this));
 };
 
 /**
@@ -2063,38 +2420,6 @@ EnigmaUploader.prototype.buildUrl_ = function(id, params, baseUrl) {
         url += '?' + query;
     }
     return url;
-};
-
-/**
- * Computes metadata sent before file contents.
- *
- * @private
- * @return {number} number of bytes of the final file.
- */
-EnigmaUploader.prototype.preFileSize_ = function() {
-    if (this.fstBlock === undefined){
-        throw new sjcl.exception.invalid("First block not computed");
-    }
-
-    var ln = sjcl.bitArray.bitLength(this.fstBlock)/8;
-    if (ln == 0){
-        throw new sjcl.exception.invalid("First block not computed");
-    }
-
-    return ln;
-};
-
-/**
- * Computes overall file size.
- *
- * @private
- * @return {number} number of bytes of the final file.
- */
-EnigmaUploader.prototype.totalSize_ = function() {
-    var base = this.preFileSize_();
-    base += this.dataSize; // GCM is a streaming mode.
-    base += 16; // GCM tag
-    return base;
 };
 
 
