@@ -2370,6 +2370,10 @@ var EnigmaDownloader = function(options){
     this.offset = 0;
     this.downloaded = false;        // If file was downloaded entirely.
     this.encWrapDetected = false;   // Encryption tag encountered already? If yes, data goes through GCM layer.
+    this.encWrapLength = undefined; // Length of encwrap block size.
+    this.encWrapLengthProcessed = 0; // Length of encwrap processed block size.
+    this.endTagDetected = false;    // True if TAG_ENC was detected in parsing.
+
     this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
     this.curState = EnigmaDownloader.STATE_INIT;
     this.downloadStarted = false;
@@ -2401,6 +2405,7 @@ var EnigmaDownloader = function(options){
 
     // Decrypted data buffering. Fed to TLV parser.
     this.dec = {};
+    this.dec.totalSize = 0; // total size of decrypted buffer.
     this.dec.buff = [];
 
     // State of the TLV parser of the dec buffer.
@@ -2409,6 +2414,13 @@ var EnigmaDownloader = function(options){
     this.tps.tlen = -1;
     this.tps.clen = 0;
     this.tps.cdata = [];
+
+    // State of the TLV parser out of the ENCWRAP.
+    this.tpo = {};
+    this.tpo.ctag = -1;
+    this.tpo.tlen = -1;
+    this.tpo.clen = 0;
+    this.tpo.cdata = [];
 
     // File blobs for download after the decryption finishes.
     this.blobs = [];
@@ -2483,7 +2495,7 @@ EnigmaDownloader.prototype.init_ = function() {
  */
 EnigmaDownloader.prototype.fetchFile_ = function() {
     // Already downloaded the file?
-    if (this.downloaded){
+    if (this.downloaded || this.endTagDetected){
         // Start processing of the download buffer.
         this.processDownloadBuffer_();
         return;
@@ -2630,44 +2642,40 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
         return;
     }
 
-    log(sprintf("ToProcess with GCM: %s-%s, size: %s, buffSize: %s",
+    // If here, the buffer was processed until TAG_ENCWRAP.
+    log(sprintf("ToProcess with parsers: %s-%s, size: %s, buffSize: %s",
         this.cached.offset, this.cached.end, this.cached.end-this.cached.offset, w.bitLength(this.cached.buff)/8));
 
     if (this.cached.end<this.cached.offset || this.cached.end-this.cached.offset != w.bitLength(this.cached.buff)/8){
         throw new eb.exception.invalid("Cache buffer inconsistent");
     }
 
-    // If the whole file was downloaded, process the whole buffer, without alignments, compute&verify tag.
-    if (this.downloaded){
-        // IF tag is invalid, exception is thrown from finalize()
-        var finalBlock = this.gcm.finalize(this.cached.buff, {returnTag:true});
+    // We still need to decrypt ENCWRAP block.
+    // Finalizing will be done after finding TAG_GCMTAG.
+    if (this.encWrapLengthProcessed < this.encWrapLength && (this.cached.end - this.cached.offset) > 0){
+        var toProcessSize = Math.min(this.encWrapLength - this.encWrapLengthProcessed, this.cached.end - this.cached.offset);
+        log(sprintf("To process with GCM: %s", toProcessSize));
 
-        // Reset the cached state
-        this.cached.offset = -1;
-        this.cached.end = -1;
-        this.cached.buff = [];
-
-        // Merge decrypted data buffer with the previously decrypted data.
-        this.mergeDecryptedBuffers_(finalBlock.data);
-
-    } else {
-        // Not the final block, take data aligned to one AES block, decrypt, add to buffer.
-        var buffLen = w.bitLength(this.cached.buff)/8;
-        var buffToDecryptLen = buffLen - (buffLen%16);
-        if (buffToDecryptLen > 0){
-            var decrypted = this.gcm.update(w.bitSlice(this.cached.buff, 0, buffToDecryptLen*8));
+        if (toProcessSize > 0){
+            var decrypted = this.gcm.update(w.bitSlice(this.cached.buff, 0, toProcessSize*8));
 
             // Slice of the GCM processed data from the download buffer, update state.
-            this.cached.buff = w.bitSlice(this.cached.buff, buffToDecryptLen*8);
-            this.cached.offset += buffToDecryptLen;
+            this.cached.buff = w.bitSlice(this.cached.buff, toProcessSize*8);
+            this.cached.offset += toProcessSize;
+            this.encWrapLengthProcessed += toProcessSize;
 
             // Merge decrypted data buffer with the previously decrypted data.
             this.mergeDecryptedBuffers_(decrypted);
         }
+
+        // Process decrypted data block.
+        this.processDecryptedBlock_();
     }
 
-    // Process decrypted data.
-    this.processDecryptedBlock_();
+    // If ENCWRAP processing completed and still any data left, process with another parser, for outer block.
+    if (this.encWrapLengthProcessed >= this.encWrapLength && (this.cached.end - this.cached.offset) > 0) {
+        this.processOuterBlock_();
+    }
 
     // Last step:
     // Download next chunk, if any.
@@ -2681,6 +2689,7 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
  */
 EnigmaDownloader.prototype.mergeDecryptedBuffers_ = function(buffer){
     this.dec.buff = sjcl.bitArray.concat(this.dec.buff, buffer);
+    this.dec.totalSize += sjcl.bitArray.bitLength(buffer)/8;
 };
 
 /**
@@ -2729,27 +2738,22 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
                 throw new eb.exception.invalid("Invalid tag detected");
             }
 
-            // If there is not enough data for parsing length field, abort parsing.
-            // We need more data then. TAG_ENC is the only tag that does not have length field in this scope.
-            // TODO: add 64bit length field to TAG_ENC
-            if (ctag != EnigmaUploader.TAG_ENC){
-                if ((cpos + 4) >= decLen){
-                    log("Not enough bytes to parse the length field. Need more data");
-                    cpos -= 1; // Tag length, keep in the buffer.
-                    break;
-                }
+            // If there is not enough data for parsing length field, abort parsing. We need more data then.
+            var longLen = (ctag & 0x80) > 0;
+            var lenBytes = longLen ? 8 : 4;
+            var lenFnc = longLen ? eb.misc.deserialize64bit : w.extract32;
+            if ((cpos + lenBytes) > decLen){
+                log("Not enough bytes to parse the length field. Need more data");
+                cpos -= 1; // Tag length, keep in the buffer.
+                break;
+            }
 
-                this.tps.tlen = w.extract32(this.dec.buff, cpos*8);
-                this.tps.clen = 0;
-                cpos += EnigmaUploader.LENGTH_BYTES;
+            this.tps.tlen = lenFnc(this.dec.buff, cpos*8);
+            this.tps.clen = 0;
+            cpos += lenBytes;
 
-                if (this.tps.tlen < 0){
-                    throw new eb.exception.invalid("Negative length detected, field too big");
-                }
-
-            } else {
-                this.tps.tlen = -1;
-                this.tps.clen = 0;
+            if (this.tps.tlen < 0){
+                throw new eb.exception.invalid("Negative length detected, field too big");
             }
 
             // Parser can accept this tag, change the parser state.
@@ -2757,13 +2761,24 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
             this.tps.cdata = [];
         }
 
-        // If tag has definite length, check if we can process it all in one.
+        // Check if we can process it all in one.
         // If not, add data to the cdata buffer and wait until we can process it all in one (unless we can process it
         // in a streaming fashion - or skip in case of the padding).
-        // If tag has unknown length, it is the last tag = decrypted file contents.
-        if (this.tps.tlen < 0){
-            // File data - consume the whole buffer.
-            var fileData = w.bitSlice(this.dec.buff, cpos*8);
+        lenToTagFinish = this.tps.tlen - this.tps.clen;
+        toConsume = Math.min(lenToTagFinish, decLen - cpos);
+
+        // Padding can be processed in the streaming fashion.
+        if (this.tps.ctag == EnigmaUploader.TAG_PADDING){
+            cpos += toConsume;
+
+            // Current tag parsed? tlen==clen? -> reset tag.
+            this.tps.clen += toConsume;
+            continue;
+        }
+
+        // TAG_ENC can be processed in the streaming fashion.
+        if (this.tps.ctag == EnigmaUploader.TAG_ENC){
+            var fileData = w.bitSlice(this.dec.buff, cpos*8, (cpos+toConsume)*8);
             var csize = w.bitLength(fileData)/8;
             this.sha1Digest.update(fileData);
             this.sha256Digest.update(fileData);
@@ -2776,18 +2791,6 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
 
             cpos += csize;
             this.tps.clen += csize;
-            break;
-        }
-
-        lenToTagFinish = this.tps.tlen - this.tps.clen;
-        toConsume = Math.min(lenToTagFinish, decLen - cpos);
-
-        // Padding can be processed in the streaming fashion.
-        if (this.tps.ctag == EnigmaUploader.TAG_PADDING){
-            cpos += toConsume;
-
-            // Current tag parsed? tlen==clen? -> reset tag.
-            this.tps.clen += toConsume;
             continue;
         }
 
@@ -2850,6 +2853,129 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
 };
 
 /**
+ * Processing decrypted data, TLV records.
+ * @private
+ */
+EnigmaDownloader.prototype.processOuterBlock_ = function(){
+    var bufLen, cpos = 0, ctag = -1, lenToTagFinish = 0, toConsume = 0, w = sjcl.bitArray;
+    bufLen = w.bitLength(this.cached.buff)/8;
+    log(sprintf("To parse outer: %s B", bufLen));
+
+    if (bufLen < 0){
+        return;
+    }
+
+    // Parser is fed with the downloaded data buffer.
+    // This parser is stateful, processes data in a streaming mode, keeps state across multiple requests.
+    do {
+        // End of the buffer?
+        if (cpos == bufLen){
+            log("End of the cache buffer");
+            break;
+        }
+        if (cpos > bufLen){
+            log("Invalid buffer state");
+            throw new eb.exception.invalid("Invalid cached buffer state");
+        }
+
+        // Previous tag can be closed?
+        if (this.tpo.tlen == this.tpo.clen){
+            this.tpo.ctag = -1;
+        }
+
+        // Process the buffer. We may be left in the state from the previous processing - unfinished tag processing.
+        if (this.tpo.ctag == -1){
+            // Previous tag finished cleanly, read the next tag + length field (if applicable).
+            ctag = w.extract(this.cached.buff, cpos*8, 8);
+            cpos += 1;
+
+            // Check for weird tags that should not be present in this buffer.
+            if (ctag == EnigmaUploader.TAG_ENCWRAP || ctag == EnigmaUploader.TAG_SEC || ctag == EnigmaUploader.TAG_ENC){
+                throw new eb.exception.invalid("Invalid tag detected");
+            }
+
+            // If there is not enough data for parsing length field, abort parsing. We need more data then.
+            var longLen = (ctag & 0x80) > 0;
+            var lenBytes = longLen ? 8 : 4;
+            var lenFnc = longLen ? eb.misc.deserialize64bit : w.extract32;
+            if ((cpos + lenBytes) > bufLen){
+                log("Not enough bytes to parse the length field. Need more data");
+                cpos -= 1; // Tag length, keep in the buffer.
+                break;
+            }
+
+            this.tpo.tlen = lenFnc(this.cached.buff, cpos*8);
+            this.tpo.clen = 0;
+            cpos += lenBytes;
+
+            if (this.tpo.tlen < 0){
+                throw new eb.exception.invalid("Negative length detected, field too big");
+            }
+
+            // Parser can accept this tag, change the parser state.
+            this.tpo.ctag = ctag;
+            this.tpo.cdata = [];
+            log(sprintf("Tag detected: %s, len: %s", this.tpo.ctag, this.tpo.tlen));
+        }
+
+        // Check if we can process it all in one.
+        // If not, add data to the cdata buffer and wait until we can process it all in one (unless we can process it
+        // in a streaming fashion - or skip in case of the padding).
+        lenToTagFinish = this.tpo.tlen - this.tpo.clen;
+        toConsume = Math.min(lenToTagFinish, bufLen - cpos);
+
+        // Padding can be processed in the streaming fashion.
+        if (this.tpo.ctag == EnigmaUploader.TAG_PADDING){
+            cpos += toConsume;
+
+            // Current tag parsed? tlen==clen? -> reset tag.
+            this.tpo.clen += toConsume;
+            continue;
+        }
+
+        // Process tag with defined length which can be processed only when the whole buffer is loaded.
+        // Add toConsume bytes to the cdata buffer.
+        this.tpo.cdata = w.concat(this.tpo.cdata, w.bitSlice(this.cached.buff, cpos*8, (cpos+toConsume)*8));
+
+        cpos += toConsume;
+        this.tpo.clen += toConsume;
+        if (this.tpo.clen != this.tpo.tlen){
+            log("Not enough data");
+            continue;
+        }
+
+        // Tag was processed completely.
+        switch(this.tpo.ctag){
+            case EnigmaUploader.TAG_GCMTAG:
+                log("GCM tag found");
+                // Finalize with tag data.
+                // If tag is invalid, exception is thrown from finalize()
+                var finalBlock = this.gcm.finalize(this.tpo.cdata, {returnTag:true});
+
+                // Merge decrypted data buffer with the previously decrypted data.
+                this.mergeDecryptedBuffers_(finalBlock.data);
+
+                // Finish processing of decrypted buffer.
+                this.processDecryptedBlock_();
+                break;
+
+            case EnigmaUploader.TAG_END:
+                log("END tag found");
+                this.endTagDetected = true;
+                break;
+
+            default:
+                log(sprintf("Unsupported tag detected: %s, len: %s", this.tpo.ctag, this.tpo.clen));
+                break;
+        }
+    } while(!this.endTagDetected);
+
+    // Slice off the processed part of the buffer.
+    this.cached.buff = w.bitSlice(this.cached.buff, cpos*8);
+    this.cached.offset += cpos;
+};
+
+/**
  * Parser of the unencrypted data.
  * Initial block contains security related data required for further decryption.
  *
@@ -2867,6 +2993,14 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
         throw new eb.exception.invalid("Input data buffer is in invalid state");
     }
 
+    // Header check. Magic string. In future here we can process PNGs, PDFs, ...
+    var expectedHeader = w.concat(sjcl.codec.utf8String.toBits(EnigmaUploader.MAGIC_STRING), [w.partial(8, 1)]);
+    var expectedHeaderBl = w.bitLength(expectedHeader);
+    if (!w.equal(expectedHeader, w.bitSlice(this.cached.buff, 0, expectedHeaderBl))){
+        throw new eb.exception.invalid("Unrecognized input file");
+    }
+    cpos += expectedHeaderBl/8;
+
     // Process tags.
     do {
         if (cpos > this.cached.end){
@@ -2880,7 +3014,11 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
         cpos += 1;
         switch(ctag){
             case EnigmaUploader.TAG_ENCWRAP:
+                tlen = eb.misc.deserialize64bit(this.cached.buff, cpos*8);
+                cpos += 8;
                 this.encWrapDetected = true;
+                this.encWrapLength = tlen;
+                log(sprintf("ENCWRAP detected, pos: %s", cpos));
                 break;
 
             case EnigmaUploader.TAG_PADDING:
@@ -2905,8 +3043,14 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
                 break;
 
             default:
-                tlen = w.extract32(this.cached.buff, cpos*8);
-                cpos += EnigmaUploader.LENGTH_BYTES + tlen;
+                var longLen = (ctag & 0x80) > 0;
+                if (longLen){
+                    tlen = eb.misc.deserialize64bit(this.cached.buff, cpos*8);
+                    cpos += 8 + tlen;
+                } else {
+                    tlen = w.extract32(this.cached.buff, cpos * 8);
+                    cpos += EnigmaUploader.LENGTH_BYTES + tlen;
+                }
                 log(sprintf("Unsupported tag detected: %s, len: %s", ctag, tlen));
                 break;
         }
@@ -3009,12 +3153,12 @@ EnigmaDownloader.prototype.tryPassword = function(password){
 EnigmaDownloader.prototype.bufferProcessed_ = function(){
     // All buffers processed, nothing to process more.
     // If downloading is not completed yet, fetch the next chunk of the data.
-    if (!this.downloaded){
+    if (!this.downloaded && !this.endTagDetected){
         this.fetchFile_();
     }
 
     // Once the download is completed, signalize process has finished.
-    if (this.downloaded) {
+    if (this.downloaded && this.endTagDetected) {
         if (!this.sha1){
             this.sha1 = this.sha1Digest.finalize();
         }
