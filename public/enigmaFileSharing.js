@@ -137,7 +137,6 @@ sjcl.mode.gcm2.prototype = {
     tlen: undefined,    // tag length.
     abl: undefined,     // authenticated data bit length, used for the final tag computation.
     J0: undefined,      // initial counter value for the first block = used for the final tag computation.
-    S0: undefined,      // initial tag value.
     ctr: undefined,     // current counter value.
     tag: undefined,     // current tag value.
     bl: undefined,      // total plaintext/ciphertext bitlength. Used in the final tag computation.
@@ -217,11 +216,11 @@ sjcl.mode.gcm2.prototype = {
             this.J0 = this._ghash(this.H, this.J0, [0,0,Math.floor(ivbl/0x100000000),ivbl&0xffffffff]);
         }
         // Authenticated data hashing. Result will be xored with first ciphertext block.
-        this.S0 = this._ghash(this.H, [0,0,0,0], adata);
+        var S0 = this._ghash(this.H, [0,0,0,0], adata);
 
         // Initialize ctr and tag
         this.ctr = this.J0.slice(0);
-        this.tag = this.S0.slice(0);
+        this.tag = S0.slice(0);
     },
 
     /**
