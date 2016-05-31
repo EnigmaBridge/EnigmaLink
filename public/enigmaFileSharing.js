@@ -1208,7 +1208,10 @@ var CRC32;
 }));
 
 /**
- * PNG creator
+ * PNG file parser & builer.
+ * Enabled to add new chunks to the existing PNG file - for hiding EB data in it.
+ * It is better for user to see data is protected than file with random noise.
+ *
  * @type {{}}
  */
 eb.sh.png = function(options){
@@ -1225,7 +1228,6 @@ eb.sh.png = function(options){
     this.pngTailDataSources = []; // PNG chunks to place before IEND, DataSources
     this.parsePng();
 };
-
 eb.sh.png.prototype = {
     genTag: function(str){
         return sjcl.bitArray.extract32(sjcl.codec.utf8String.toBits(str), 0);
