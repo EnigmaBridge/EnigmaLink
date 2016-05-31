@@ -1561,6 +1561,7 @@ EnigmaUploader.TAG_PADDING = 0x6;  // padding record. Null bytes (skipped in par
 EnigmaUploader.TAG_GCMTAG = 0xd;  // final tag int the encrypted part (ENCRWAP), contains GCM tag of all previous data.
 EnigmaUploader.TAG_END = 0xf;     // final tag, no more tags in the current envelope. Closes scheme.
 EnigmaUploader.LENGTH_BYTES = 0x4;
+EnigmaUploader.MAGIC_STRING = "UMPHIO";
 
 /**
  * Initiate the upload.
@@ -1616,7 +1617,7 @@ EnigmaUploader.prototype.initialize_ = function() {
     var w = sjcl.bitArray;
 
     // Format header, magic string + version number. Defines file format (useful if wrapped in another format).
-    this.formatHeader = w.concat(sjcl.codec.utf8String.toBits("UMPHIO"), [w.partial(8, 1)]);
+    this.formatHeader = w.concat(sjcl.codec.utf8String.toBits(EnigmaUploader.MAGIC_STRING), [w.partial(8, 1)]);
     block = w.concat(block, this.formatHeader);
 
     // Secure context block, TAG_SEC | len-4B | IV-16B | secCtx
