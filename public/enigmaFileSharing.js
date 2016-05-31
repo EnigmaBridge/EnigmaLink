@@ -1762,13 +1762,12 @@ EnigmaUploader.prototype.buildEndTagDataSource_ = function(){
 EnigmaUploader.prototype.buildGcmTagDataSource_ = function(){
     var w = sjcl.bitArray;
     var tagFnc = function(offsetStart, offsetEnd, handler){
-        log("GCM tag requested");
         if (w.bitLength(this.cached.tag)/8 != 16){
             log("GCM tag not computed yet. Finalizing GCM encryption");
             var res = this.gcm.finalize([], {returnTag: true});
             this.cached.tag = res.tag;
             if (res.data.length > 0){
-                throw new eb.exception.invalid("");
+                throw new eb.exception.invalid("GCM tag finalizing, data produced, should not happen");
             }
         }
 
@@ -2699,7 +2698,7 @@ EnigmaDownloader.prototype.mergeDecryptedBuffers_ = function(buffer){
 EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
     var decLen, cpos = 0, ctag = -1, lenToTagFinish = 0, toConsume = 0, w = sjcl.bitArray;
     decLen = w.bitLength(this.dec.buff)/8;
-    log(sprintf("To parse: %s B", decLen));
+    log(sprintf("To parse decBlock: %s B", decLen));
 
     if (decLen < 0){
         return;
@@ -2859,7 +2858,7 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
 EnigmaDownloader.prototype.processOuterBlock_ = function(){
     var bufLen, cpos = 0, ctag = -1, lenToTagFinish = 0, toConsume = 0, w = sjcl.bitArray;
     bufLen = w.bitLength(this.cached.buff)/8;
-    log(sprintf("To parse outer: %s B", bufLen));
+    log(sprintf("To parse outerBlock: %s B", bufLen));
 
     if (bufLen < 0){
         return;
@@ -2915,7 +2914,6 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
             // Parser can accept this tag, change the parser state.
             this.tpo.ctag = ctag;
             this.tpo.cdata = [];
-            log(sprintf("Tag detected: %s, len: %s", this.tpo.ctag, this.tpo.tlen));
         }
 
         // Check if we can process it all in one.
