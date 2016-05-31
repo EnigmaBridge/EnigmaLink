@@ -724,9 +724,8 @@ MergedDataSource.inheritsFrom(DataSource, {
     read: function(offsetStart, offsetEnd, handler){
         var w = sjcl.bitArray;
         var sl = this.sources.length;
-        var i;
         var res = [];
-        var cShift = 0, cLen = 0, cOffsetStart, cOffsetEnd, desiredLen = offsetEnd-offsetStart;
+        var cOffsetStart, cOffsetEnd, desiredLen = offsetEnd-offsetStart;
         var offsetStartOrig = offsetStart, offsetEndOrig = offsetEnd;
 
         var cHandler = function(x){
@@ -755,19 +754,20 @@ MergedDataSource.inheritsFrom(DataSource, {
         };
 
         var startRead = function(ofStart, ofEnd){
+            var i, cShift, cLen = 0;
             for(i=0, cShift = 0; i<sl; i++){
                 // Offset starts on the next streams - skip previous ones.
                 if (ofStart >= this.incLenList[i+1]){
+                    if (i+1 == sl){
+                        throw new eb.exception.invalid("Underflow");
+                    }
                     continue;
                 }
 
                 cShift += this.incLenList[i];
                 cLen = this.sources[i].length();
                 cOffsetStart = ofStart-cShift;
-                cOffsetEnd = (ofEnd-cShift);
-                if (cOffsetEnd > cOffsetStart+cLen){
-                    cOffsetEnd = cOffsetStart+cLen;
-                }
+                cOffsetEnd = Math.min(cLen, ofEnd-cShift);
 
                 this.sources[i].read(cOffsetStart, cOffsetEnd, cHandler.bind(this));
 
