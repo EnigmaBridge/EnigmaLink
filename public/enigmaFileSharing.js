@@ -1154,7 +1154,8 @@ EnigmaShareScheme.prototype.ebOp_ = function(input, encrypt, ebOptions, onSucces
             return;
         }
 
-        if(this.retryHandler.numAttempts() < 3){
+        // TODO: remove failed attempts.
+        if(this.retryHandler.numAttempts() < 1){
             onEBFail(data);
             return;
         }
