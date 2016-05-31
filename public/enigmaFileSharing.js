@@ -120,67 +120,172 @@ eb.sh.misc = {
  * @param {bitArray} iv The initialization value.
  * @param {Number} [tlen=128] The desired tag length, in bits.
  */
-sjcl.mode.gcm2 = function(cipher, encrypt, adata, iv, tlen){
-    // Initialize cipher.
-    this._gcmInitState(encrypt, cipher, adata || [], iv, tlen || 128);
-
-};
-sjcl.mode.gcm2.prototype = {
+/** @namespace Galois/Counter mode. */
+sjcl.mode.gcmProgressive = {
     /** The name of the mode.
      * @constant
      */
-    name: "gcm2",
+    name: "gcmProgressive",
 
-    prf: undefined,     // pseudo random function. typically AES.
-    enc: undefined,     // encryption/decryption flag.
-    H: undefined,       // H tag value, E(key, 0^{128}).
-    tlen: undefined,    // tag length.
-    abl: undefined,     // authenticated data bit length, used for the final tag computation.
-    J0: undefined,      // initial counter value for the first block = used for the final tag computation.
-    ctr: undefined,     // current counter value.
-    tag: undefined,     // current tag value.
-    bl: undefined,      // total plaintext/ciphertext bitlength. Used in the final tag computation.
-    buff: undefined,    // buffer keeping streaming input, not processed yet, not multiple of a block size.
-    buffTag: undefined, // in decryption mode, buffer for potential tag in stream processing. Holds last tlen bits from the last update() block.
-    finalized: false,   // if mode was already finalized.
+    /**
+     * Creates a new GCM engine.
+     *
+     * @param {Object} prf The pseudo-random function. It must have a block size of 16 bytes.
+     * @param {boolean} encrypt mode of operation. true for encryption, false for decryption.
+     * @param {bitArray} iv The initialization vector.
+     * @param {bitArray} adata Data to include in authentication tag.
+     * @param {Number} [tlen=128] The desired tag length, in bits.
+     * @returns {Object} encryption engine {update: function(data), finalize:function(data)}
+     */
+    create: function (prf, encrypt, iv, adata, tlen) {
+        return new sjcl.mode.gcmProgressive.engine(prf, encrypt, iv, adata, tlen);
+    },
 
-    update: function(data){
+    /**
+     * Creates a new GCM engine for encryption.
+     *
+     * @param {Object} prf The pseudo-random function. It must have a block size of 16 bytes.
+     * @param {bitArray} iv The initialization vector.
+     * @param {bitArray} adata Data to include in authentication tag.
+     * @param {Number} [tlen=128] The desired tag length, in bits.
+     * @returns {Object} encryption engine {update: function(data), finalize:function(data)}
+     */
+    createEncryptor: function (prf, iv, adata, tlen) {
+        return new sjcl.mode.gcmProgressive.engine(prf, true, iv, adata, tlen);
+    },
+
+    /**
+     * Creates a new GCM engine for decryption.
+     *
+     * @param {Object} prf The pseudo-random function. It must have a block size of 16 bytes.
+     * @param {bitArray} iv The initialization vector.
+     * @param {bitArray} adata Data to include in authentication tag.
+     * @param {Number} [tlen=128] The desired tag length, in bits.
+     * @returns {Object} encryption engine {update: function(data), finalize:function(data)}
+     */
+    createDecryptor: function (prf, iv, adata, tlen) {
+        return new sjcl.mode.gcmProgressive.engine(prf, false, iv, adata, tlen);
+    },
+
+    /**
+     * Convenience function for encryption of the input data.
+     *
+     * @param {Object} prf The pseudo-random function. It must have a block size of 16 bytes.
+     * @param {bitArray} data input data to encrypt
+     * @param {bitArray} iv The initialization vector.
+     * @param {bitArray} adata Data to include in authentication tag.
+     * @param {Number} [tlen=128] The desired tag length, in bits.
+     * @returns {bitArray} ciphertext + tag
+     */
+    encrypt: function (prf, data, iv, adata, tlen) {
+        return (new sjcl.mode.gcmProgressive.engine(prf, true, iv, adata, tlen)).finalize(data);
+    },
+
+    /**
+     * Convenience function for decryption of the input data.
+     *
+     * @param {Object} prf The pseudo-random function. It must have a block size of 16 bytes.
+     * @param {bitArray} data input data to decrypt (with tag).
+     * @param {bitArray} iv The initialization vector.
+     * @param {bitArray} adata Data to include in authentication tag.
+     * @param {Number} [tlen=128] The desired tag length, in bits.
+     * @returns {bitArray} plaintext
+     */
+    decrypt: function (prf, data, iv, adata, tlen) {
+        return (new sjcl.mode.gcmProgressive.engine(prf, false, iv, adata, tlen)).finalize(data);
+    },
+
+    /**
+     * Incremental/streaming/progressive GCM mode.
+     * http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf
+     *
+     * @param {Object} prf The pseudo-random function. It must have a block size of 16 bytes.
+     * @param {boolean} encrypt mode of operation. true for encryption, false for decryption.
+     * @param {bitArray} iv The initialization vector.
+     * @param {bitArray} adata Data to include in authentication tag.
+     * @param {Number} [tlen=128] The desired tag length, in bits.
+     */
+    engine: function (prf, encrypt, iv, adata, tlen) {
+        this._gcmInitState(prf, encrypt, iv, adata || [], tlen || 128);
+    }
+};
+
+sjcl.mode.gcmProgressive.engine.prototype = {
+    _prf: undefined,     // pseudo random function (cipher).
+    _enc: undefined,     // encryption/decryption flag.
+    _H: undefined,       // H value used in tag computation, H = prf.encrypt(key, 0^{128}).
+    _tlen: undefined,    // tag length in bits.
+    _abl: undefined,     // authenticated data bit length, used for the final tag computation.
+    _J0: undefined,      // initial counter value for the first block = used for the final tag computation.
+    _ctr: undefined,     // current counter value.
+    _tag: undefined,     // current tag value.
+    _bl: undefined,      // total plaintext/ciphertext bitlength. Used in the final tag computation.
+    _buff: undefined,    // buffer keeping streaming input, not processed yet, not multiple of a block size.
+    _buffTag: undefined, // in decryption mode, buffer for potential tag in stream processing. Holds last tlen bits from the last update() block.
+    _finalized: false,   // if mode was already finalized.
+
+    /**
+     * Incremental processing function.
+     * Processes input data, returns output.
+     * Output from the function is multiple of 16B, unprocessed data are stored in the internal state.
+     * Note the function may return empty result = [].
+     *
+     * @param data
+     * @returns {*|Array}
+     */
+    update: function (data) {
+        return this._update(data, false);
+    },
+    process: function (data) {
         return this._update(data, false);
     },
 
-    doFinal: function(data){
+    /**
+     * Processes the last block (potentially empty) and produces the final output.
+     *
+     * @param data
+     * @param {object} options
+     * @param {boolean} [options.returnTag] if true function returns {tag: tag, data: data}.
+     * @returns {bitArray | {tag: (bitArray), data: (bitArray)}}
+     */
+    finalize: function (data, options) {
         // Process final data, finalize tag computation & buffers.
-        var last, enc, w=sjcl.bitArray;
+        var last, enc, w = sjcl.bitArray;
+        options = options || {};
+        var returnTag = options && options.returnTag || false;
         var interm = this._update(data, true);
 
         // Calculate last tag block from bit lengths, ugly because bitwise operations are 32-bit
         last = [
-            Math.floor(this.abl/0x100000000), this.abl&0xffffffff,
-            Math.floor(this.bl/0x100000000), this.bl&0xffffffff
+            Math.floor(this._abl / 0x100000000), this._abl & 0xffffffff,  // adata bit length
+            Math.floor(this._bl / 0x100000000), this._bl & 0xffffffff     // data bit length
         ];
 
         // Calculate the final tag block
-        // Tag computation including bitlengths
-        this.tag = this._ghash(this.H, this.tag, last);
+        // Tag computation including bit lengths
+        this._tag = this._ghash(this._H, this._tag, last);
+
         // XORing with the first counter value to obtain final auth tag.
-        enc = this.prf.encrypt(this.J0);
-        this.tag[0] ^= enc[0];
-        this.tag[1] ^= enc[1];
-        this.tag[2] ^= enc[2];
-        this.tag[3] ^= enc[3];
+        enc = this._prf.encrypt(this._J0);
+        this._tag[0] ^= enc[0];
+        this._tag[1] ^= enc[1];
+        this._tag[2] ^= enc[2];
+        this._tag[3] ^= enc[3];
 
-        var res = { tag:w.bitSlice(this.tag, 0, this.tlen), data:interm };
-
-        // When decrypting, check tag
-        if (!this.enc){
-            res.tagValid = w.equal(this.tag, this.buffTag);
+        // Decryption -> check tag. If invalid -> throw exception.
+        if (!this._enc && !w.equal(this._tag, this._buffTag)) {
+            throw new sjcl.exception.corrupt("gcm: tag doesn't match");
         }
 
-        return res;
+        if (returnTag) {
+            return {tag: w.bitSlice(this._tag, 0, this._tlen), data: interm};
+        }
+
+        return this._enc ? w.concat(interm || [], this._tag) : interm;
     },
 
     /**
-     * Initializes internal state state for streaming processing.
+     * Initializes the internal state state for streaming processing.
      *
      * @param encrypt
      * @param prf
@@ -189,38 +294,38 @@ sjcl.mode.gcm2.prototype = {
      * @param tlen
      * @private
      */
-    _gcmInitState: function(encrypt, prf, adata, iv, tlen){
-        var ivbl, w=sjcl.bitArray;
+    _gcmInitState: function (prf, encrypt, iv, adata, tlen) {
+        var ivbl, S0, w = sjcl.bitArray;
 
         // Calculate data lengths
-        this.enc = encrypt;
-        this.prf = prf;
-        this.tlen = tlen;
-        this.abl = w.bitLength(adata);
-        this.bl = 0;
-        this.buff = [];
-        this.buffTag = [];
+        this._enc = encrypt;
+        this._prf = prf;
+        this._tlen = tlen;
+        this._abl = w.bitLength(adata);
+        this._bl = 0;
+        this._buff = [];
+        this._buffTag = [];
         ivbl = w.bitLength(iv);
 
         // Calculate the parameters - H = E(K, 0^{128}), tag multiplier
-        this.H = this.prf.encrypt([0,0,0,0]);
+        this._H = this._prf.encrypt([0, 0, 0, 0]);
         // IV size reflection to the J0 = counter
         if (ivbl === 96) {
             // J0 = IV || 0^{31}1
-            this.J0 = iv.slice(0);
-            this.J0 = w.concat(this.J0, [1]);
+            this._J0 = iv.slice(0);
+            this._J0 = w.concat(this._J0, [1]);
         } else {
             // J0 = GHASH(H, {}, IV)
-            this.J0 = this._ghash(this.H, [0,0,0,0], iv);
+            this._J0 = this._ghash(this._H, [0, 0, 0, 0], iv);
             // Last step of GHASH = (j0 + len(iv)) . H
-            this.J0 = this._ghash(this.H, this.J0, [0,0,Math.floor(ivbl/0x100000000),ivbl&0xffffffff]);
+            this._J0 = this._ghash(this._H, this._J0, [0, 0, Math.floor(ivbl / 0x100000000), ivbl & 0xffffffff]);
         }
-        // Authenticated data hashing. Result will be xored with first ciphertext block.
-        var S0 = this._ghash(this.H, [0,0,0,0], adata);
+        // Authenticated data hashing. Result will be XORed with first ciphertext block.
+        S0 = this._ghash(this._H, [0, 0, 0, 0], adata);
 
         // Initialize ctr and tag
-        this.ctr = this.J0.slice(0);
-        this.tag = S0.slice(0);
+        this._ctr = this._J0.slice(0);
+        this._tag = S0.slice(0);
     },
 
     /**
@@ -233,94 +338,91 @@ sjcl.mode.gcm2.prototype = {
      * When finalizing, no aligning is applied and whole state and input data is processed. Object should be called
      * only once with finalize=true.
      *
-     * @param data
-     * @param finalize
+     * @param {Array} data
+     * @param {boolean} finalize
      * @returns {Array}
      * @private
      */
-    _update: function(data, finalize){
-        var enc, bl, i, l, inp, w=sjcl.bitArray;
+    _update: function (data, finalize) {
+        var enc, bl, i, l, inp = [], w = sjcl.bitArray;
 
-        inp = [];
         // Data to process = unprocessed buffer from the last update call + current data so
         // it gives multiple of a block size. Rest goes to the buffer.
         // In decryption case, keep last 16 bytes in the buffTag as it may be a potential auth tag that must not go
         // to decryption routine.
-
         // Add data from the previous update().
-        inp = w.concat(inp, this.buff);
-        this.buff = [];
+        inp = w.concat(inp, this._buff);
+        this._buff = [];
 
         // Finalize only once - prevent programmers mistake.
-        if (this.finalized && finalize){
+        if (this._finalized && finalize) {
             throw new sjcl.exception.invalid("Cipher already finalized, cannot process new data, need to init a new cipher");
         }
-        this.finalized |= finalize;
+        this._finalized |= finalize;
 
-        // In case of a decryption, add also potential tag buffer, empty it then.
-        if (!this.enc){
-            inp = w.concat(inp, this.buffTag);
-            this.buffTag = [];
+        // In case of a decryption, add also potential tag buffer - may not be the tag but the part of the ciphertext.
+        if (!this._enc) {
+            inp = w.concat(inp, this._buffTag);
+            this._buffTag = [];
         }
 
         // Add all input data to the processing buffer inp.
         inp = w.concat(inp, data || []);
         bl = w.bitLength(inp);
 
-        // In decryption case, move last tlen byes back to the buffTag as it may be potential auth tag.
-        if (!this.enc){
-            this.buffTag = w.bitSlice(inp, bl-this.tlen);
-            inp = w.clamp(inp, bl-this.tlen);
-            bl -= this.tlen;
+        // In decryption case, move last tlen bits back to the buffTag as it may be a potential auth tag.
+        if (!this._enc) {
+            if (bl < this._tlen) {
+                this._buffTag = inp;
+                return [];
+            }
+
+            this._buffTag = w.bitSlice(inp, bl - this._tlen);
+            inp = w.clamp(inp, bl - this._tlen);
+            bl -= this._tlen;
         }
 
-        // Move last bytes not aligned to 1 block size to buff.
+        // Move last bytes not aligned to 1 block (16B) size to buff. When finalizing, process everything.
         var blForNextTime = bl % 128;
-        if (blForNextTime > 0 && !finalize){
-            this.buff = w.bitSlice(inp, bl-blForNextTime);
-            inp = w.clamp(inp, bl-blForNextTime);
+        if (blForNextTime > 0 && !finalize) {
+            this._buff = w.bitSlice(inp, bl - blForNextTime);
+            inp = w.clamp(inp, bl - blForNextTime);
             bl -= blForNextTime;
         }
 
         // Sanity check.
-        if (bl < 0){
+        if (bl < 0) {
             throw new sjcl.exception.invalid("Invariant invalid - buffer underflow");
-        }
-
-        // If we have no data in inp, exit. Nothing to do for now.
-        this.bl += bl;
-        if (bl == 0){
+        } else if (bl == 0) {
             return [];
         }
 
-        // If decrypting, calculate hash
-        // Ciphertext goes to the tag computation. In decryption it is our input.
-        if (!this.enc) {
-            this.tag = this._ghash(this.H, this.tag, inp);
+        this._bl += bl;
+
+        // In GCM ciphertext goes to the tag computation. In decryption mode, it is our input.
+        if (!this._enc) {
+            this._tag = this._ghash(this._H, this._tag, inp);
         }
 
         // Encrypt all the data
         // Last 32bits of the ctr is actual counter.
-        for (i=0, l=inp.length; i<l; i+=4) {
-            this.ctr[3]++;
-            enc = this.prf.encrypt(this.ctr);
-            inp[i]   ^= enc[0];
-            inp[i+1] ^= enc[1];
-            inp[i+2] ^= enc[2];
-            inp[i+3] ^= enc[3];
+        for (i = 0, l = inp.length; i < l; i += 4) {
+            this._ctr[3]++;
+            enc = this._prf.encrypt(this._ctr);
+            inp[i] ^= enc[0];
+            inp[i + 1] ^= enc[1];
+            inp[i + 2] ^= enc[2];
+            inp[i + 3] ^= enc[3];
         }
-        // Take the actual length of the original input. (Streaming mode).
+        // Take the actual length of the original input (as in the Streaming mode).
         // Should be a multiple of a cipher block size - no effect on data, unless we are finalizing.
         inp = w.clamp(inp, bl);
 
-        // If encrypting, calculate hash
-        // Ciphertext goes to the tag computation. In encryption it is our output.
-        if (this.enc) {
-            this.tag = this._ghash(this.H, this.tag, inp);
+        // In GCM ciphertext goes to the tag computation. In encryption mode, it is our output.
+        if (this._enc) {
+            this._tag = this._ghash(this._H, this._tag, inp);
         }
 
-        // TODO: remove, DEBUGGING.
-        console.log(sprintf("inp size: %sb, buff: %sb, buffTag: %sb", w.bitLength(inp), w.bitLength(this.buff), w.bitLength(this.buffTag)));
         return inp;
     },
 
@@ -358,22 +460,6 @@ sjcl.mode.gcm2.prototype = {
         return Zi;
     },
 
-    /**
-     * Partial GHASH() building block. Does not take length into account as GHASH in the definition does.
-     * If data is not aligned to 128 bits, it is 0 padded.
-     *
-     * Does not change the state.
-     *
-     * Y1 = (Y0 + data[0..3]) . H
-     * Y2 = (Y1 + data[4..7]) . H
-     * return Ylast.
-     *
-     * @param H=E(K, 0^{128}), tag parameter.
-     * @param Y0 32bit number/4element array for initial computation, will be xored with first 32bits of data
-     * @param data data to hash - array, with length multiple of 4.
-     * @returns {Blob|ArrayBuffer|Array.<T>|string|*}
-     * @private
-     */
     _ghash: function(H, Y0, data) {
         var Yi, i, l = data.length;
 
@@ -386,7 +472,7 @@ sjcl.mode.gcm2.prototype = {
             Yi = this._galoisMultiply(Yi, H);
         }
         return Yi;
-    }
+    },
 };
 
 /**
@@ -1436,7 +1522,7 @@ var EnigmaUploader = function(options) {
     this.secCtx = options.secCtx || [];             // bitArray with security context, result of UO application.
     this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
     this.iv = sjcl.random.randomWords(4);           // initialization vector for GCM, 1 block, 16B.
-    this.gcm = new sjcl.mode.gcm2(this.aes, true, [], this.iv, 128); // GCM encryption mode, initialized now.
+    this.gcm = sjcl.mode.gcmProgressive.create(this.aes, true, this.iv, [], 128); // GCM encryption mode, initialized now.
     this.sha1Digest = new sjcl.hash.sha1();         // Hashing input data
     this.sha256Digest = new sjcl.hash.sha256();     // Hashing input data
 
@@ -1801,7 +1887,7 @@ EnigmaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
         // Due to pre-buffering it should not happen end ends up in the unaligned part of the buffer.
         // It is either aligned or the final byte of the file.
         if (end >= this.preFileSize + this.dataSize){
-            var res = this.gcm.doFinal();
+            var res = this.gcm.finalize([], {returnTag: true});
             this.cached.tag = res.tag;
 
             // Ad the last data block.
@@ -2364,11 +2450,8 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
 
     // If the whole file was downloaded, process the whole buffer, without alignments, compute&verify tag.
     if (this.downloaded){
-        var finalBlock = this.gcm.doFinal(this.cached.buff);
-        if (finalBlock.tagValid != true){
-            log("Invalid tag!");
-            throw new eb.exception.corrupt("Invalid auth tag on decrypted data");
-        }
+        // IF tag is invalid, exception is thrown from finalize()
+        var finalBlock = this.gcm.finalize(this.cached.buff, {returnTag:true});
 
         // Reset the cached state
         this.cached.offset = -1;
@@ -2690,7 +2773,7 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
 
         // Initialize cipher, engines.
         this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
-        this.gcm = new sjcl.mode.gcm2(this.aes, false, [], this.iv, 128); // GCM encryption mode, initialized now.
+        this.gcm = sjcl.mode.gcmProgressive.create(this.aes, false, this.iv, [], 128); // GCM encryption mode, initialized now.
         this.encryptionInitialized = true;
 
         // Finish the processing of current download chunk. Continues in download operation.
