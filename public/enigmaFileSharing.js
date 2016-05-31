@@ -1632,7 +1632,8 @@ EnigmaUploader.prototype.initialize_ = function() {
 
     // Build padding of the first block so the whole first block is multiple of 16B.
     // fstBlock = format | secCtx | TAG_ENCWRAP | len-8B | ENC($meta | $padding)
-    var fstBlockWoPadding = w.bitLength(block)/8 + (1 + 8) + w.bitLength(toEnc)/8;
+    var encMetaSize = w.bitLength(toEnc)/8;
+    var fstBlockWoPadding = w.bitLength(block)/8 + (1 + 8) + encMetaSize;
     var padBlock = this.buildPaddingBlock_(fstBlockWoPadding);
 
     // Add padding block to the block, then TAG_ENCWRAP comes.
@@ -1649,9 +1650,9 @@ EnigmaUploader.prototype.initialize_ = function() {
     // Total size (header, data, footer), without concealing padding.
     var totalSize = this.computeTotalSize_(fstBlockSize, blobSc.length(), 0, 0);
     var concealingSize = this.computeConcealPaddingSize_(totalSize);
-    var encWrapSize = this.computeEncryptedPartSize_(blobSc.length()) + concealingSize;
-    log(sprintf("TotalSize: %d, concealingSize: %d, encWrapSize: %d, fileSize: %d, fstCompSize: %d",
-        totalSize, concealingSize, encWrapSize, blobSc.length(), fstBlockSize));
+    var encWrapSize = this.computeEncryptedPartSize_(blobSc.length()) + encMetaSize + concealingSize;
+    log(sprintf("TotalSize: %d, concealingSize: %d, encWrapSize: %d, fileSize: %d, fstCompSize: %d, metaSize: %d",
+        totalSize, concealingSize, encWrapSize, blobSc.length(), fstBlockSize, encMetaSize));
 
     // Encryption wrap tag - the end of the message is encrypted with AES-256-GCM.
     // ENCWRAP length = metablock + padding-conceal + data + gcm-tag-16B
