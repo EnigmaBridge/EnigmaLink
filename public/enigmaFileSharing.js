@@ -1993,7 +1993,6 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
             this.cached.buff = w.concat(this.cached.buff, ba);
 
             // Add appropriate amount of bytes from cres to result.
-            var resultBl = w.bitLength(result);
             var baBl = w.bitLength(ba);
             result = w.concat(result, w.bitSlice(ba, 0, Math.min(baBl, 8 * (fEndOrig - fOffset))));
             handler(result);
@@ -3071,7 +3070,7 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
     }
     cpos += expectedHeaderBl/8;
 
-    // AAD buiding.
+    // AAD building - authenticate magic string + version + security context.
     this.aad = expectedHeader;
 
     // Process tags.
@@ -3224,6 +3223,7 @@ EnigmaDownloader.prototype.tryPassword = function(password){
 
 /**
  * On downloaded data is processed.
+ * Invokes new file chunk download.
  * @private
  */
 EnigmaDownloader.prototype.bufferProcessed_ = function(){
