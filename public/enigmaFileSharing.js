@@ -1523,7 +1523,7 @@ var EnigmaUploader = function(options) {
     this.secCtx = options.secCtx || [];             // bitArray with security context, result of UO application.
     this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
     this.iv = sjcl.random.randomWords(4);           // initialization vector for GCM, 1 block, 16B.
-    this.gcm = sjcl.mode.gcmProgressive.create(this.aes, true, this.iv, [], 128); // GCM encryption mode, initialized now.
+    this.gcm = undefined;                           // GCM encryption mode, initialized now.
     this.sha1Digest = new sjcl.hash.sha1();         // Hashing input data
     this.sha256Digest = new sjcl.hash.sha256();     // Hashing input data
 
@@ -1612,7 +1612,7 @@ EnigmaUploader.prototype.cancel = function() {
  * data/file processing is faster and aligned on blocks.
  */
 EnigmaUploader.prototype.initialize_ = function() {
-    var block = [], encWrapHeader, fstBlockSize;
+    var block = [], encWrapHeader, fstBlockSize, aad = [];
     var h = sjcl.codec.hex;
     var w = sjcl.bitArray;
 
@@ -1625,6 +1625,9 @@ EnigmaUploader.prototype.initialize_ = function() {
     block = w.concat(block, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_SEC, secLen)));
     block = w.concat(block, this.iv);
     block = w.concat(block, this.secCtx);
+
+    // GCM tag authenticates also magic string, version, IV, security context.
+    aad = block;
 
     // Build meta block (fname, mime, fsize, message), unencrypted, for length computation. No state modification.
     // toEnc is already padded to multiple of 16.
@@ -1658,6 +1661,9 @@ EnigmaUploader.prototype.initialize_ = function() {
     // ENCWRAP length = metablock + padding-conceal + data + gcm-tag-16B
     encWrapHeader = w.concat([w.partial(8, EnigmaUploader.TAG_ENCWRAP)], eb.misc.serialize64bit(encWrapSize));
     block = w.concat(block, encWrapHeader);
+
+    // Initialize GCM.
+    this.gcm = sjcl.mode.gcmProgressive.create(this.aes, true, this.iv, aad, 128);
 
     // Encrypt meta block, append to the first block data.
     var encrypted = this.buildEncryptedMetaBlock_(toEnc);
@@ -2390,6 +2396,7 @@ var EnigmaDownloader = function(options){
     this.gcm = undefined;                           // GCM encryption mode, initialized now.
     this.sha1Digest = new sjcl.hash.sha1();         // Hashing downloaded data - checksum.
     this.sha256Digest = new sjcl.hash.sha256();     // Hashing downloaded data - checksum.
+    this.aad = [];                                  // Data to be authenticated with GCM tag.
 
     // Construct first meta block now, compute file sizes.
     this.init_();
@@ -2999,6 +3006,9 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
     }
     cpos += expectedHeaderBl/8;
 
+    // AAD buiding.
+    this.aad = expectedHeader;
+
     // Process tags.
     do {
         if (cpos > this.cached.end){
@@ -3075,6 +3085,9 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
         throw new eb.exception.invalid("Security block not found");
     }
 
+    this.aad = w.concat(this.aad, [w.partial(8, EnigmaUploader.TAG_SEC)]);
+    this.aad = w.concat(this.aad, [w.bitLength(secBlock)/8]);
+    this.aad = w.concat(this.aad, secBlock);
     this.processSecCtx_(secBlock);
 };
 
@@ -3104,7 +3117,7 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
 
         // Initialize cipher, engines.
         this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
-        this.gcm = sjcl.mode.gcmProgressive.create(this.aes, false, this.iv, [], 128); // GCM encryption mode, initialized now.
+        this.gcm = sjcl.mode.gcmProgressive.create(this.aes, false, this.iv, this.aad, 128); // GCM encryption mode, initialized now.
         this.encryptionInitialized = true;
 
         // Finish the processing of current download chunk. Continues in download operation.
