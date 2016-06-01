@@ -108,14 +108,14 @@ sjcl.hash.sha1.prototype = {
         if (typeof Uint32Array !== 'undefined') {
             var c = new Uint32Array(b);
             var j = 0;
-            for (i = this.blockSize+ol & -this.blockSize; i <= nl;
+            for (i = this.blockSize+ol - ((this.blockSize+ol) & (this.blockSize-1)); i <= nl;
                  i+= this.blockSize) {
                 this._block(c.subarray(16 * j, 16 * (j+1)));
                 j += 1;
             }
             b.splice(0, 16 * j);
         } else {
-            for (i = this.blockSize+ol & -this.blockSize; i <= nl;
+            for (i = this.blockSize+ol - ((this.blockSize+ol) & (this.blockSize-1)); i <= nl;
                  i+= this.blockSize) {
                 this._block(b.splice(0,16));
             }
@@ -323,24 +323,25 @@ sjcl.codec.base32hex = {
  */
 var eb = {
     name: "EB",
-    /** @namespace Exceptions. */
-    exception: {
-        /** @constructor Ciphertext is corrupt. */
-        corrupt: function (message) {
-            this.toString = function () {
-                return "CORRUPT: " + this.message;
-            };
-            this.message = message;
-        },
-        /** @constructor Invalid input. */
-        invalid: function (message) {
-            this.toString = function () {
-                return "INVALID: " + this.message;
-            };
-            this.message = message;
-        },
-    }
 };
+
+/** @namespace Exceptions. */
+eb.exception = {
+    /** @constructor Ciphertext is corrupt. */
+    corrupt: function (message) {
+        this.toString = function () {
+            return "CORRUPT: " + this.message;
+        };
+        this.message = message;
+    },
+    /** @constructor Invalid input. */
+    invalid: function (message) {
+        this.toString = function () {
+            return "INVALID: " + this.message;
+        };
+        this.message = message;
+    },
+}
 
 /**
  * EB misc wrapper.
@@ -5131,6 +5132,7 @@ eb.comm.createUO.templateFiller.prototype = {
         tek = sjcl.random.randomWords(8);
         tmk = sjcl.random.randomWords(8);
         baProtected = eb.padding.pkcs7.pad(baProtected);
+        this._log('Padded plain template: ' + h.fromBits(baProtected) + ", len=" + w.bitLength(baProtected));
 
         // Symmetric Encryption
         var aes = new sjcl.cipher.aes(tek);
@@ -5149,6 +5151,7 @@ eb.comm.createUO.templateFiller.prototype = {
         baRsaEnc = w.concat(baRsaEnc, [parseInt(template.objectid, 16)]);
         baRsaEnc = w.concat(baRsaEnc, tek);
         baRsaEnc = w.concat(baRsaEnc, tmk);
+        this._log('To wrap: ' + h.fromBits(baRsaEnc) + ", len=" + w.bitLength(baRsaEnc));
         var wrapped = this._rsaEncrypt(baRsaEnc, iKey);
 
         // Final template: 0xa1 | len-2B | RSA-ENC-BLOB | 0xa2 | len-2B | encrypted-maced-template
@@ -5167,6 +5170,7 @@ eb.comm.createUO.templateFiller.prototype = {
     _rsaEncrypt: function(input, key){
         var iKeyBl = key.type == 'rsa2048' ? 2048 : 1024;
         var data = eb.padding.pkcs15.pad(input, iKeyBl, 2);
+        this._log('To wrap padded: ' + sjcl.codec.hex.fromBits(data) + ", len=" + sjcl.bitArray.bitLength(data));
 
         // Deserialize public key, convert to integers, result = (message ^ exponent) mod modulus
         var pubKey = this._readSerializedPubKey(key.key);
