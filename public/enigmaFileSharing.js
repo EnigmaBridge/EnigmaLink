@@ -1904,7 +1904,6 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
  * @private
  */
 EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
-    var h = sjcl.codec.hex;
     var w = sjcl.bitArray;
     var ln = inputDs.length();
 
@@ -2214,13 +2213,8 @@ EnigmaUploader.prototype.padBlockToBlockSize_ = function(input, beforeInput){
  * Uniform access to file structure before sending.
  */
 EnigmaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
-    // Event handler called when data is loaded from the blob/file.
-    var onLoadFnc = function(ba) {
-        loadedCb(ba);
-    };
-
     // Initiate file/blob read.
-    this.dataSource.read(offset, end, onLoadFnc.bind(this));
+    this.dataSource.read(offset, end, loadedCb);
 };
 
 /**
