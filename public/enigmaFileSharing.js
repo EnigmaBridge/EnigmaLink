@@ -776,7 +776,7 @@ MergedDataSource.inheritsFrom(DataSource, {
                 // Offset starts on the next streams - skip previous ones.
                 if (ofStart >= this.incLenList[i+1]){
                     if (i+1 == sl){
-                        throw new eb.exception.invalid("Underflow");
+                        throw new eb.exception.invalid(sprintf("Underflow in \"%s\", %s - %s, ln: %s", this.name, ofStart, ofEnd, this.incLenList[i+1]));
                     }
                     continue;
                 }
