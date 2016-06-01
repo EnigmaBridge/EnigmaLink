@@ -582,6 +582,7 @@ RetryHandler.prototype.getRandomInt_ = function(min, max) {
  * @constructor
  */
 var DataSource = function(){
+    this.name = "";
     this.decorators = []; // array of functions updated with the content as it is read.
 };
 DataSource.prototype = {
@@ -604,9 +605,12 @@ DataSource.prototype = {
  * @param blob
  * @constructor
  */
-var BlobDataSource = function(blob){
+var BlobDataSource = function(blob, options){
     this.blob = blob;
     this.reader = new FileReader();
+
+    options = options || {};
+    this.name = options.name || "";
 };
 
 /**
@@ -614,8 +618,11 @@ var BlobDataSource = function(blob){
  * @param {bitArray} data
  * @constructor
  */
-var ConstDataSource = function(data){
+var ConstDataSource = function(data, options){
     this.data = data;
+
+    options = options || {};
+    this.name = options.name || "";
 };
 
 /**
@@ -624,9 +631,12 @@ var ConstDataSource = function(data){
  * @param length
  * @constructor
  */
-var WrappedDataSource = function(generator, length){
+var WrappedDataSource = function(generator, length, options){
     this.generator = generator;
     this.len = length;
+
+    options = options || {};
+    this.name = options.name || "";
 };
 
 /**
@@ -639,13 +649,16 @@ var WrappedDataSource = function(generator, length){
  * @param {Function} hashingFnc hashing function. bitArray to hash update is provided as an argument.
  * @constructor
  */
-var HashingDataSource = function(dataSource, hashingFnc){
+var HashingDataSource = function(dataSource, hashingFnc, options){
     this.ds = dataSource;
     this.dsLen = dataSource.length();
     this.hasher = hashingFnc;
     this.seenOffsetStart = -1;
     this.seenOffsetEnd = -1;
     this.gaps = false;
+
+    options = options || {};
+    this.name = options.name || "";
 };
 
 /**
@@ -653,7 +666,7 @@ var HashingDataSource = function(dataSource, hashingFnc){
  * @param sources array of data sources.
  * @constructor
  */
-var MergedDataSource = function(sources){
+var MergedDataSource = function(sources, options){
     this.sources = sources;
     this.len = 0;
     this.incLenList = [0]; // incremental size list. ith object = sum(0..i-1).
@@ -664,6 +677,9 @@ var MergedDataSource = function(sources){
         this.len += cln;
         this.incLenList.push(this.incLenList[i] + cln);
     }
+
+    options = options || {};
+    this.name = options.name || "";
 };
 BlobDataSource.inheritsFrom(DataSource, {
     read: function(offsetStart, offsetEnd, handler){
