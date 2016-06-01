@@ -2232,7 +2232,7 @@ EnigmaUploader.prototype.sendFile_ = function() {
     }
 
     // Handler for uploading requested data range.
-    var onLoadFnc = function(ba) {
+    var onDataToSendLoadedFnc = function(ba) {
         var finalBuffer = sjcl.codec.arrayBuffer.fromBits(ba, 0, 0);
 
         var xhr = new XMLHttpRequest();
@@ -2255,7 +2255,7 @@ EnigmaUploader.prototype.sendFile_ = function() {
         xhr.send(finalBuffer);
     };
 
-    this.getBytesToSend_(this.offset, end, onLoadFnc.bind(this));
+    this.getBytesToSend_(this.offset, end, onDataToSendLoadedFnc.bind(this));
 };
 
 /**
