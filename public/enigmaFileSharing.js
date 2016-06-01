@@ -738,14 +738,13 @@ WrappedDataSource.inheritsFrom(DataSource, {
 });
 MergedDataSource.inheritsFrom(DataSource, {
     read: function(offsetStart, offsetEnd, handler){
-        var w = sjcl.bitArray;
-        var sl = this.sources.length;
         var res = [];
         var cOffsetStart, cOffsetEnd, desiredLen = offsetEnd-offsetStart;
         var offsetStartOrig = offsetStart, offsetEndOrig = offsetEnd;
 
         // Callback called when reading of the particular data source has been finished.
         var onReadFinished = function(x){
+            var w = sjcl.bitArray;
             var bl = w.bitLength(x);
             if (cOffsetEnd-cOffsetStart != bl/8){
                 throw new eb.exception.invalid("Read invalid number of bytes!");
@@ -758,7 +757,7 @@ MergedDataSource.inheritsFrom(DataSource, {
             // Everything read?
             if (offsetStart>=offsetEnd){
                 if (w.bitLength(res)/8 != desiredLen){
-                    throw new eb.exception.invalid("Reading returned invalid number of bytes from sub data sources");
+                    throw new eb.exception.invalid("Reading returned invalid number of bytes from sub data sources in \"" + this.name + "\"");
                 }
 
                 this.updateDecorators(offsetStartOrig, offsetEndOrig, res);
@@ -771,7 +770,8 @@ MergedDataSource.inheritsFrom(DataSource, {
         };
 
         var startReadAsync = function(ofStart, ofEnd){
-            var i, cShift, cLen = 0;
+            var w = sjcl.bitArray;
+            var i, cShift, cLen = 0, sl = this.sources.length;
             for(i=0, cShift = 0; i<sl; i++){
                 // Offset starts on the next streams - skip previous ones.
                 if (ofStart >= this.incLenList[i+1]){
