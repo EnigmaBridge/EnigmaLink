@@ -1154,11 +1154,11 @@ EnigmaShareScheme.prototype.ebOp_ = function(input, encrypt, ebOptions, onSucces
             return;
         }
 
-        // TODO: remove failed attempts.
-        if(this.retryHandler.numAttempts() < 1){
-            onEBFail(data);
-            return;
-        }
+        //// TODO: remove failed attempts.
+        //if(this.retryHandler.numAttempts() < 1){
+        //    onEBFail(data);
+        //    return;
+        //}
 
         onSuccess({data:response.protectedData});
     }).bind(this);
