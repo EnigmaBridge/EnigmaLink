@@ -1590,7 +1590,6 @@ var EnigmaUploader = function(options) {
     this.paddingFnc = options.padFnc;               // Padding size function. If set, determines the padding length.
     this.formatHeader = undefined;                  // UMPHIO1
     this.dataSource = undefined;                    // Data source for data/file/padding.
-    this.inputHashingDs = undefined;                // Input hashing data source. For computing of a hash of input data.
     this.totalSize = undefined;                     // Total size of the upload stream.
     this.pngMagic = undefined;                      // PNG generator.
     this.sha1 = undefined;                          // SHA1 of the input data.
@@ -1866,7 +1865,7 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
     var encHdrDs = new ConstDataSource(encHdr, {name: 'encHdr'});
 
     // File/message content wrapped with hashing data source - computes sha1, sha256 over input data.
-    this.inputHashingDs = new HashingDataSource(blobSc, (function(ofStart, ofEnd, len, data){
+    var inputHashingDs = new HashingDataSource(blobSc, (function(ofStart, ofEnd, len, data){
         this.sha1Digest.update(data);
         this.sha256Digest.update(data);
         if (ofEnd >= len){
@@ -1877,8 +1876,7 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
 
     // Message size concealing padding data sources.
     if (!paddingEnabled){
-        return new MergedDataSource([encHdrDs, this.inputHashingDs], {name: 'encData'});
-
+        return new MergedDataSource([encHdrDs, inputHashingDs], {name: 'encData'});
     }
 
     // Simple padding data source generator - stream of zero bytes, generated on demand.
@@ -1895,7 +1893,7 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
     var padGen = new WrappedDataSource(padGenerator, concealingSize, {name: 'concealData'});
 
     // Padding + data to encrypt
-    return new MergedDataSource([padConst, padGen, encHdrDs, this.inputHashingDs], {name: 'encConcData'});
+    return new MergedDataSource([padConst, padGen, encHdrDs, inputHashingDs], {name: 'encConcData'});
 };
 
 /**
