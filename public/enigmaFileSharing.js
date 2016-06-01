@@ -686,7 +686,7 @@ BlobDataSource.inheritsFrom(DataSource, {
         var content = this.blob.slice(offsetStart, offsetEnd);
 
         // Event handler called when data is loaded from the blob/file.
-        var onLoadFnc = function(evt) {
+        var onReaderDataLoadedFnc = function(evt) {
             if (evt.target.readyState != FileReader.DONE) { // DONE == 2
                 log("State not done");
                 return;
@@ -700,7 +700,7 @@ BlobDataSource.inheritsFrom(DataSource, {
         };
 
         // Initiate file/blob read.
-        this.reader.onloadend = onLoadFnc.bind(this);
+        this.reader.onloadend = onReaderDataLoadedFnc.bind(this);
         this.reader.readAsArrayBuffer(content);
     },
     length: function(){
