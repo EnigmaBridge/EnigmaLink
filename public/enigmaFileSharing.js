@@ -1311,7 +1311,9 @@ eb.sh.png = function(options){
     this.pngTrail = []; // IEND
     this.pngHeadChunks = []; // PNG chunks to place after IHDR
     this.pngTailChunks = []; // PNG chunks to place before IEND
-    this.pngTailDataSources = []; // PNG chunks to place before IEND, DataSources
+
+    this.crc32Engine = undefined; // CRC32 engine for UMPH data.
+    this.crc32Val = undefined;    // CRC32 value computed for UMPH data.
     this.parsePng();
 };
 eb.sh.png.prototype = {
@@ -1441,8 +1443,47 @@ eb.sh.png.prototype = {
         return ba;
     },
 
-    getDataSource: function(){
-        // TODO:
+    buildUmphCrcEngine: function(){
+        var crc = CRC32.getInstance();
+        crc.update(this.genTag("umPh"));
+        return crc;
+    },
+
+    getUmphWrappingDataSource: function(umphDataSource){
+        var w = sjcl.bitArray, i, ln, trailData = [];
+        this.crc32Engine = this.buildUmphCrcEngine();
+
+        // PNG head, until UMPH tag (exclusive).
+        var pngHead = this.buildPngHead();
+        var pngHeadDs = new ConstDataSource(pngHead);
+
+        // UMPH tag + length
+        var umphHdrDs = new ConstDataSource( [(umphDataSource.length())|0, this.genTag("umPh")|0] );
+
+        // UMPH content wrapped with hashing data source - computes CRC32 over input data.
+        var umphDataSourceCrc32Ds = new HashingDataSource(umphDataSource, (function(ofStart, ofEnd, len, data){
+            this.crc32Engine.update(data);
+            if (ofEnd >= len){
+                this.crc32Val = this.crc32Engine.finalize();
+            }
+        }).bind(this));
+
+        // Static CRC32 data source - reads computed value.
+        var crc32StaticFnc = (function(offsetStart, offsetEnd, handler){
+            handler(w.bitSlice([this.crc32Val], offsetStart*8, offsetEnd*8));
+        }).bind(this);
+        var crc32StaticDs = new WrappedDataSource(crc32StaticFnc, 4);
+
+        // Trailing DS
+        for(i=0, ln = this.pngTailChunks.length; i<ln; i++){
+            trailData = w.concat(trailData, this.pngTailChunks[i]);
+        }
+
+        // png trailing
+        trailData = w.concat(trailData, this.pngTrail);
+        var pngTrailDs = new ConstDataSource(trailData);
+
+        return new MergedDataSource([pngHeadDs, umphHdrDs, umphDataSourceCrc32Ds, crc32StaticDs, pngTrailDs]);
     }
 };
 
