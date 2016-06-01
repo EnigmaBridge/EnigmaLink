@@ -1978,8 +1978,8 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
         }
 
         // Event handler called when data is loaded from the underlying data source.
-        var onLoadFnc = function (ba) {
-            log(sprintf("Read bytes: %s - %s of %s B file. TotalUploadSize: %s B, bitArray: %s B",
+        var onDataToEncryptLoadedFnc = function (ba) {
+            log(sprintf("onBytesRead: %s - %s of %s B file. TotalUploadSize: %s B, bitArray: %s B. GCM start.",
                 fOffset, fEnd, ln, this.totalSize, w.bitLength(ba) / 8));
 
             // Encrypt this chunk with GCM mode.
@@ -2013,7 +2013,7 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
         };
 
         // Start loading.
-        inputDs.read(fOffset, fEnd, onLoadFnc.bind(this));
+        inputDs.read(fOffset, fEnd, onDataToEncryptLoadedFnc.bind(this));
     };
 
     log(sprintf("ToEncrypt DS with length: %s", ln));
