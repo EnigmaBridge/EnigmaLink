@@ -1471,10 +1471,10 @@ eb.sh.png.prototype = {
 
         // PNG head, until UMPH tag (exclusive).
         var pngHead = this.buildPngHead();
-        var pngHeadDs = new ConstDataSource(pngHead);
+        var pngHeadDs = new ConstDataSource(pngHead, {name: 'pngHdr'});
 
         // UMPH tag + length
-        var umphHdrDs = new ConstDataSource( [(umphDataSource.length())|0, this.genTag("umPh")|0] );
+        var umphHdrDs = new ConstDataSource( [(umphDataSource.length())|0, this.genTag("umPh")|0], {name: 'pngUmphHdr'} );
 
         // UMPH content wrapped with hashing data source - computes CRC32 over input data.
         var umphDataSourceCrc32Ds = new HashingDataSource(umphDataSource, (function(ofStart, ofEnd, len, data){
@@ -1482,13 +1482,13 @@ eb.sh.png.prototype = {
             if (ofEnd >= len){
                 this.crc32Val = this.crc32Engine.finalize();
             }
-        }).bind(this));
+        }).bind(this), {name: 'pngUmphCrcWrap'});
 
         // Static CRC32 data source - reads computed value.
         var crc32StaticFnc = (function(offsetStart, offsetEnd, handler){
             handler(w.bitSlice([this.crc32Val], offsetStart*8, offsetEnd*8));
         }).bind(this);
-        var crc32StaticDs = new WrappedDataSource(crc32StaticFnc, 4);
+        var crc32StaticDs = new WrappedDataSource(crc32StaticFnc, 4, {name: 'pngCrcData'});
 
         // Trailing DS
         for(i=0, ln = this.pngTailChunks.length; i<ln; i++){
@@ -1706,7 +1706,7 @@ EnigmaUploader.prototype.initialize_ = function() {
 
     // Compute overall sizes required for the format.
     // For this we need to compute concealing padding size first.
-    var blobSc = new BlobDataSource(this.file);
+    var blobSc = new BlobDataSource(this.file, {name: 'inputBlob'});
 
     // Total size (header, data, footer), without concealing padding.
     var totalSize = this.computeTotalSize_(fstBlockSize, blobSc.length(), 0, 0);
@@ -1809,7 +1809,7 @@ EnigmaUploader.prototype.computeEncryptedPartSize_ = function(dataLen){
  */
 EnigmaUploader.prototype.buildEndTagDataSource_ = function(){
     var w = sjcl.bitArray;
-    return new ConstDataSource(w.concat([w.partial(8, EnigmaUploader.TAG_END)], [0]));
+    return new ConstDataSource(w.concat([w.partial(8, EnigmaUploader.TAG_END)], [0]), {name: 'endTag'});
 };
 
 /**
@@ -1838,9 +1838,9 @@ EnigmaUploader.prototype.buildGcmTagDataSource_ = function(){
         handler(w.bitSlice(this.cached.tag, offsetStart*8, offsetEnd*8));
     };
 
-    var hrd = new ConstDataSource(w.concat([w.partial(8, EnigmaUploader.TAG_GCMTAG)], [16]));
-    var tag = new WrappedDataSource(tagFnc.bind(this), 16);
-    return new MergedDataSource([hrd, tag]);
+    var hrd = new ConstDataSource(w.concat([w.partial(8, EnigmaUploader.TAG_GCMTAG)], [16]), {name: 'gcmTagHdr'});
+    var tag = new WrappedDataSource(tagFnc.bind(this), 16, {name: 'gcmTagData'});
+    return new MergedDataSource([hrd, tag], {name: 'gcmTag'});
 };
 
 /**
@@ -1862,7 +1862,7 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
 
     // Encryption block, the last tag in the message - without length
     var encHdr = w.concat([w.partial(8, EnigmaUploader.TAG_ENC)], eb.misc.serialize64bit(blobScSize));
-    var encHdrDs = new ConstDataSource(encHdr);
+    var encHdrDs = new ConstDataSource(encHdr, {name: 'encHdr'});
 
     // File/message content wrapped with hashing data source - computes sha1, sha256 over input data.
     this.inputHashingDs = new HashingDataSource(blobSc, (function(ofStart, ofEnd, len, data){
@@ -1872,11 +1872,11 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
             this.sha1 = this.sha1Digest.finalize();
             this.sha256 = this.sha256Digest.finalize();
         }
-    }).bind(this));
+    }).bind(this), {name: 'hashingDs'});
 
     // Message size concealing padding data sources.
     if (!paddingEnabled){
-        return new MergedDataSource([encHdrDs, this.inputHashingDs]);
+        return new MergedDataSource([encHdrDs, this.inputHashingDs], {name: 'encData'});
 
     }
 
@@ -1890,11 +1890,11 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
     }
 
     // Padding tag source + padding generator.
-    var padConst = new ConstDataSource(h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_PADDING, concealingSize)));
-    var padGen = new WrappedDataSource(padGenerator, concealingSize);
+    var padConst = new ConstDataSource(h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_PADDING, concealingSize)), {name: 'concealHdr'});
+    var padGen = new WrappedDataSource(padGenerator, concealingSize, {name: 'concealData'});
 
     // Padding + data to encrypt
-    return new MergedDataSource([padConst, padGen, encHdrDs, this.inputHashingDs]);
+    return new MergedDataSource([padConst, padGen, encHdrDs, this.inputHashingDs], {name: 'encConcData'});
 };
 
 /**
@@ -2019,7 +2019,7 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
     };
 
     log(sprintf("ToEncrypt DS with length: %s", ln));
-    return new WrappedDataSource(encryptionFnc.bind(this), ln);
+    return new WrappedDataSource(encryptionFnc.bind(this), ln, {name: 'encryptionDs'});
 };
 
 EnigmaUploader.prototype.setupDataSource_ = function(blobSc, concealingSize){
@@ -2049,7 +2049,7 @@ EnigmaUploader.prototype.setupDataSource_ = function(blobSc, concealingSize){
 
 EnigmaUploader.prototype.setupUmphDataSource_ = function(blobSc, concealingSize){
     // File header data source = first block.
-    var hdrDs = new ConstDataSource(this.fstBlock);
+    var hdrDs = new ConstDataSource(this.fstBlock, {name: 'fstBlock'});
 
     // Build data source for encryption.
     var toEncDs = this.buildEncryptionInputDataSource_(blobSc, concealingSize);
@@ -2066,7 +2066,7 @@ EnigmaUploader.prototype.setupUmphDataSource_ = function(blobSc, concealingSize)
         endDs.length()));
 
     // Final data source
-    return new MergedDataSource([hdrDs, encDs, tagDs, endDs]);
+    return new MergedDataSource([hdrDs, encDs, tagDs, endDs], {name: 'umph'});
 };
 
 /**
