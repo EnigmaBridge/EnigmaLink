@@ -127,18 +127,22 @@
         <div class="inner-wrap">
             <label>Message
                 <input type="text" name="message" id="message" value="" placeholder="Message to encrypt & share"/>
-                <span>Message to be encrypted and shared in a secure way, using simple insecure storage, such as Google Drive.
-                In case a file is selected, message is attached to the file.</span>
+                <span>Message to be encrypted and shared in a secure way.
+                In case a file is selected, message is attached to the file and displayed on download.</span>
             </label>
 
             <label>File name
                 <input type="text" name="filename" id="filename" value="" placeholder="New filename for the file"/>
                 <input type="hidden" name="filenameOrig" id="filenameOrig" value=""/>
-                <span><a onclick="fldFname.val(genRandomName())">Random name</a><br/></span>
+                <span>
+                    Filename of the encrypted file in your GoogleDrive. Name is publicly available, not protected.<br/>
+                    <input type="button" class="btnMisc" id="btnRandomName" onclick="fldFname.val(genRandomName())" value="Random name">
+                    <input type="button" class="btnMisc" id="btnOrigName" onclick="fldFname.val(fldFnameOrig.val())" value="Original name">
+                </span>
             </label>
 
             <label>Conceal file
-                <input type="checkbox" name="chkMask" id="chkMask" value="1"/>
+                <input type="checkbox" name="chkMask" id="chkMask" value="1" checked="checked"/>
                 <span>Masks encrypted file in the storage (random file name, hides mime type, conceals file size).
                 File size concealing helps to hide original message/file size by inflating encrypted file with random noise
                 (noise gets removed on download).</span>
@@ -756,16 +760,18 @@
             processClicked();
         });
 
-        chkMask.click(function(){
+        var fncMask = function(){
             var checked = isChecked(chkMask);
             fldFname.val(checked ? genRandomName() : fldFnameOrig.val());
-        });
+        };
+        chkMask.click(fncMask);
 
         // Behavior.
         fldEndpoint.val(defaults.site);
         catConfig.click(toggleCategory);
         catDrive.click(toggleCategory);
         catConfig.click();
+        fncMask();
         enableLinkButtons(false);
     });
 
