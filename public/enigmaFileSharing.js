@@ -744,7 +744,8 @@ MergedDataSource.inheritsFrom(DataSource, {
         var cOffsetStart, cOffsetEnd, desiredLen = offsetEnd-offsetStart;
         var offsetStartOrig = offsetStart, offsetEndOrig = offsetEnd;
 
-        var cHandler = function(x){
+        // Callback called when reading of the particular data source has been finished.
+        var onReadFinished = function(x){
             var bl = w.bitLength(x);
             if (cOffsetEnd-cOffsetStart != bl/8){
                 throw new eb.exception.invalid("Read invalid number of bytes!");
@@ -766,10 +767,10 @@ MergedDataSource.inheritsFrom(DataSource, {
             }
 
             // Start next load.
-            (startRead.bind(this))(offsetStart, offsetEnd);
+            (startReadAsync.bind(this))(offsetStart, offsetEnd);
         };
 
-        var startRead = function(ofStart, ofEnd){
+        var startReadAsync = function(ofStart, ofEnd){
             var i, cShift, cLen = 0;
             for(i=0, cShift = 0; i<sl; i++){
                 // Offset starts on the next streams - skip previous ones.
@@ -785,7 +786,7 @@ MergedDataSource.inheritsFrom(DataSource, {
                 cOffsetStart = ofStart-cShift;
                 cOffsetEnd = Math.min(cLen, ofEnd-cShift);
 
-                this.sources[i].read(cOffsetStart, cOffsetEnd, cHandler.bind(this));
+                this.sources[i].read(cOffsetStart, cOffsetEnd, onReadFinished.bind(this));
 
                 // Break iteration, wait for handler to return data.
                 break;
@@ -793,7 +794,7 @@ MergedDataSource.inheritsFrom(DataSource, {
         };
 
         // Initial kickoff.
-        (startRead.bind(this))(offsetStart, offsetEnd);
+        (startReadAsync.bind(this))(offsetStart, offsetEnd);
     },
     length: function(){
         return this.len;
