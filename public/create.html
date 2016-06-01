@@ -480,11 +480,11 @@
     function onFileShared(data){
         var settings = getSettings();
         var link = eb.sh.misc.buildUrl("/download.html", {
-            uoid: eb.sh.misc.inputToLinkBase64(eb.misc.inputToBits(shareConfig.ebConfigDownload.userObjectId)),
-            encKey: eb.sh.misc.inputToLinkBase64(settings.aesKey),
-            macKey: eb.sh.misc.inputToLinkBase64(settings.macKey),
-            fid: data.id,
-            nonce: eb.sh.misc.inputToLinkBase64(data.lnonce)
+            u: eb.sh.misc.inputToLinkBase64(eb.misc.inputToBits(shareConfig.ebConfigDownload.userObjectId)),
+            e: eb.sh.misc.inputToLinkBase64(settings.aesKey),
+            m: eb.sh.misc.inputToLinkBase64(settings.macKey),
+            f: data.id,
+            n: eb.sh.misc.inputToLinkBase64(data.lnonce)
         }, shareConfig.baseUrl, true);
 
         if (data.uploader.sha1){
