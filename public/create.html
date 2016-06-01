@@ -96,7 +96,34 @@
 <div class="form-style-10">
     <h1>Secure file sharing<span>EnigmaBridge demo</span></h1>
     <div>
-        <div class="section"><span>1</span>Input</div>
+        <div class="section" id="gDriveConfigHead">
+            <span>1</span>
+            GoogleDrive
+            <div class="collapser">[-]</div>
+        </div>
+        <div class="inner-wrap" id="gDriveConfig">
+            <!--
+            https://developers.google.com/drive/v3/web/quickstart/js#prerequisites
+            https://github.com/googledrive/cors-upload-sample/blob/master/index.html
+            -->
+            <span id="signin">
+                <p>
+                    Please allow this application creating a new files in your GoogleDrive so we can put there your encrypted shares.
+                </p>
+                <span
+                        class="g-signin"
+                        data-callback="signinCallback"
+                        data-clientid="1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com"
+                        data-cookiepolicy="single_host_origin"
+                        data-scope="https://www.googleapis.com/auth/drive.file">
+                </span>
+            </span>
+            <span id="signedin" style="display: none;">
+                Already signed in
+            </span>
+        </div>
+
+        <div class="section"><span>2</span>Input</div>
         <div class="inner-wrap">
             <label>Message
                 <input type="text" name="message" id="message" value="" placeholder="Message to encrypt & share"/>
@@ -139,30 +166,6 @@
                 <div class="box__error">Error! <span></span>. <a href="." class="box__restart" role="button">Try again!</a></div>
             </div>
 
-        </div>
-
-        <div class="section" id="gDriveConfigHead">
-            <span>2</span>
-            GoogleDrive
-            <div class="collapser">[-]</div>
-        </div>
-        <div class="inner-wrap" id="gDriveConfig">
-            <!--
-            https://developers.google.com/drive/v3/web/quickstart/js#prerequisites
-            https://github.com/googledrive/cors-upload-sample/blob/master/index.html
-            -->
-            <span id="signin">
-                <span
-                        class="g-signin"
-                        data-callback="signinCallback"
-                        data-clientid="1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com"
-                        data-cookiepolicy="single_host_origin"
-                        data-scope="https://www.googleapis.com/auth/drive.file">
-                </span>
-            </span>
-            <span id="signedin" style="display: none;">
-                Already signed in
-            </span>
         </div>
 
         <div class="section" id="divConfigHead">
