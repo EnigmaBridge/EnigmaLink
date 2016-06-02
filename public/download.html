@@ -86,6 +86,8 @@
         var fldEncKey;
         var fldMacKey;
 
+        var fldLogBox;
+
     </script>
 </head>
 <body>
@@ -243,7 +245,7 @@
         function log(msg){
             console.log(msg);
             try {
-                append_message(msg);
+                append_message(msg, fldLogBox);
             } catch(e){
 
             }
@@ -551,6 +553,7 @@
             fldUserObjectID = $('#userObjectID');
             fldEncKey = $('#aesKey');
             fldMacKey = $('#macKey');
+            fldLogBox = $('#status');
 
             // Button click handling.
             btnDownload.click(function(){

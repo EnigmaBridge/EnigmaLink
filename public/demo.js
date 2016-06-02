@@ -25,9 +25,9 @@ function posmod(a, b){
     return Math.abs(r >= 0 ? r : b+r);
 }
 
-function append_message(msg) {
+function append_message(msg, statusElem) {
     try {
-        var status = $("#status");
+        statusElem = statusElem || $("#status");
         var newMsg = formatDate(new Date()) + " - " + he.encode(msg);
         if (logBuffer){
             if (logBuffer.buffer.length < logBuffer.max){
@@ -46,9 +46,9 @@ function append_message(msg) {
 
                 i = posmod(i+1, ln);
             }while(true);
-            status.html(str);
+            statusElem.html(str);
         } else {
-            status.html(status.html() + "<br/>\n" + newMsg);
+            statusElem.html(statusElem.html() + "<br/>\n" + newMsg);
         }
     } catch(e){
 
