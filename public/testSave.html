@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SaveAs test</title>
+    <link rel="shortcut icon" type="image/png" href="favicon.png" />
+    <style>
+        body,p,td,input {font-family: Arial, Helvetica, sans-serif; font-size: 10pt;}
+        h1 {font-size: 14pt; }
+        h2 {font-size: 12pt; }
+        button[disabled],
+        input[disabled]{
+            background-color: #F8F8F8 !important;
+        }
+
+    </style>
+    <link href='css/googleapi-FamilyBitter.css' rel='stylesheet' type='text/css'/>
+    <link href="forms.css" rel="stylesheet" type="text/css"/>
+    <link href="create.css" rel="stylesheet" type="text/css"/>
+
+    <script src="jquery-1.12.1.min.js"></script>
+    <script src="sprintf.js"></script>
+    <script src="sjcl.js"></script>
+    <script src="jquery.qrcode.min.js"></script>
+    <script src="he.js"></script>
+    <script src="enigma.js"></script>
+    <script src="demo.js"></script>
+    <script src="FileSaver.js"></script>
+    <script src="enigmaFileSharing.js"></script>
+    <script src="enigmaFileSharingDemo.js"></script>
+    <script>
+        "use strict";
+        var defaults = {
+            site: "site1.enigmabridge.com"
+        };
+
+        // Other fields.
+        var catConfig;
+        var btnCreate;
+        var fldEndpoint;
+        var fldStatus;
+        var fldLog;
+
+        var fldChunkSize;
+        var fldFileSize;
+        var fldNumFiles;
+    </script>
+</head>
+<body>
+
+<!-- form design: http://www.sanwebe.com/2014/08/css-html-forms-designs -->
+<div class="form-style-10">
+    <h1>Save As test<span>EnigmaBridge demo</span></h1>
+    <div>
+        <div class="section"><span>1</span>Input</div>
+        <div class="inner-wrap">
+            <label>Chunk size
+                <input type="text" id="fldChunkSize" value="1048576" placeholder="Chunk size to compose the file of" />
+                <span>Chunk size to compose the file of</span>
+            </label>
+
+            <label>File size
+                <input type="text" id="fldFileSize" value="67108864" placeholder="Total size of the file to save as" />
+                <span>Chunk size to compose the file of</span>
+            </label>
+
+            <label>Number of files
+                <input type="text" id="fldNumFiles" value="5" placeholder="Number of files" />
+                <span>Number of files to generate, file name will be sequential.</span>
+            </label>
+        </div>
+
+        <div class="section"><span>3</span>Response</div>
+        <div class="inner-wrap">
+            <label>Status
+                <textarea name="output" id="output" rows="1"></textarea>
+                <span>Status</span>
+            </label>
+
+            <label>Last log
+                <input type="text" name="fldLog" id="fldLog" placeholder="last log line" readonly="readonly"/>
+                <span>Last log line</span>
+            </label>
+        </div>
+        <div class="button-section">
+            <input type="button" id="btnTest" value="Test"/>
+        </div>
+    </div>
+
+    <br/>
+
+    <label for="status">Log: </label>
+    <div id="status" class="logbox"></div>
+
+    <script>
+        "use strict";
+
+        var logBuffer = {
+            buffer: [],
+            idx:0,
+            max:100
+        };
+
+        function log(msg){
+            console.log(formatDate(new Date()) + " " + msg);
+            append_message(msg);
+            try {
+                fldLog.val(formatDate(new Date()) + " " + msg);
+            }catch(e){
+
+            }
+        }
+
+        function save(){
+            var fc=0, cc=0, i=0;
+            var numFiles = parseInt(fldNumFiles.val());
+            var chunkSize = parseInt(fldChunkSize.val());
+            var fileSize = parseInt(fldFileSize.val());
+            log(sprintf("Generation started, files: %s, size: %s, chunk size: %s", numFiles, fileSize, chunkSize));
+
+            var genFnc = function(){
+                if (fc >= numFiles){
+                    return;
+                }
+
+                log(sprintf("Generating file %02d", fc));
+                var blobs = [];
+                for(cc = 0; cc < (fileSize/chunkSize); cc++){
+                    var curData = [];
+                    for(i=0; i<chunkSize/4; i++){
+                        curData.push(0);
+                    }
+
+                    log(sprintf("..[%02d] chunk %03d", fc, cc));
+                    blobs.push(sjcl.codec.arrayBuffer.fromBits(curData));
+                }
+
+                log(sprintf("File %d generated", fc));
+                var blob = new Blob( blobs, { type: "application/octet-stream" } );
+                saveAs(blob, sprintf("file_%02d.data", fc));
+                fc+=1;
+
+                log("Setting timeout");
+                setTimeout(genFnc, 1000);
+            };
+
+            genFnc();
+        }
+
+        $(function(){
+            // Start random number collectors.
+            sjcl.random.startCollectors();
+
+            // Init
+            btnCreate = $('#btnCreate');
+            catConfig = $('#divConfigHead');
+            fldEndpoint = $('#endpoint');
+            fldStatus = $('#fldStatus');
+            fldLog = $('#fldLog');
+
+            fldChunkSize = $('#fldChunkSize');
+            fldFileSize = $('#fldFileSize');
+            fldNumFiles = $('#fldNumFiles');
+
+            $('#btnTest').click(function(){
+                save();
+            });
+
+            // Behavior.
+            fldEndpoint.val(defaults.site);
+            catConfig.click(toggleCategory);
+            catConfig.click();
+        });
+
+    </script>
+    <div class="modal"><div class="modal-wrap"></div></div>
+</body>
+</html>
