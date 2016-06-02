@@ -303,6 +303,11 @@
 
 <script>
     "use strict";
+    var logBuffer = {
+        buffer: [],
+        idx:0,
+        max:100
+    };
 
     function log(msg){
         console.log(formatDate(new Date()) + " " + msg);

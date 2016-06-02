@@ -20,11 +20,36 @@ function formatDate(date) {
     return date.getMonth()+1 + "/" + date.getDate() + "/" + date.getFullYear() + " " + strTime;
 }
 
+function posmod(a, b){
+    var r = a % b;
+    return Math.abs(r >= 0 ? r : b+r);
+}
+
 function append_message(msg) {
     try {
         var status = $("#status");
         var newMsg = formatDate(new Date()) + " - " + he.encode(msg);
-        status.html(status.html() + "<br/>\n" + newMsg);
+        if (logBuffer){
+            if (logBuffer.buffer.length < logBuffer.max){
+                logBuffer.buffer.push(newMsg);
+            } else {
+                logBuffer.buffer[logBuffer.idx] = newMsg;
+                logBuffer.idx = (logBuffer.idx+1) % logBuffer.max;
+            }
+
+            var i=logBuffer.idx, ln = logBuffer.buffer.length, end = posmod(i-1, ln), str = "";
+            do{
+                str += logBuffer.buffer[i] + "<br/>\n";
+                if (i == end){
+                    break;
+                }
+
+                i = posmod(i+1, ln);
+            }while(true);
+            status.html(str);
+        } else {
+            status.html(status.html() + "<br/>\n" + newMsg);
+        }
     } catch(e){
 
     }
