@@ -305,10 +305,10 @@
     "use strict";
 
     function log(msg){
-        console.log(msg);
+        console.log(formatDate(new Date()) + " " + msg);
         append_message(msg);
         try {
-            fldLog.val(msg);
+            fldLog.val(formatDate(new Date()) + " " + msg);
         }catch(e){
 
         }
