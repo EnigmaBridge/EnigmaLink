@@ -1315,11 +1315,13 @@ var CRC32;
  * Enabled to add new chunks to the existing PNG file - for hiding EB data in it.
  * It is better for user to see data is protected than file with random noise.
  *
+ * @param {object} [options]
+ * @param {String} [options.png] Base64 encoded PNG to process.
  * @type {{}}
  */
 eb.sh.png = function(options){
     options = options || {};
-    this.png = sjcl.codec.base64.toBits(options.png); // base64 encoded.
+    this.png = options.png ? sjcl.codec.base64.toBits(options.png) : []; // base64 encoded.
     this.pngLen = sjcl.bitArray.bitLength(this.png)/8;
 
     this.chunks = {};
@@ -1343,6 +1345,9 @@ eb.sh.png.prototype = {
         var pos = 8; // length of the standard PNG header.
         var tag, length, data, chunk, crc, tagStart;
         this.chunks = {hdr:undefined, end:undefined, idat:undefined};
+        if (this.pngLen == 0){
+            return;
+        }
 
         for(;pos < this.pngLen;){
             tagStart = pos;
@@ -1423,10 +1428,6 @@ eb.sh.png.prototype = {
         this.pngTailChunks.push(tag);
     },
 
-    getUmphChunkSize: function(numDataBytes){
-        return 4+4+4+numDataBytes;
-    },
-
     buildPngHead: function(){
         var w = sjcl.bitArray, i, ln;
         var ba = [];
@@ -1440,10 +1441,6 @@ eb.sh.png.prototype = {
         // png data
         ba = w.concat(ba, this.pngData);
         return ba;
-    },
-
-    buildPngTrail: function(){
-        return this.pngTrail;
     },
 
     build: function(){
@@ -1498,9 +1495,9 @@ eb.sh.png.prototype = {
 
         // png trailing
         trailData = w.concat(trailData, this.pngTrail);
-        var pngTrailDs = new ConstDataSource(trailData);
+        var pngTrailDs = new ConstDataSource(trailData, {name: 'pngTrail'});
 
-        return new MergedDataSource([pngHeadDs, umphHdrDs, umphDataSourceCrc32Ds, crc32StaticDs, pngTrailDs]);
+        return new MergedDataSource([pngHeadDs, umphHdrDs, umphDataSourceCrc32Ds, crc32StaticDs, pngTrailDs], {name: "png"});
     }
 };
 
