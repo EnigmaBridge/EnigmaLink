@@ -107,6 +107,20 @@ eb.sh.misc = {
         // return sprintf("https://www.googleapis.com/drive/v3/files/%s?alt=media", encodeURIComponent(fileId));
         // return sprintf("https://docs.google.com/uc?id=%s&export=download", encodeURIComponent(fileId));
         return sprintf("https://drive.google.com/uc?export=download&id=%s", encodeURIComponent(fileId));
+    },
+
+    /**
+     * Generates communication keys from the input.
+     * Used to generate 2x 256bit comm keys from lower entropy key - file sharing link is shorter.
+     * @param input
+     * @returns {{enc, mac}}
+     */
+    regenerateCommKeys: function(input){
+        var w = sjcl.bitArray;
+        var baInput = eb.misc.inputToBits(input);
+        var baEnc = sjcl.hash.sha256.hash(w.concat(baInput, [0x01]));
+        var baMac = sjcl.hash.sha256.hash(w.concat(baInput, [0x02]));
+        return {enc:baEnc, mac:baMac};
     }
 };
 

@@ -29,6 +29,7 @@
     <script src="he.js"></script>
     <script src="enigma.js"></script>
     <script src="demo.js"></script>
+    <script src="enigmaFileSharing.js"></script>
     <script>
         "use strict";
         var defaults = {
@@ -197,17 +198,9 @@
             };
         }
 
-        function regenerateCommKeys(input){
-            var w = sjcl.bitArray;
-            var baInput = eb.misc.inputToBits(input);
-            var baEnc = sjcl.hash.sha256.hash(w.concat(baInput, [0x01]));
-            var baMac = sjcl.hash.sha256.hash(w.concat(baInput, [0x02]));
-            return {enc:baEnc, mac:baMac};
-        }
-
         function onCommChanged(){
             var inp = sjcl.codec.hex.toBits(fldCommKey.val());
-            var res = regenerateCommKeys(inp);
+            var res = eb.sh.misc.regenerateCommKeys(inp);
             fldEncKey.val(sjcl.codec.hex.fromBits(res.enc));
             fldMacKey.val(sjcl.codec.hex.fromBits(res.mac));
         }
