@@ -1278,10 +1278,21 @@ var CRC32;
     var table = signed_crc_table();
 
     function crc32_ba_partial(ba, crc, finalize){
-        var w = sjcl.bitArray, ln = w.bitLength(ba)/8;
+        ba = ba || [];
         crc = crc || -1;
 
-        for(var i = 0; i < ln; ++i) {
+        var w = sjcl.bitArray, ln = w.bitLength(ba)/8, i, arLen = ba.length;
+
+        // Compute on full words (4B) as it is faster. Up to the last element which may be incomplete word.
+        for(i = 0; i < arLen - 1; i++){
+            crc = (crc >>> 8) ^ table[(crc^(  ba[i]         & 0xFF ))&0xFF];
+            crc = (crc >>> 8) ^ table[(crc^( (ba[i] >>>  8) & 0xFF ))&0xFF];
+            crc = (crc >>> 8) ^ table[(crc^( (ba[i] >>> 16) & 0xFF ))&0xFF];
+            crc = (crc >>> 8) ^ table[(crc^( (ba[i] >>> 24) & 0xFF ))&0xFF];
+        }
+
+        // Finish the last, possibly incomplete block. Max 4 iterations.
+        for(i = (arLen-1) * 4; i < ln; ++i) {
             crc = (crc >>> 8) ^ table[(crc^( w.extract(ba, 8*i, 8) ))&0xFF];
         }
         return finalize ? (crc ^ -1) : crc;
