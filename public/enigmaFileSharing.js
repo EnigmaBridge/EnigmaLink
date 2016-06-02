@@ -1502,6 +1502,157 @@ eb.sh.png.prototype = {
 };
 
 /**
+ * Parsing umPh header from the PNG stream.
+ * @param options
+ */
+eb.sh.pngParser = function(options){
+    options = options || {};
+    this.pngHeader = undefined;
+    this.umphTag = undefined;
+    this.iendTag = undefined;
+    this.generator = undefined;
+
+    // Parser state.
+    this.tps = {};
+    this.tps.ctag = -1;
+    this.tps.tlen = -1; // must be -1 initially.
+    this.tps.clen = 0;
+    this.tps.crc = [];
+    this.iendDetected = false;
+    this.headerRead = 0;
+
+    this.init_();
+};
+eb.sh.pngParser.prototype = {
+    init_: function(){
+        this.pngHeader = sjcl.codec.hex.toBits("89504e470d0a1a");
+        this.generator = new eb.sh.png({});
+        this.umphTag = this.generator.genTag("umPh");
+        this.iendTag = this.generator.genTag("IEND");
+    },
+
+    /**
+     * Returns true if this file format is supported by the decoder.
+     * @param {bitArray} ba
+     * @returns {boolean}
+     */
+    isSupportedFormat: function(ba){
+        var w = sjcl.bitArray;
+        return w.equal(this.pngHeader, w.bitSlice(ba, 0, w.bitLength(this.pngHeader)));
+    },
+
+    /**
+     *
+     * @param {object} cached
+     * @param {bitArray} cached.buff
+     * @param {Number} cached.offset
+     * @param {Number} cached.end
+     * @param {Function} onNeedMoreData
+     * @param {Function} onPlainUpdated
+     */
+    process: function(cached, onNeedMoreData, onPlainUpdated){
+        var bufLen, cpos = 0, lenToTagFinish = 0, toConsume = 0, w = sjcl.bitArray;
+        var resData = [];
+
+        bufLen = w.bitLength(cached.buff)/8;
+        log(sprintf("To parse pngBlock: %s B", bufLen));
+
+        // Standard PNG header.
+        if (this.headerRead < 8){
+            toConsume = Math.min(8 - this.headerRead, bufLen - cpos);
+
+            this.headerRead += toConsume;
+            cpos += toConsume;
+        }
+
+        // Parser is fed with the input data buffer.
+        // This parser is stateful, processes data in a streaming mode, keeps state across multiple requests.
+        for(;!this.iendDetected;) {
+            // Previous tag can be closed?
+            if (this.tps.tlen == this.tps.clen && w.bitLength(this.tps.crc) == 32){
+                // IEND tag? then terminate the parsing.
+                if (this.tps.ctag == this.iendTag){
+                    this.iendDetected = true;
+                    break;
+                }
+                this.tps.ctag = -1;
+            }
+
+            // End of the buffer?
+            if (cpos == bufLen){
+                log("End of the png buffer");
+                break;
+            } else if (cpos > bufLen){
+                throw new eb.exception.invalid("Invalid decrypted buffer state");
+            }
+
+            // Process new tag.
+            // Basic PNG chunk structure:
+            // length-4B | type-4B | data | CRC-4B
+            if (this.tps.ctag == -1){
+                // Is there enough data to read length + type? If yes, do it, otherwise ask for more data.
+                if ((cpos + 8) > bufLen){
+                    log("Not enough bytes to parse the length field. Need more data");
+                    break;
+                }
+
+                // Read the length field + tag field.
+                this.tps.tlen = w.extract32(cached.buff, cpos*8); cpos += 4;
+                this.tps.ctag = w.extract32(cached.buff, cpos*8); cpos += 4;
+                this.tps.clen = 0;
+                this.tps.crc = [];
+                if (this.tps.tlen < 0){
+                    throw new eb.exception.invalid("Negative length detected, field too big");
+                }
+            }
+
+            lenToTagFinish = this.tps.tlen - this.tps.clen;
+            toConsume = Math.min(lenToTagFinish, bufLen - cpos);
+
+            // umph tag? Process it.
+            if (this.tps.ctag == this.umphTag){
+                var fileData = w.bitSlice(cached.buff, cpos*8, (cpos+toConsume)*8);
+                resData = w.concat(resData, fileData);
+
+                cpos += toConsume;
+                this.tps.clen += toConsume;
+
+            } else {
+                // Another chunk data are just skipped.
+                cpos += toConsume;
+                this.tps.clen += toConsume;
+            }
+
+            // CRC32?
+            if (this.tps.clen == this.tps.tlen){
+                toConsume = Math.min(4 - w.bitLength(this.tps.crc)/8, bufLen - cpos);
+                this.tps.crc = w.concat(this.tps.crc, w.bitSlice(cached.buff, cpos*8, (cpos+toConsume)*8));
+                cpos += toConsume;
+            }
+        }
+
+        // Slice off the processed part of the buffer.
+        if (cpos > 0) {
+            cached.buff = w.bitSlice(cached.buff, cpos * 8);
+            cached.offset += cpos;
+        }
+
+        // End of parsing? If yes
+        if (this.iendDetected){
+            onPlainUpdated(resData);
+        } else {
+            // PNG not read entirely.
+            // Have data to process? Give it.
+            if (w.bitLength(resData) > 0){
+                onPlainUpdated(resData);
+            } else {
+                onNeedMoreData();
+            }
+        }
+    }
+};
+
+/**
  * Helper class for resumable uploads using XHR/CORS. Can upload any Blob-like item, whether
  * files or in-memory constructs.
  *
@@ -2467,9 +2618,10 @@ var EnigmaDownloader = function(options){
     this.sha1Digest = new sjcl.hash.sha1();         // Hashing downloaded data - checksum.
     this.sha256Digest = new sjcl.hash.sha256();     // Hashing downloaded data - checksum.
     this.aad = [];                                  // Data to be authenticated with GCM tag.
+    this.pngParser = undefined;                     // Parses input PNG file.
+    this.inputParser = undefined;                   // Input file parser instance.
 
     // Construct first meta block now, compute file sizes.
-    this.init_();
     this.totalSize=-1;                              // Total size of the upload stream.
     this.downloadedSize=0;                          // Number of bytes downloaded so far.
 
@@ -2478,6 +2630,11 @@ var EnigmaDownloader = function(options){
     this.cached.offset = -1;  // Data start offset that is cached in the buff. Absolute data offset address of the first buff byte.
     this.cached.end = -1;     // Data end offset that is cached in the buff. Absolute data offset address of the last buff byte.
     this.cached.buff = [];    // Cached processed data buffer. Size = cached.end - cached.offset.
+
+    // UMPHIO data buffering.
+    this.plain = {};         // Data processing cache object.
+    this.plain.buff = [];    // Cached processed data buffer. Size = cached.end - cached.offset.
+    this.plain.totalSize = 0;// Total size of the buffer from the beginning. Accumulative.
 
     // Decrypted data buffering. Fed to TLV parser.
     this.dec = {};
@@ -2509,6 +2666,9 @@ var EnigmaDownloader = function(options){
     this.sha256 = undefined;    // SHA256 checksum of the message.
     this.extraMessage = undefined; // Extra text message shared with the file.
     this.passwordHint = undefined; // Unprotected password hint message.
+
+    // Init.
+    this.init_();
 };
 
 EnigmaDownloader.ERROR_CODE_PROXY_JSON = 1;
@@ -2559,7 +2719,7 @@ EnigmaDownloader.prototype.cancel = function() {
  * Initialization of the downloader.
  */
 EnigmaDownloader.prototype.init_ = function() {
-
+    this.pngParser = new eb.sh.pngParser();
 };
 
 /**
@@ -2693,6 +2853,16 @@ EnigmaDownloader.prototype.mergeDownloadBuffers_ = function(from, to, buffer){
 };
 
 /**
+ * Returns expected header of the UMPHIO file.
+ * @returns {bitArray}
+ * @private
+ */
+EnigmaDownloader.prototype.getExpectedHeader_ = function(){
+    var w = sjcl.bitArray;
+    return w.concat(sjcl.codec.utf8String.toBits(EnigmaUploader.MAGIC_STRING), [w.partial(8, 1)]);
+};
+
+/**
  * Processing of the download buffer.
  * @private
  */
@@ -2700,10 +2870,96 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
     var w = sjcl.bitArray;
     this.changeState_(EnigmaDownloader.STATE_PROCESSING);
 
+    // If we are on the beginning of the stream, determine file type we are parsing.
+    if (this.inputParser == undefined){
+        // If there is not enough data for parser initialization, keep downloading.
+        if (!this.downloaded && this.downloadedSize < 128){
+            log("Not initialized, not enough data");
+            this.bufferProcessed_();
+            return;
+        }
+
+        // PNG, UMPHIO supported for now.
+        var expectedHeader = this.getExpectedHeader_();
+        var expectedHeaderBl = w.bitLength(expectedHeader);
+        if (this.pngParser.isSupportedFormat(this.cached.buff)){
+            log("Input is a PNG file");
+            this.inputParser = this.pngParser_;
+
+        } else if (w.equal(expectedHeader, w.bitSlice(this.cached.buff, 0, expectedHeaderBl))){
+            log("Input is raw UMPHIO file");
+            this.inputParser = this.baseParser_;
+
+        } else {
+            throw new eb.exception.invalid("Unrecognized input file");
+        }
+    }
+
+    // Pass downloaded data through parser.
+    this.inputParser(this.cached, this.bufferProcessed_.bind(this), this.onPlainUpdated_.bind(this));
+};
+
+/**
+ * Merges argument to the plain chunk & starts parsing of the plain buffer.
+ *
+ * @param buffer
+ * @private
+ */
+EnigmaDownloader.prototype.onPlainUpdated_ = function(buffer){
+    this.plain.buff = sjcl.bitArray.concat(this.plain.buff, buffer);
+    this.plain.totalSize += sjcl.bitArray.bitLength(buffer)/8;
+
+    // Start processing of the plain buffer.
+    this.processPlainBuffer_();
+};
+
+/**
+ * Simple parser of the raw UMPHIO file.
+ *
+ * @param {object} cached
+ * @param {bitArray} cached.buff
+ * @param {Number} cached.offset
+ * @param {Number} cached.end
+ * @param {Function} onNeedMoreData
+ * @param {Function} onPlainUpdated
+ * @private
+ */
+EnigmaDownloader.prototype.baseParser_ = function(cached, onNeedMoreData, onPlainUpdated){
+    // Simply pass all downloaded data to the plain handler.
+    var buffer = cached.buff;
+
+    cached.offset = cached.end;
+    cached.buff = [];
+
+    onPlainUpdated(buffer);
+};
+
+/**
+ * PNG parser
+ * @param {object} cached
+ * @param {bitArray} cached.buff
+ * @param {Number} cached.offset
+ * @param {Number} cached.end
+ * @param {Function} onNeedMoreData
+ * @param {Function} onPlainUpdated
+ * @private
+ */
+EnigmaDownloader.prototype.pngParser_ = function(cached, onNeedMoreData, onPlainUpdated){
+    // Use PNG parser to do the job.
+    this.pngParser.process(cached, onNeedMoreData, onPlainUpdated);
+};
+
+/**
+ * Processing of the download buffer.
+ * @private
+ */
+EnigmaDownloader.prototype.processPlainBuffer_ = function(){
+    var w = sjcl.bitArray;
+
     // If the first block has not been processed yet - process encryption block, get IV, encKey.
     if (!this.encryptionInitialized){
         // If there is not enough data for encryption initialization, keep downloading.
-        if (!this.downloaded && this.downloadedSize < 128){
+        if (!this.downloaded && this.plain.totalSize < 128){
             log("Not initialized, not enough data");
             this.bufferProcessed_();
             return;
@@ -2719,25 +2975,19 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
     }
 
     // If here, the buffer was processed until TAG_ENCWRAP.
-    log(sprintf("ToProcess with parsers: %s-%s, size: %s, buffSize: %s",
-        this.cached.offset, this.cached.end, this.cached.end-this.cached.offset, w.bitLength(this.cached.buff)/8));
-
-    if (this.cached.end<this.cached.offset || this.cached.end-this.cached.offset != w.bitLength(this.cached.buff)/8){
-        throw new eb.exception.invalid("Cache buffer inconsistent");
-    }
+    log(sprintf("ToProcess with parsers: buffSize: %s", w.bitLength(this.plain.buff)/8));
 
     // We still need to decrypt ENCWRAP block.
     // Finalizing will be done after finding TAG_GCMTAG.
-    if (this.encWrapLengthProcessed < this.encWrapLength && (this.cached.end - this.cached.offset) > 0){
-        var toProcessSize = Math.min(this.encWrapLength - this.encWrapLengthProcessed, this.cached.end - this.cached.offset);
+    if (this.encWrapLengthProcessed < this.encWrapLength && w.bitLength(this.plain.buff) > 0){
+        var toProcessSize = Math.min(this.encWrapLength - this.encWrapLengthProcessed, w.bitLength(this.plain.buff)/8);
         log(sprintf("To process with GCM: %s", toProcessSize));
 
         if (toProcessSize > 0){
-            var decrypted = this.gcm.update(w.bitSlice(this.cached.buff, 0, toProcessSize*8));
+            var decrypted = this.gcm.update(w.bitSlice(this.plain.buff, 0, toProcessSize*8));
 
             // Slice of the GCM processed data from the download buffer, update state.
-            this.cached.buff = w.bitSlice(this.cached.buff, toProcessSize*8);
-            this.cached.offset += toProcessSize;
+            this.plain.buff = w.bitSlice(this.plain.buff, toProcessSize*8);
             this.encWrapLengthProcessed += toProcessSize;
 
             // Merge decrypted data buffer with the previously decrypted data.
@@ -2749,7 +2999,7 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
     }
 
     // If ENCWRAP processing completed and still any data left, process with another parser, for outer block.
-    if (this.encWrapLengthProcessed >= this.encWrapLength && (this.cached.end - this.cached.offset) > 0) {
+    if (this.encWrapLengthProcessed >= this.encWrapLength && w.bitLength(this.plain.buff) > 0) {
         this.processOuterBlock_();
     }
 
@@ -2934,7 +3184,7 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
  */
 EnigmaDownloader.prototype.processOuterBlock_ = function(){
     var bufLen, cpos = 0, ctag = -1, lenToTagFinish = 0, toConsume = 0, w = sjcl.bitArray;
-    bufLen = w.bitLength(this.cached.buff)/8;
+    bufLen = w.bitLength(this.plain.buff)/8;
     log(sprintf("To parse outerBlock: %s B", bufLen));
 
     if (bufLen < 0){
@@ -2951,7 +3201,7 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
         }
         if (cpos > bufLen){
             log("Invalid buffer state");
-            throw new eb.exception.invalid("Invalid cached buffer state");
+            throw new eb.exception.invalid("Invalid plain buffer state");
         }
 
         // Previous tag can be closed?
@@ -2962,7 +3212,7 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
         // Process the buffer. We may be left in the state from the previous processing - unfinished tag processing.
         if (this.tpo.ctag == -1){
             // Previous tag finished cleanly, read the next tag + length field (if applicable).
-            ctag = w.extract(this.cached.buff, cpos*8, 8);
+            ctag = w.extract(this.plain.buff, cpos*8, 8);
             cpos += 1;
 
             // Check for weird tags that should not be present in this buffer.
@@ -2980,7 +3230,7 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
                 break;
             }
 
-            this.tpo.tlen = lenFnc(this.cached.buff, cpos*8);
+            this.tpo.tlen = lenFnc(this.plain.buff, cpos*8);
             this.tpo.clen = 0;
             cpos += lenBytes;
 
@@ -3010,7 +3260,7 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
 
         // Process tag with defined length which can be processed only when the whole buffer is loaded.
         // Add toConsume bytes to the cdata buffer.
-        this.tpo.cdata = w.concat(this.tpo.cdata, w.bitSlice(this.cached.buff, cpos*8, (cpos+toConsume)*8));
+        this.tpo.cdata = w.concat(this.tpo.cdata, w.bitSlice(this.plain.buff, cpos*8, (cpos+toConsume)*8));
 
         cpos += toConsume;
         this.tpo.clen += toConsume;
@@ -3046,8 +3296,7 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
     } while(!this.endTagDetected);
 
     // Slice off the processed part of the buffer.
-    this.cached.buff = w.bitSlice(this.cached.buff, cpos*8);
-    this.cached.offset += cpos;
+    this.plain.buff = w.bitSlice(this.plain.buff, cpos*8);
 };
 
 /**
@@ -3063,15 +3312,12 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
     //  - incomplete value (from defined length). state = current tag, length (-1 if till end), current length (read), current data.
     // Parser is fed with the downloaded data buffer, later, in decryption phase another layer is added, source is data after decryption.
     // This parser is very simple, cannot work with small chunks, everything has to be already loaded in the cache buffer.
-    var cpos=0, ctag=-1, tlen=-1, secBlock, w=sjcl.bitArray;
-    if (this.cached.offset != 0){
-        throw new eb.exception.invalid("Input data buffer is in invalid state");
-    }
+    var cpos=0, ctag=-1, tlen=-1, secBlock, w=sjcl.bitArray, bufLen = w.bitLength(this.plain.buff)/8;
 
     // Header check. Magic string. In future here we can process PNGs, PDFs, ...
-    var expectedHeader = w.concat(sjcl.codec.utf8String.toBits(EnigmaUploader.MAGIC_STRING), [w.partial(8, 1)]);
+    var expectedHeader = this.getExpectedHeader_();
     var expectedHeaderBl = w.bitLength(expectedHeader);
-    if (!w.equal(expectedHeader, w.bitSlice(this.cached.buff, 0, expectedHeaderBl))){
+    if (!w.equal(expectedHeader, w.bitSlice(this.plain.buff, 0, expectedHeaderBl))){
         throw new eb.exception.invalid("Unrecognized input file");
     }
     cpos += expectedHeaderBl/8;
@@ -3081,18 +3327,18 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
 
     // Process tags.
     do {
-        if (cpos > this.cached.end){
+        if (cpos > bufLen){
             throw new eb.exception.invalid("Input data invalid - reading out of bounds");
-        } else if (cpos == this.cached.end){
+        } else if (cpos == bufLen){
             break;
         }
 
         // Get tag.
-        ctag = w.extract(this.cached.buff, cpos*8, 8);
+        ctag = w.extract(this.plain.buff, cpos*8, 8);
         cpos += 1;
         switch(ctag){
             case EnigmaUploader.TAG_ENCWRAP:
-                tlen = eb.misc.deserialize64bit(this.cached.buff, cpos*8);
+                tlen = eb.misc.deserialize64bit(this.plain.buff, cpos*8);
                 cpos += 8;
                 this.encWrapDetected = true;
                 this.encWrapLength = tlen;
@@ -3100,18 +3346,18 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
                 break;
 
             case EnigmaUploader.TAG_PADDING:
-                tlen = w.extract32(this.cached.buff, cpos*8);
+                tlen = w.extract32(this.plain.buff, cpos*8);
                 cpos += EnigmaUploader.LENGTH_BYTES + tlen;
                 break;
 
             case EnigmaUploader.TAG_SEC:
-                tlen = w.extract32(this.cached.buff, cpos*8);
+                tlen = w.extract32(this.plain.buff, cpos*8);
                 cpos += EnigmaUploader.LENGTH_BYTES;
                 if (this.encryptionInitialized || secBlock !== undefined){
                     throw new eb.exception.invalid("Sec block already seen");
                 }
 
-                secBlock = w.bitSlice(this.cached.buff, cpos*8, (cpos+tlen)*8);
+                secBlock = w.bitSlice(this.plain.buff, cpos*8, (cpos+tlen)*8);
                 cpos += tlen;
 
                 if (w.bitLength(secBlock) != tlen*8){
@@ -3123,10 +3369,10 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
             default:
                 var longLen = (ctag & 0x80) > 0;
                 if (longLen){
-                    tlen = eb.misc.deserialize64bit(this.cached.buff, cpos*8);
+                    tlen = eb.misc.deserialize64bit(this.plain.buff, cpos*8);
                     cpos += 8 + tlen;
                 } else {
-                    tlen = w.extract32(this.cached.buff, cpos * 8);
+                    tlen = w.extract32(this.plain.buff, cpos * 8);
                     cpos += EnigmaUploader.LENGTH_BYTES + tlen;
                 }
                 log(sprintf("Unsupported tag detected: %s, len: %s", ctag, tlen));
@@ -3141,15 +3387,7 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
     }
 
     // Slice off the processed part of the buffer.
-    if (cpos == this.cached.end){
-        this.cached.offset = -1;
-        this.cached.end = -1;
-        this.cached.buff = [];
-
-    } else {
-        this.cached.offset = cpos;
-        this.cached.buff = w.bitSlice(this.cached.buff, cpos*8);
-    }
+    this.plain.buff = w.bitSlice(this.plain.buff, cpos*8);
 
     if (secBlock === undefined){
         throw new eb.exception.invalid("Security block not found");
@@ -3192,7 +3430,7 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
 
         // Finish the processing of current download chunk. Continues in download operation.
         this.changeState_(EnigmaDownloader.STATE_SECURITY_BLOCK_FINISHED);
-        this.processDownloadBuffer_();
+        this.processPlainBuffer_();
 
     }).bind(this);
 
