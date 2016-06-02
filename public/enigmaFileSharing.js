@@ -2172,6 +2172,7 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
             ba = []; // Drop allocation before going to callback.
 
             handler(result);
+            result = []; // Explicit memory deallocation.
         };
 
         // Start loading.
