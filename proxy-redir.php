@@ -54,9 +54,8 @@ if ($fetchChunk > 1024*256){
 }
 
 $tstart = microtime(true);
-$url = "https://drive.google.com/uc?export=download&id=" . urlencode($id);
 
-// CORS
+// CORS headers we allow to parse in JS.
 $ourHeaders = 'X-Content-Range, X-Content-Length, X-Total-Length, X-Time-Elapsed, X-Redir, X-Cookies';
 
 header('Access-Control-Allow-Origin: *'); // TODO: add our domains.
@@ -64,6 +63,9 @@ header('Access-Control-Allow-Credentials: false');
 header('Access-Control-Allow-Methods: GET,OPTIONS');
 header('Access-Control-Allow-Headers: Accept, Accept-Language, Authorization, Cache-Control, Content-Disposition, Content-Encoding, Content-Language, Content-Length, Content-MD5, Content-Range, Content-Type, Date, GData-Version, Host, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Origin, OriginToken, Pragma, Range, Slug, Transfer-Encoding, Want-Digest, X-ClientDetails, X-GData-Client, X-GData-Key, X-Goog-AuthUser, X-Goog-PageId, X-Goog-Encode-Response-If-Executable, X-Goog-Correlation-Id, X-Goog-Request-Info, X-Goog-Experiments, x-goog-iam-authority-selector, x-goog-iam-authorization-token, X-Goog-Spatula, X-Goog-Upload-Command, X-Goog-Upload-Content-Disposition, X-Goog-Upload-Content-Length, X-Goog-Upload-Content-Type, X-Goog-Upload-File-Name, X-Goog-Upload-Offset, X-Goog-Upload-Protocol, X-Goog-Visitor-Id, X-HTTP-Method-Override, X-JavaScript-User-Agent, X-Pan-Versionid, X-Origin, X-Referer, X-Upload-Content-Length, X-Upload-Content-Type, X-Use-HTTP-Status-Code-Override, X-Ios-Bundle-Identifier, X-Android-Package, X-YouTube-VVT, X-YouTube-Page-CL, X-YouTube-Page-Timestamp, ' . $ourHeaders);
 header('Access-Control-Expose-Headers: Content-Encoding, Content-Language, Content-Length, Content-MD5, Content-Range, Content-Type, Date, GData-Version, Host, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Origin, OriginToken, Pragma, Range, Slug, Transfer-Encoding, Want-Digest, ' . $ourHeaders);
+
+// Google Drive direct download link.
+$url = getDirectUrl($id);
 
 // Do the request to obtain redirected address.
 $ch = curl_init();
@@ -82,8 +84,21 @@ if ($header['status']==100){ //use the other "header"
     $header=parseHeaders($bh[1]);
 }
 
+// Construct response JSON.
+$json = new stdClass();
+if ($status == 200){
+    // Check if cookie contains "download_warning", if yes, GoogleDrive is telling us the file
+    // Being requested is too large for scanning and that it can potentially contain harmful content.
+    $header = tryConfirmLink($id, $header, $json);
+    $status = $header['status'];
+}
+
 if ($status!=302){
-    die("{'status': 'error', 'error':'Unsupported'}");
+    $json->status = 'error';
+    $json->error = 'Unsupported';
+    $json->responseStatus = $status;
+    $json->requestUrl = $url;
+    die(json_encode($json));
 }
 
 if ($mode == 2) {
@@ -92,8 +107,7 @@ if ($mode == 2) {
     header("HTTP/1.1 200 OK");
 }
 
-// Construct response JSON.
-$json = new stdClass();
+// Response.
 $json->status = 'ok';
 $json->url = $header['Location'][0];
 if (isset($header['Set-Cookie'])) {
@@ -131,7 +145,84 @@ $json->elapsed = microtime(true) - $tstart;
 // TODO: Streaming: http://stackoverflow.com/questions/10991443/curl-get-remote-file-and-force-download-at-same-time
 
 /**
- * Function to get a range of bytes from the remote file
+ * Returns direct download link for GoogleDrive.
+ *
+ * @param $fileId
+ * @return string
+ */
+function getDirectUrl($fileId){
+    return "https://drive.google.com/uc?export=download&id=" . urlencode($fileId);
+}
+
+/**
+ * Returns link confirming the download.
+ *
+ * @param $fileId
+ * @param $confirmCode
+ * @return string
+ */
+function getDirectUrlConfirm($fileId, $confirmCode){
+    return "https://drive.google.com/uc?export=download&confirm=".urlencode($confirmCode)."&id=" . urlencode($fileId);
+}
+
+/**
+ * Tries to confirm the GoogleDrive warning we want to download the file that was not scanned with AV.
+ *
+ * @param $fileId
+ * @param $headerInput
+ * @param $json
+ * @return Array
+ */
+function tryConfirmLink($fileId, $headerInput, $json){
+    // Does set-cookie contain warning?
+    $confirmCode = null;
+    $cookies = $headerInput['Set-Cookie'];
+    $cookiesToSend = array();
+    foreach($cookies as $cookie){
+        $matches = array();
+        $pattern = '/download_warning_([^=]*)=([^;\s]+)/';
+        if (preg_match($pattern, $cookie, $matches)){
+            $confirmCode = $matches[2];
+        }
+        $cookiesToSend[] = "Cookie: " . $cookie;
+    }
+
+    // No confirm link found, nothing to do...
+    if (empty($confirmCode)){
+        $json->status = 'error';
+        $json->error = 'Unsupported';
+        $json->errorDetail = 'Confirmation link not found';
+        die(json_encode($json));
+    }
+
+    $url = getDirectUrlConfirm($fileId, $confirmCode);
+    $json->confirmCode = $confirmCode;
+
+    // Do the request to obtain redirected address.
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    setCommonCurl($ch);
+
+    // Set cookies
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $cookiesToSend);
+
+    $response = curl_exec($ch);
+
+    // Get & parse headers.
+    $bh = explode("\r\n\r\n", $response, 3);
+    $header = parseHeaders($bh[0]);
+    if ($header['status']==100){ //use the other "header"
+        $header=parseHeaders($bh[1]);
+    }
+
+    return $header;
+}
+
+/**
+ * Function to get a range of bytes from the remote file.
+ * Bytes are printed with print() call.
  *
  * @param $file
  * @param $start
@@ -282,7 +373,7 @@ function setHeaderIfAny($headers, $header, $auxSetHeader=null){
 /**
  * Parse a set of HTTP headers
  *
- * @param array The php headers to be parsed
+ * @param array $headers The php headers to be parsed
  * @param [string] The name of the header to be retrieved
  * @return A header value if a header is passed;
  *         An array with all the headers otherwise
