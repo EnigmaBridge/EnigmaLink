@@ -2587,6 +2587,8 @@ EnigmaSharingUpload.sizeConcealPadFnc = function(curSize){
  * @param {function} [options.onPasswordOK] event handler.
  * @param {function} [options.onStateChange] event handler.
  * @param {Number} [options.chunkSize] chunk size for download. First chunk must contain meta block. 256kB or 512kB is ideal.
+ * @param {Number} [options.chunkSizeMax] Maximum chunk size.
+ * @param {boolean} [options.chunkSizeAdaptive] True if the chunk size should be chosen in the adaptive manner.
  * @param {string} [options.url] direct URL for file to download.
  * @param {string} [options.proxyRedirUrl] proxy link for the file to download.
  * @param {EnigmaShareScheme} options.encScheme access token for google drive
@@ -2614,6 +2616,14 @@ var EnigmaDownloader = function(options){
     this.encWrapLength = undefined; // Length of encwrap block size.
     this.encWrapLengthProcessed = 0; // Length of encwrap processed block size.
     this.endTagDetected = false;    // True if TAG_ENC was detected in parsing.
+
+    // Adaptive chunk setting.
+    this.chunkSizePrefs = {};
+    this.chunkSizePrefs.cur = this.chunkSize;
+    this.chunkSizePrefs.min = 262144 * 2;
+    this.chunkSizePrefs.max = options.chunkSizeMax || 1024 * 1024 * 8; // Larger may cause problems with RAM & Performance.
+    this.chunkSizePrefs.maxAchieved = this.chunkSize;
+    this.chunkSizePrefs.adaptive = options.chunkSizeAdaptive || false;
 
     this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
     this.curState = EnigmaDownloader.STATE_INIT;
@@ -2757,7 +2767,7 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
 
     // Start downloading a next chunk we don't have.
     var xhr = new XMLHttpRequest();
-    var rangeHeader = "bytes=" + this.offset + "-" + (this.offset + this.chunkSize - 1);
+    var rangeHeader = "bytes=" + this.offset + "-" + (this.offset + this.chunkSizePrefs.cur - 1);
 
     xhr.open("GET", this.url, true);
     xhr.setRequestHeader('Range', rangeHeader);
@@ -2772,6 +2782,7 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
 
         if (e.target.status < 400) {
             this.retryHandler.reset();
+            this.chunkAdaptiveStep_(true);
 
             var arraybuffer = xhr.response;
             var downloadedLen = arraybuffer ? arraybuffer.byteLength : -1;
@@ -2816,9 +2827,29 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
         })
     );
 
+    this.chunkSize = this.chunkSizePrefs.cur;
+
     log(sprintf("Downloading file range: %s, total size: %s", rangeHeader, this.totalSize));
     xhr.responseType = "arraybuffer";
     xhr.send(null);
+};
+
+/**
+ * Changes adaptive chunkSize value.
+ * @param success
+ * @private
+ */
+EnigmaDownloader.prototype.chunkAdaptiveStep_ = function(success){
+    if (!this.chunkSizePrefs.adaptive){
+        return;
+    }
+
+    if (success){
+        this.chunkSizePrefs.cur = Math.min(this.chunkSizePrefs.max, this.chunkSizePrefs.cur*2);
+    } else {
+        this.chunkSizePrefs.cur = Math.max(this.chunkSizePrefs.min, this.chunkSizePrefs.cur/2);
+    }
+    this.chunkSizePrefs.maxAchieved = Math.max(this.chunkSizePrefs.maxAchieved, this.chunkSizePrefs.cur);
 };
 
 /**
@@ -3589,6 +3620,7 @@ EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
         this.changeState_(EnigmaDownloader.STATE_ERROR);
         this.onError(e.target.response);
     } else {
+        this.chunkAdaptiveStep_(false);
         this.changeState_(EnigmaDownloader.STATE_BACKOFF);
         this.retryHandler.retry(this.resume_.bind(this));
     }
