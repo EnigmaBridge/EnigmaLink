@@ -762,6 +762,7 @@ MergedDataSource.inheritsFrom(DataSource, {
 
                 this.updateDecorators(offsetStartOrig, offsetEndOrig, res);
                 handler(res);
+                res=[]; // Explicit memory cleaning on finish.
                 return;
             }
 
@@ -770,7 +771,6 @@ MergedDataSource.inheritsFrom(DataSource, {
         };
 
         var startReadAsync = function(ofStart, ofEnd){
-            var w = sjcl.bitArray;
             var i, cShift, cLen = 0, sl = this.sources.length;
             for(i=0, cShift = 0; i<sl; i++){
                 // Offset starts on the next streams - skip previous ones.
@@ -818,6 +818,7 @@ HashingDataSource.inheritsFrom(DataSource, {
             {
                 var toHash = w.bitSlice(ba, (offsetStartNow - offsetStart)*8, (len - offsetEndNow + realEnd)*8);
                 this.hasher(offsetStartNow, offsetEndNow, this.dsLen, toHash);
+                toHash = []; // Drop allocation before calling handler.
 
                 this.seenOffsetEnd = offsetEndNow;
                 if (this.seenOffsetStart == -1){
@@ -2157,6 +2158,8 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
             // Add appropriate amount of bytes from cres to result.
             var baBl = w.bitLength(ba);
             result = w.concat(result, w.bitSlice(ba, 0, Math.min(baBl, 8 * (fEndOrig - fOffset))));
+            ba = []; // Drop allocation before going to callback.
+
             handler(result);
         };
 
