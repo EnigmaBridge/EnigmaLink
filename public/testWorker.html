@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebWorker test</title>
+    <link rel="shortcut icon" type="image/png" href="favicon.png" />
+    <style>
+        body,p,td,input {font-family: Arial, Helvetica, sans-serif; font-size: 10pt;}
+        h1 {font-size: 14pt; }
+        h2 {font-size: 12pt; }
+        button[disabled],
+        input[disabled]{
+            background-color: #F8F8F8 !important;
+        }
+
+    </style>
+    <link href='css/googleapi-FamilyBitter.css' rel='stylesheet' type='text/css'/>
+    <link href="forms.css" rel="stylesheet" type="text/css"/>
+    <link href="create.css" rel="stylesheet" type="text/css"/>
+
+    <script src="jquery-1.12.1.min.js"></script>
+    <script src="sprintf.js"></script>
+    <script src="sjcl.js"></script>
+    <script src="jquery.qrcode.min.js"></script>
+    <script src="he.js"></script>
+    <script src="enigma.js"></script>
+    <script src="demo.js"></script>
+    <script src="FileSaver.js"></script>
+    <script src="enigmaFileSharing.js"></script>
+    <script src="enigmaFileSharingDemo.js"></script>
+    <script>
+        "use strict";
+        var defaults = {
+            site: "site1.enigmabridge.com"
+        };
+
+        // Other fields.
+        var catConfig;
+        var btnCreate;
+        var fldEndpoint;
+        var fldStatus;
+        var fldLog;
+
+        var fldChunkSize;
+        var fldFileSize;
+        var fldNumFiles;
+    </script>
+</head>
+<body>
+
+<!-- form design: http://www.sanwebe.com/2014/08/css-html-forms-designs -->
+<div class="form-style-10">
+    <h1>Save As test<span>EnigmaBridge demo</span></h1>
+    <div>
+        <div class="section"><span>1</span>Input</div>
+        <div class="inner-wrap">
+            <label>Chunk size
+                <input type="text" id="fldChunkSize" value="1048576" placeholder="Chunk size to compose the file of" />
+                <span>Chunk size to compose the file of</span>
+            </label>
+
+            <label>File size
+                <input type="text" id="fldFileSize" value="6710886" placeholder="Total size of the file to save as" />
+                <span>Chunk size to compose the file of</span>
+            </label>
+        </div>
+
+        <div class="section"><span>3</span>Response</div>
+        <div class="inner-wrap">
+            <label>Status
+                <textarea name="output" id="output" rows="1"></textarea>
+                <span>Status</span>
+            </label>
+
+            <label>Last log
+                <input type="text" name="fldLog" id="fldLog" placeholder="last log line" readonly="readonly"/>
+                <span>Last log line</span>
+            </label>
+        </div>
+        <div class="button-section">
+            <input type="button" id="btnTest" value="Test"/>
+        </div>
+    </div>
+
+    <br/>
+
+    <label for="status">Log: </label>
+    <div id="status" class="logbox"></div>
+
+    <script>
+        "use strict";
+
+        var logBuffer = {
+            buffer: [],
+            idx:0,
+            max:100
+        };
+
+        function log(msg){
+            console.log(formatDate(new Date()) + " " + msg);
+            append_message(msg);
+            try {
+                fldLog.val(formatDate(new Date()) + " " + msg);
+            }catch(e){
+
+            }
+        }
+
+        function save(){
+            var fc=0, cc=0, i= 0, ln, t0;
+            var numFiles = 0;
+            var chunkSize = parseInt(fldChunkSize.val());
+            var fileSize = parseInt(fldFileSize.val());
+            log(sprintf("Generation started, files: %s, size: %s, chunk size: %s", numFiles, fileSize, chunkSize));
+
+            var sha1e, sha256e, sha1, sha256;
+            var shaWorkAccum = 0;
+            var shaAccum = 0;
+
+            var worker = new Worker('wrkHash.js');
+            worker.onmessage = function (event) {
+                var w = sjcl.bitArray;
+                var data = event.data;
+                shaWorkAccum = performance.now() - shaWorkAccum;
+
+                console.log(data);
+
+                // Compare hashes
+                var e1 = w.equal(sha1, data.sha1);
+                var e2 = w.equal(sha256, data.sha256);
+                log(sprintf("SHA1 Equals: [%s], SHA256 Equals: [%s]", e1, e2));
+                log(sprintf("Worker computation took: %02.4f (%02.4f diff, %02.4f x slower), ",
+                        shaWorkAccum, shaWorkAccum - shaAccum, shaWorkAccum/shaAccum));
+            };
+
+            log("Worker started");
+            sha1e = new sjcl.hash.sha1();
+            sha256e = new sjcl.hash.sha256();
+            var bufFile = [];
+            for(cc = 0; cc < (fileSize/chunkSize); cc++) {
+                var curData = [];
+                for (i = 0; i < chunkSize / 4; i++) {
+                    curData.push(0);
+                }
+                bufFile.push(curData);
+                log(sprintf("Chunk %02d/%02d", cc, fileSize/chunkSize));
+
+                t0 = performance.now();
+                sha1e.update(curData);
+                sha256e.update(curData);
+                shaAccum += performance.now() - t0;
+            }
+
+            t0 = performance.now();
+            sha1 = sha1e.finalize();
+            sha256 = sha256e.finalize();
+            shaAccum += performance.now() - t0;
+            log(sprintf("File generated, shacomp: %02.4f", shaAccum));
+
+            console.log(sha1);
+            console.log(sha256);
+
+            log("Starting worker gen");
+            shaWorkAccum = performance.now();
+            for(i=0, ln=bufFile.length; i<ln; i++){
+//                log("Passing data to worker");
+                worker.postMessage({'cmd': 'update', 'data': bufFile[i]});
+//                log("Data to worker passed");
+            }
+
+            log("Finalizing");
+            worker.postMessage({'cmd': 'finalize'});
+        }
+
+        $(function(){
+            // Start random number collectors.
+            sjcl.random.startCollectors();
+
+            // Init
+            btnCreate = $('#btnCreate');
+            catConfig = $('#divConfigHead');
+            fldEndpoint = $('#endpoint');
+            fldStatus = $('#fldStatus');
+            fldLog = $('#fldLog');
+
+            fldChunkSize = $('#fldChunkSize');
+            fldFileSize = $('#fldFileSize');
+            fldNumFiles = $('#fldNumFiles');
+
+            $('#btnTest').click(function(){
+                save();
+            });
+
+            // Behavior.
+            fldEndpoint.val(defaults.site);
+            catConfig.click(toggleCategory);
+            catConfig.click();
+        });
+
+    </script>
+    <div class="modal"><div class="modal-wrap"></div></div>
+</body>
+</html>
