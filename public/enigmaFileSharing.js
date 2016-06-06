@@ -2221,7 +2221,7 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
     var ln = inputDs.length();
 
     // Encrypts all underlying data sources with the GCM engine.
-    var encryptionFnc = function(fOffset, fEnd, handler) {
+    var encryptionFnc = (function(fOffset, fEnd, handler) {
         var result = []; // result will be placed here, given to loadedCb.
         var fChunkLen = fEnd - fOffset;
         var fEndOrig = fEnd;
@@ -2291,16 +2291,8 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
                 fChunkLen, fEnd - fOffset, fEndOrig, fEnd, aheadBytes));
         }
 
-        // Event handler called when data is loaded from the underlying data source.
-        var onDataToEncryptLoadedFnc = function (ba) {
-            log(sprintf("onBytesRead: %s - %s of %s B file. TotalUploadSize: %s B, bitArray: %s B. GCM start.",
-                fOffset, fEnd, ln, this.totalSize, w.bitLength(ba) / 8));
-
-            // Encrypt this chunk with GCM mode.
-            // Output length is cipher-block aligned, this can cause underflows in certain situations. To make it easier
-            // padding records are inserted to the first block so it is all blocksize aligned (16B).
-            ba = this.gcm.update(ba);
-
+        // Data encrypted event handler.
+        var onDataEncrypted = (function (ba){
             // Includes tag?
             // Due to pre-buffering it should not happen end ends up in the unaligned part of the buffer.
             // It is either aligned or the final byte of the file.
@@ -2327,14 +2319,39 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
 
             handler(result);
             result = []; // Explicit memory deallocation.
-        };
+        }).bind(this);
+
+        // Event handler called when data is loaded from the underlying data source.
+        var onDataToEncryptLoadedFnc = (function (ba) {
+            log(sprintf("onBytesRead: %s - %s of %s B file. TotalUploadSize: %s B, bitArray: %s B. GCM start.",
+                fOffset, fEnd, ln, this.totalSize, w.bitLength(ba) / 8));
+
+            // Encrypt this chunk with GCM mode.
+            // Output length is cipher-block aligned, this can cause underflows in certain situations. To make it easier
+            // padding records are inserted to the first block so it is all blocksize aligned (16B).
+            this.encryptDataAsync_(ba, onDataEncrypted);
+        }).bind(this);
 
         // Start loading.
-        inputDs.read(fOffset, fEnd, onDataToEncryptLoadedFnc.bind(this));
-    };
+        inputDs.read(fOffset, fEnd, onDataToEncryptLoadedFnc);
+    }).bind(this);
 
     log(sprintf("ToEncrypt DS with length: %s", ln));
-    return new WrappedDataSource(encryptionFnc.bind(this), ln, {name: 'encryptionDs'});
+    return new WrappedDataSource(encryptionFnc, ln, {name: 'encryptionDs'});
+};
+
+EnigmaUploader.prototype.encryptDataAsync_ = function(ba, onFinished){
+    var tmp = [];
+    var onFinish = (function(ba, last){
+        tmp = sjcl.bitArray.concat(tmp, ba);
+        if (last){
+            onFinished(tmp);
+            tmp = [];
+        }
+    }).bind(this);
+
+    // Trigger async cipher update.
+    eb.sh.misc.updateCipherAsync(this.gcm, ba, onFinish, {async:true});
 };
 
 EnigmaUploader.prototype.setupDataSource_ = function(blobSc, concealingSize){
