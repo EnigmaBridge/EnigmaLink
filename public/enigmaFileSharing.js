@@ -3223,14 +3223,22 @@ EnigmaDownloader.prototype.processPlainBuffer_ = function(){
         log(sprintf("To process with GCM: %s", toProcessSize));
 
         if (toProcessSize > 0){
-            var decrypted = this.gcm.update(w.bitSlice(this.plain.buff, 0, toProcessSize*8));
+            // Async decryption.
+            eb.sh.misc.updateCipherAsync(this.gcm, w.bitSlice(this.plain.buff, 0, toProcessSize*8), (function(decrypted, last){
+                // Merge decrypted data buffer with the previously decrypted data.
+                this.mergeDecryptedBuffers_(decrypted);
 
-            // Slice of the GCM processed data from the download buffer, update state.
-            this.plain.buff = w.bitSlice(this.plain.buff, toProcessSize*8);
-            this.encWrapLengthProcessed += toProcessSize;
+                if (last){
+                    // Slice of the GCM processed data from the download buffer, update state.
+                    this.plain.buff = w.bitSlice(this.plain.buff, toProcessSize*8);
+                    this.encWrapLengthProcessed += toProcessSize;
 
-            // Merge decrypted data buffer with the previously decrypted data.
-            this.mergeDecryptedBuffers_(decrypted);
+                    // Trigger processing of dec buffer.
+                    this.processPlainBuffer_();
+                }
+
+            }).bind(this));
+            return;
         }
     }
 
@@ -3358,8 +3366,11 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
         if (this.tps.ctag == EnigmaUploader.TAG_ENC){
             var fileData = w.bitSlice(this.dec.buff, cpos*8, (cpos+toConsume)*8);
             var csize = w.bitLength(fileData)/8;
-            this.sha1Digest.update(fileData);
-            this.sha256Digest.update(fileData);
+
+            // Async hashing.
+            eb.sh.misc.updateHashAsync([this.sha1Digest, this.sha256Digest], fileData);
+            //this.sha1Digest.update(fileData);
+            //this.sha256Digest.update(fileData);
 
             var arrayBuffer = sjcl.codec.arrayBuffer.fromBits(fileData, 0, 0);
             log(sprintf("Processing %s B of data, totally have: %s. ArrayBuffer: %s B", csize, this.fsize + csize, arrayBuffer.byteLength));
@@ -3750,15 +3761,18 @@ EnigmaDownloader.prototype.bufferProcessed_ = function(){
 
     // Once the download is completed, signalize process has finished.
     if (this.downloaded && this.endTagDetected) {
-        if (!this.sha1){
-            this.sha1 = this.sha1Digest.finalize();
-        }
+        // If hash is computed in async way, enqueue so we know for sure the last block was updated.
+        // Same for onComplete() invocation. After all tasks were processed before, then process onComplete task.
+        eb.sh.misc.async((function (){
+            if (!this.sha1){
+                this.sha1 = this.sha1Digest.finalize();
+            }
 
-        if (!this.sha256){
-            this.sha256 = this.sha256Digest.finalize();
-        }
-
-        this.onComplete();
+            if (!this.sha256){
+                this.sha256 = this.sha256Digest.finalize();
+            }
+            this.onComplete();
+        }).bind(this));
     }
 };
 
