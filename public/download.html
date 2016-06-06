@@ -36,6 +36,10 @@
             background-color: #e4b9c0;
             border-color: #a94442;
         }
+        #divFileInfo{
+            display:none;
+            margin-top: 15px;
+        }
 
     </style>
     <link href='css/googleapi-FamilyBitter.css' rel='stylesheet' type='text/css'/>
@@ -79,6 +83,7 @@
         var divStatusWrapper;
         var divPasswdNotif;
         var divStatusInfo;
+        var divFileInfo;
         var divStatusNotif;
 
         var fldEndpoint;
@@ -178,6 +183,8 @@
             <div id="divStatusWrapper">
                 <div id="divStatusInfo">
                     Download not started. <a onclick="scrollToIfNotVisible(btnDownload, false);">Press download</a>.
+                </div>
+                <div id="divFileInfo">
                 </div>
                 <div id="divStatusNotif" class="notif"></div>
             </div>
@@ -399,11 +406,15 @@
                 onPasswordOK: function(data){
                     log("Password is OK");
                     onPasswordOk(data);
+                },
+                onMetaReady: function(obj, continueCb, abortCb){
+                    onMetaReady(obj, continueCb, abortCb);
                 }
             });
 
             setDisabled(btnDownload, true);
             divStatusInfo.text("Downloading...");
+            divFileInfo.hide();
             divStatusNotif.hide();
             divPasswdNotif.hide();
             bodyProgress(true);
@@ -441,8 +452,9 @@
             var pretag = document.createElement( "pre" );
             $(pretag).text(fileInfo);
 
-            divStatusInfo.text("File details:");
-            divStatusInfo.append(pretag);
+            divFileInfo.text("File details:");
+            divFileInfo.append(pretag);
+            divFileInfo.show();
             displayNotifyGlobal("Download successful", false, true);
         }
 
@@ -502,6 +514,31 @@
             dwn.tryPassword(fldPassword.val());
         }
 
+        function onMetaReady(obj, continueCb, abortCb){
+            log("Meta block authenticated");
+            var fileInfo = sprintf(
+                    "File name: %s\n" +
+                    "Mime type: %s\n" +
+                    "File size: %s B\n" +
+                    "Uploaded:  %s\n" +
+                    "Message:   %s",
+                    he.encode(dwn.fname),
+                    he.encode(dwn.mimetype),
+                    dwn.fsizeMeta,
+                    dwn.uploadTime > 0 ? new Date(dwn.uploadTime).toString() : '-',
+                    he.encode(dwn.extraMessage ? dwn.extraMessage : '-')
+            );
+
+            log(fileInfo);
+            var pretag = document.createElement( "pre" );
+            $(pretag).text(fileInfo);
+
+            divFileInfo.text("File details:");
+            divFileInfo.append(pretag);
+            divFileInfo.show();
+            setTimeout(continueCb, 0);
+        }
+
         function loadParams(){
             var w = sjcl.bitArray;
 
@@ -549,6 +586,7 @@
             divStatusWrapper = $('#divStatusWrapper');
             divPasswdNotif = $('#divPasswdNotif');
             divStatusInfo = $('#divStatusInfo');
+            divFileInfo = $('#divFileInfo');
             divStatusNotif = $('#divStatusNotif');
             fldEndpoint = $('#endpoint');
             fldUserObjectID = $('#userObjectID');
