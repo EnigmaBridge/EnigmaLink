@@ -3404,9 +3404,7 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
             var csize = w.bitLength(fileData)/8;
 
             // Async hashing.
-            eb.sh.misc.updateHashAsync([this.sha1Digest, this.sha256Digest], fileData);
-            //this.sha1Digest.update(fileData);
-            //this.sha256Digest.update(fileData);
+            this.hashDataAsync_(fileData);
 
             var arrayBuffer = sjcl.codec.arrayBuffer.fromBits(fileData, 0, 0);
             log(sprintf("Processing %s B of data, totally have: %s. ArrayBuffer: %s B", csize, this.fsize + csize, arrayBuffer.byteLength));
@@ -3493,6 +3491,16 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
 
     // Slice off the processed part of the buffer.
     this.dec.buff = w.bitSlice(this.dec.buff, cpos*8);
+};
+
+/**
+ * Async hash computation.
+ *
+ * @param fileData
+ * @private
+ */
+EnigmaDownloader.prototype.hashDataAsync_ = function(fileData) {
+    eb.sh.misc.updateHashAsync([this.sha1Digest, this.sha256Digest], fileData, undefined, {async:true});
 };
 
 /**
