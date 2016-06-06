@@ -5143,6 +5143,7 @@ eb.comm.createUO.templateFiller.prototype = {
 
         // baPlain | baProtected | MAC(baPlain | baProtected)
         ba = w.concat(baPlain, baProtected);
+        ba = eb.padding.pkcs7.pad(ba);
         ba = w.concat(ba, hmac.mac(ba));
 
         // RSA encryption: UOID-4B | TEK | TMK
@@ -5169,7 +5170,7 @@ eb.comm.createUO.templateFiller.prototype = {
 
     _rsaEncrypt: function(input, key){
         var iKeyBl = key.type == 'rsa2048' ? 2048 : 1024;
-        var data = eb.padding.pkcs15.pad(input, iKeyBl, 2);
+        var data = eb.padding.pkcs15.pad(input, iKeyBl/8, 2);
         this._log('To wrap padded: ' + sjcl.codec.hex.fromBits(data) + ", len=" + sjcl.bitArray.bitLength(data));
 
         // Deserialize public key, convert to integers, result = (message ^ exponent) mod modulus
