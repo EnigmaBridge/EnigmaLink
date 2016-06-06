@@ -121,7 +121,128 @@ eb.sh.misc = {
         var baEnc = sjcl.hash.sha256.hash(w.concat(baInput, [0x01]));
         var baMac = sjcl.hash.sha256.hash(w.concat(baInput, [0x02]));
         return {enc:baEnc, mac:baMac};
+    },
+
+    /**
+     *
+     * Basic asynchronous operation.
+     * May use setTimeout(fnc, 0) to implement the async nature or setImmediate(fnc) or postMessage.
+     *
+     * @param {Function} fnc
+     */
+    async: function(fnc){
+        // Default implementation is simple.
+        setTimeout(fnc, 0);
+    },
+
+    /**
+     * Update hash function hash with hash.update(data).
+     * For memory optimization purposes (potential memory leaks) it calls
+     * update() on smaller chunks.
+     *
+     * @param {object|Array} hash
+     * @param {Array|bitArray} data
+     */
+    updateHash: function(hash, data){
+        hash = typeof hash[0] === 'undefined' ? [hash] : hash;
+
+        var ln = data.length, base = 1024*128; // 512Kb (1024*128 4B words) is the basic chunk.
+        var i = 0, hi = 0, hl = hash.length, curChunk;
+
+        // Hash chunks.
+        for(i = 0; i < ln; i += base){
+            curChunk = data.slice(i, i+base);
+            for(hi=0; hi<hl; ++hi){
+                hash[hi].update(curChunk);
+            }
+        }
+    },
+
+    /**
+     * Updates hash function with hash.update(data) in the async fashion.
+     * Data is split to reasonably sized chunks so the processing of the chunk by the hash function
+     * fits in 16ms to preserve 60 fps. Hashing function computation is added to the event queue.
+     *
+     * @param hash
+     * @param data
+     * @param onCompleted
+     * @param {Object} [options]
+     * @param {Number} [options.base] chunk size
+     * @param {boolean} [options.async=true] set false to skip async processing.
+     */
+    updateHashAsync: function(hash, data, onCompleted, options){
+        hash = typeof hash[0] === 'undefined' ? [hash] : hash;
+        options = options || {};
+
+        var ln = data.length, base = options.base || 1024*128; // 512Kb (1024*128 4B words) is the basic chunk.
+        var i, hl = hash.length, curChunk;
+        var isAsync = options.async || true;
+
+        // Hash chunks.
+        for(i = 0; i < ln; i += base){
+            curChunk = data.slice(i, i+base);
+
+            // Enqueue.
+            if (isAsync) {
+                eb.sh.misc.async((function (x) {
+                    for (var hi = 0; hi < hl; ++hi) {
+                        hash[hi].update(x);
+                    }
+                }).bind(this, curChunk));
+
+            } else {
+                for (var hi = 0; hi < hl; ++hi) {
+                    hash[hi].update(curChunk);
+                }
+            }
+        }
+
+        //Enqueue onCompleted callback
+        if (onCompleted) {
+            eb.sh.misc.async(onCompleted);
+        }
+    },
+
+    /**
+     * Updates cipher mode with the given data. Data is split to reasonably sized chunks.
+     * After one block is processed, onCompleted is called with 2 parameters. onCompleted(data, false).
+     * On the last block is processed onCompleted is called: onCompleted([], true).
+     *
+     * @param prf
+     * @param data
+     * @param onCompleted
+     * @param {Object} [options]
+     * @param {Number} [options.base] chunk size
+     * @param {boolean} [options.async=true] set false to skip async processing.
+     */
+    updateCipherAsync: function(prf, data, onCompleted, options){
+        options = options || {};
+        var ln = data.length, base = options.base || 1024*8; // 32Kb (1024*8 4B words) is the basic chunk.
+        var i, curChunk;
+        var isAsync = options.async || true;
+
+        for(i = 0; i < ln; i += base){
+            curChunk = data.slice(i, i+base);
+
+            // Enqueue.
+            if (isAsync) {
+                eb.sh.misc.async((function (x) {
+                    var res = prf.update(x);
+                    onCompleted(res, false);
+                }).bind(this, curChunk));
+
+            } else {
+                var res = prf.update(curChunk);
+                onCompleted(res, false);
+            }
+        }
+
+        //Enqueue onCompleted callback
+        eb.sh.misc.async(function(){
+            onCompleted([], true);
+        });
     }
+
 };
 
 /**
