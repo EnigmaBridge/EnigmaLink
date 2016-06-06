@@ -1787,7 +1787,8 @@ EnigmaUploader.TAG_TIME = 0x7;     // record with the timestamp of the upload.
 EnigmaUploader.TAG_MSG = 0x8;      // record with the user provided message (will be encrypted + auth together with the file).
 EnigmaUploader.TAG_MSG_HINT = 0xa; // record with the password hint - unencrypted.
 EnigmaUploader.TAG_FSIZE = 0x9;    // record with the file size.
-EnigmaUploader.TAG_ENC = 0x4 | 0x80;      // record with the encrypted data/file. Last record in the message. 64bit length field.
+EnigmaUploader.TAG_METAMAC = 0xc;  // record with the HMAC of all previously stated meta blocks.
+EnigmaUploader.TAG_ENC = 0x4 | 0x80;      // record with the encrypted data/file. 64bit length field.
 EnigmaUploader.TAG_ENCWRAP = 0x5 | 0x80;  // record with the encrypted container (fname+mime+data). Last unencrypted record. 64bit length field.
 EnigmaUploader.TAG_PADDING = 0x6;  // padding record. Null bytes (skipped in parsing), may be used to conceal true file size or align blocks.
 EnigmaUploader.TAG_GCMTAG = 0xd;  // final tag int the encrypted part (ENCRWAP), contains GCM tag of all previous data.
@@ -2291,6 +2292,16 @@ EnigmaUploader.prototype.buildMetaBlock_ = function(){
         toEnc = w.concat(toEnc, baExtraMsg);
         log("Extra message in meta block: " + this.extraMessage);
     }
+
+    // MAC meta block message so it can be displayed right after password entry, without need to
+    // download the whole file (GCM TAG) in order to verify authenticity of the meta data.
+    var macKey = sjcl.hash.sha256.hash(w.concat(this.encKey, sjcl.codec.utf8String.toBits("metahmac")));
+    var macObj = new sjcl.misc.hmac(macKey);
+    var mac = macObj.mac(toEnc);
+
+    toEnc = w.concat(toEnc, h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_METAMAC, w.bitLength(mac)/8)));
+    toEnc = w.concat(toEnc, mac);
+    log("Meta block HMAC: " + h.fromBits(mac));
 
     // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
     toEnc = this.padBlockToBlockSize_(toEnc, false);
