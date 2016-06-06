@@ -2166,12 +2166,7 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
 
     // File/message content wrapped with hashing data source - computes sha1, sha256 over input data.
     var inputHashingDs = new HashingDataSource(blobSc, (function(ofStart, ofEnd, len, data){
-        this.sha1Digest.update(data);
-        this.sha256Digest.update(data);
-        if (ofEnd >= len){
-            this.sha1 = this.sha1Digest.finalize();
-            this.sha256 = this.sha256Digest.finalize();
-        }
+        this.hashDataAsync_(ofStart, ofEnd, len, data);
     }).bind(this), {name: 'hashingDs'});
 
     // Message size concealing padding data sources.
@@ -2194,6 +2189,25 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
 
     // Padding + data to encrypt
     return new MergedDataSource([padConst, padGen, encHdrDs, inputHashingDs], {name: 'encConcData'});
+};
+
+/**
+ * Async hash computation.
+ *
+ * @param ofStart
+ * @param ofEnd
+ * @param len
+ * @param data
+ * @private
+ */
+EnigmaUploader.prototype.hashDataAsync_ = function(ofStart, ofEnd, len, data) {
+    eb.sh.misc.updateHashAsync([this.sha1Digest, this.sha256Digest], data, {async:true, base:1024*8});
+    if (ofEnd >= len){
+        eb.sh.misc.async((function(){
+            this.sha1 = this.sha1Digest.finalize();
+            this.sha256 = this.sha256Digest.finalize();
+        }).bind(this));
+    }
 };
 
 /**
