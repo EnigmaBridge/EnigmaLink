@@ -30,25 +30,15 @@ function getLast() {
 
 onmessage = function (event) {
     cmd = event.data;
-    switch(cmd.cmd){
-        case 'update':
-            update(cmd);
-            break;
-
-        case 'finalize':
-            finalize(cmd);
-            break;
-
-        case 'reset':
-            reset();
-            break;
-
-        case 'get':
-            getLast();
-            break;
-
-        default:
-            console.log("Unknown command");
-            break;
+    if (cmd.update) {
+        update(cmd);
+    } else if (cmd.finalize){
+        finalize(cmd);
+    } else if (cmd.reset) {
+        reset();
+    } else if (cmd.get) {
+        getLast();
+    } else {
+        console.log("Unknown command");
     }
 };

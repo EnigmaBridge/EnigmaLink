@@ -50,13 +50,13 @@
 
 <!-- form design: http://www.sanwebe.com/2014/08/css-html-forms-designs -->
 <div class="form-style-10">
-    <h1>Save As test<span>EnigmaBridge demo</span></h1>
+    <h1>WebWorker test<span>EnigmaBridge demo</span></h1>
     <div>
         <div class="section"><span>1</span>Input</div>
         <div class="inner-wrap">
             <label>Chunk size
-                <input type="text" id="fldChunkSize" value="1048576" placeholder="Chunk size to compose the file of" />
-                <span>Chunk size to compose the file of</span>
+                <input type="text" id="fldChunkSize" value="262144" placeholder="Chunk size to compose the file of" />
+                <span>Chunk size to compose the file of.</span>
             </label>
 
             <label>File size
@@ -107,15 +107,22 @@
         }
 
         function save(){
-            var fc=0, cc=0, i= 0, ln, t0;
+            var fc=0, cc=0, lastCc = 0, i= 0, ln, t0, t1, t2, t3;
             var numFiles = 0;
             var chunkSize = parseInt(fldChunkSize.val());
             var fileSize = parseInt(fldFileSize.val());
             log(sprintf("Generation started, files: %s, size: %s, chunk size: %s", numFiles, fileSize, chunkSize));
 
             var sha1e, sha256e, sha1, sha256;
+            var sha1x, sha2x;
             var shaWorkAccum = 0;
             var shaAccum = 0;
+            var shaAccumUI = 0;
+            var commAcum = 0;
+            var commAcum2 = 0;
+            var commAcum3 = 0;
+            var bufFile = [];
+            var realFileSize = 0;
 
             var worker = new Worker('wrkHash.js');
             worker.onmessage = function (event) {
@@ -128,22 +135,43 @@
                 // Compare hashes
                 var e1 = w.equal(sha1, data.sha1);
                 var e2 = w.equal(sha256, data.sha256);
-                log(sprintf("SHA1 Equals: [%s], SHA256 Equals: [%s]", e1, e2));
-                log(sprintf("Worker computation took: %02.4f (%02.4f diff, %02.4f x slower), ",
+                var e1x = w.equal(sha1x, sha1);
+                var e2x = w.equal(sha2x, sha256);
+                log(sprintf("SHA1 Equals: [%s][%s], SHA256 Equals: [%s][%s]", e1, e1x, e2, e2x));
+                log(sprintf("Chunk size: %d B, file size: %02.2f B = %02.2f kB = %02.2f MB", chunkSize, realFileSize, realFileSize/1024, realFileSize/1024/1024));
+                log(sprintf("Worker computation took: %02.4f (%02.4f diff, %02.4f x slower)",
                         shaWorkAccum, shaWorkAccum - shaAccum, shaWorkAccum/shaAccum));
+                log(sprintf("Communication time to worker from UI: %02.4f, perChunk: %02.4f, threshold: %02.4f ms",
+                        commAcum, commAcum/bufFile.length, 1000/60));
+                log(sprintf("kBps: %02.4f kBps, (per chunk): %02.4f kBps", (realFileSize/(commAcum/1000))/1024, (chunkSize/(commAcum/(bufFile.length*1000)))/1024));
+
+                log(sprintf("UI setTimeout(x,0) task enqueue with feeding function, time: %02.4f, perChunk: %02.4f, threshold: %02.4f ms",
+                        commAcum2, commAcum2/bufFile.length, 1000/60));
+
+                log(sprintf("UI communication time setTimeout(data,0) to UI SHA computing function: %02.4f, perChunk: %02.4f, threshold: %02.4f ms",
+                        commAcum3, commAcum3/bufFile.length, 1000/60));
+                log(sprintf("UI setTimeout(x,0) SHA computation time: %02.4f, perChunk: %02.4f, threshold: %02.4f ms",
+                        shaAccumUI, shaAccumUI/bufFile.length, 1000/60));
             };
 
             log("Worker started");
+
+            // Generate chunks, UI SHA computation.
             sha1e = new sjcl.hash.sha1();
             sha256e = new sjcl.hash.sha256();
-            var bufFile = [];
-            for(cc = 0; cc < (fileSize/chunkSize); cc++) {
+            var chnks = (fileSize/chunkSize);
+            for(cc = 0; cc < chnks; cc++) {
                 var curData = [];
                 for (i = 0; i < chunkSize / 4; i++) {
+                    realFileSize+=4;
                     curData.push(0);
                 }
                 bufFile.push(curData);
-                log(sprintf("Chunk %02d/%02d", cc, fileSize/chunkSize));
+
+                if (cc+1 >= chnks || cc - lastCc > chnks/50.0) {
+                    log(sprintf("Chunk %02d/%02d", cc, chnks));
+                    lastCc = cc;
+                }
 
                 t0 = performance.now();
                 sha1e.update(curData);
@@ -155,21 +183,73 @@
             sha1 = sha1e.finalize();
             sha256 = sha256e.finalize();
             shaAccum += performance.now() - t0;
-            log(sprintf("File generated, shacomp: %02.4f", shaAccum));
+            log(sprintf("File generated, SHA UI thread computation took: %02.4f", shaAccum));
 
             console.log(sha1);
             console.log(sha256);
 
-            log("Starting worker gen");
-            shaWorkAccum = performance.now();
-            for(i=0, ln=bufFile.length; i<ln; i++){
-//                log("Passing data to worker");
-                worker.postMessage({'cmd': 'update', 'data': bufFile[i]});
-//                log("Data to worker passed");
-            }
+            sha1e.reset();
+            sha256e.reset();
 
-            log("Finalizing");
-            worker.postMessage({'cmd': 'finalize'});
+            var workerCompFnc;
+            var uiHashFnc;
+
+            // Set timeout computation.
+            uiHashFnc = function() {
+                log("SHA IO thread computation, with setTimeout(x, 0):");
+                var fncHash = function (data) {
+                    t3 = performance.now();
+                    sha1e.update(data);
+                    sha256e.update(data);
+                    shaAccumUI += performance.now() - t3;
+                };
+                for (i = 0, ln = bufFile.length; i < ln; i++) {
+                    t2 = performance.now();
+                    setTimeout(fncHash.bind(this, bufFile[i]), 0);
+//                  window.setImmediate(fncHash.bind(this, bufFile[i]));
+                    commAcum3 += performance.now() - t2;
+                }
+                setTimeout(function () {
+                    t3 = performance.now();
+                    sha1x = sha1e.finalize();
+                    sha2x = sha256e.finalize();
+                    shaAccumUI += performance.now() - t3;
+                    log("UI hash computed");
+
+                    // Finished -> kick off worker job.
+                    workerCompFnc();
+                }, 0);
+            };
+
+            // Compute in worker function.
+            workerCompFnc = function() {
+                log("SHA computation in worker thread, posting messages.");
+                shaWorkAccum = performance.now();
+                var fnc = function (x) {
+                    t0 = performance.now();
+                    worker.postMessage({update: true, 'data': bufFile[x]});
+                    commAcum += performance.now() - t0;
+                };
+
+                // Submit worker.
+                for (i = 0, ln = bufFile.length; i < ln; i++) {
+                    t1 = performance.now();
+                    setTimeout(fnc.bind(this, i), 0);
+//                  window.setImmediate(fnc.bind(this, i));
+                    commAcum2 += performance.now() - t1;
+                }
+
+                log("Chunks sending tasks enqueued");
+
+                // Enqueue finalize task. Is processed after all previous update tasks.
+                setTimeout(function () {
+                    log("Worker: finalizing");
+                    worker.postMessage({finalize: true});
+                }, 0);
+            };
+
+            // Start UI job.
+            uiHashFnc();
         }
 
         $(function(){
