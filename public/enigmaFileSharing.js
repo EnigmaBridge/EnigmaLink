@@ -956,7 +956,9 @@ HashingDataSource.inheritsFrom(DataSource, {
             if (offsetEndNow > offsetStartNow
                 && this.seenOffsetEnd < offsetEndNow)
             {
-                var toHash = w.bitSlice(ba, (offsetStartNow - offsetStart)*8, (len - offsetEndNow + realEnd)*8);
+                var tmpOffsetToHash = (offsetStartNow - offsetStart);
+                var tmpOffsetToHashEnd = (len - offsetEndNow + realEnd);
+                var toHash = (tmpOffsetToHash==0 && tmpOffsetToHashEnd==len) ? ba : w.bitSlice(ba, tmpOffsetToHash*8, tmpOffsetToHashEnd*8);
                 this.hasher(offsetStartNow, offsetEndNow, this.dsLen, toHash);
                 toHash = []; // Drop allocation before calling handler.
 
