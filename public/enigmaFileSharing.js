@@ -142,11 +142,14 @@ eb.sh.misc = {
      *
      * @param {object|Array} hash
      * @param {Array|bitArray} data
+     * @param {Object} [options]
+     * @param {Number} [options.base] chunk size
      */
-    updateHash: function(hash, data){
+    updateHash: function(hash, data, options){
         hash = typeof hash[0] === 'undefined' ? [hash] : hash;
+        options = options || {};
 
-        var ln = data.length, base = 1024*128; // 512Kb (1024*128 4B words) is the basic chunk.
+        var ln = data.length, base = options.base || 1024*64; // 256Kb (1024*64 4B words) is the basic chunk.
         var i = 0, hi = 0, hl = hash.length, curChunk;
 
         // Hash chunks.
@@ -174,7 +177,7 @@ eb.sh.misc = {
         hash = typeof hash[0] === 'undefined' ? [hash] : hash;
         options = options || {};
 
-        var ln = data.length, base = options.base || 1024*128; // 512Kb (1024*128 4B words) is the basic chunk.
+        var ln = data.length, base = options.base || 1024*64; // 256Kb (1024*64 4B words) is the basic chunk.
         var i, hl = hash.length, curChunk;
         var isAsync = options.async || true;
 
