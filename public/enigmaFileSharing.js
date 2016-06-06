@@ -2611,6 +2611,7 @@ EnigmaSharingUpload.sizeConcealPadFnc = function(curSize){
  * @param {function} [options.onPasswordFail] event handler.
  * @param {function} [options.onPasswordOK] event handler.
  * @param {function} [options.onStateChange] event handler.
+ * @param {function} [options.onMetaReady] event handler. If meta data is loaded, callback is called.
  * @param {Number} [options.chunkSize] chunk size for download. First chunk must contain meta block. 256kB or 512kB is ideal.
  * @param {Number} [options.chunkSizeMax] Maximum chunk size.
  * @param {boolean} [options.chunkSizeAdaptive] True if the chunk size should be chosen in the adaptive manner.
@@ -2633,6 +2634,7 @@ var EnigmaDownloader = function(options){
     this.onPasswordFail = options.onPasswordFail || noop;
     this.onPasswordOK = options.onPasswordOK || noop;
     this.onStateChange = options.onStateChange || noop;
+    this.onMetaReady = options.onMetaReady;
 
     this.chunkSize = options.chunkSize || 262144*2; // All security relevant data should be present in the first chunk.
     this.offset = 0;
@@ -2705,8 +2707,15 @@ var EnigmaDownloader = function(options){
     this.tpo.clen = 0;
     this.tpo.cdata = [];
 
-    // File blobs for download after the decryption finishes.
+    // Array of ArrayBuffers with plain (decrypted) content.
     this.blobs = [];
+
+    // HMAC-ing of the meta data.
+    this.metaMacEngine = undefined; // Meta mac engine computes HMAC over meta data.
+    this.metaMacOk = undefined; // Meta mac present & matches ==> true.
+    this.metaMacShow = false; // If true then Meta HMAC was just verified and can be shown to the user (not shown before).
+
+    // Extracted info.
     this.fsize = 0;             // Filesize.
     this.fname = undefined;     // Filename extracted from the meta block.
     this.fsizeMeta = undefined; // File size extracted from the meta block.
@@ -3064,9 +3073,22 @@ EnigmaDownloader.prototype.processPlainBuffer_ = function(){
             // Merge decrypted data buffer with the previously decrypted data.
             this.mergeDecryptedBuffers_(decrypted);
         }
+    }
 
+    // If there is some data in decrypted buffer, process it.
+    if (w.bitLength(this.dec.buff) > 0){
         // Process decrypted data block.
         this.processDecryptedBlock_();
+    }
+
+    // Meta ready?
+    if (this.metaMacShow){
+        this.metaMacShow = false;
+        if (this.onMetaReady){
+            this.onMetaReady(this, this.processPlainBuffer_.bind(this), this.cancel.bind(this));
+            // Do not process any further. Wait for signal we can process it.
+            return;
+        }
     }
 
     // If ENCWRAP processing completed and still any data left, process with another parser, for outer block.
@@ -3235,9 +3257,26 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
                 this.extraMessage = sjcl.codec.utf8String.fromBits(this.tps.cdata);
                 break;
 
+            case EnigmaUploader.TAG_METAMAC:
+                if (this.metaMacEngine) {
+                    this.metaMacOk = w.equal(this.tps.cdata, this.metaMacEngine.digest());
+                    this.metaMacEngine = undefined; // Block from further HMAC-ing.
+                    this.metaMacShow = this.metaMacOk; // For simplicity, finish decrypted block processing.
+                }
+                break;
+
             default:
                 log(sprintf("Unsupported tag detected: %s, len: %s", this.tps.ctag, this.tps.clen));
                 break;
+        }
+
+        //Update Meta MAC
+        if (this.metaMacEngine
+            &&  (this.tps.ctag & 0x80) == 0
+            && !(this.tps.ctag in [EnigmaUploader.TAG_ENC, EnigmaUploader.TAG_METAMAC]))
+        {
+            // update: (TAG-1B | LEN-4B | DATA)
+            this.metaMacEngine.update(w.concat(w.concat([w.partial(8, this.tps.ctag)], [this.tps.tlen]), this.tps.cdata));
         }
     } while(true);
 
@@ -3498,6 +3537,7 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
         // Initialize cipher, engines.
         this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
         this.gcm = sjcl.mode.gcmProgressive.create(this.aes, false, this.iv, this.aad, 128); // GCM encryption mode, initialized now.
+        this.metaMacEngine = new sjcl.misc.hmac(sjcl.hash.sha256.hash(w.concat(this.encKey, sjcl.codec.utf8String.toBits("metahmac"))));
         this.encryptionInitialized = true;
 
         // Finish the processing of current download chunk. Continues in download operation.
