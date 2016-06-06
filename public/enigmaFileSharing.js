@@ -2201,7 +2201,7 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
  * @private
  */
 EnigmaUploader.prototype.hashDataAsync_ = function(ofStart, ofEnd, len, data) {
-    eb.sh.misc.updateHashAsync([this.sha1Digest, this.sha256Digest], data, {async:true, base:1024*8});
+    eb.sh.misc.updateHashAsync([this.sha1Digest, this.sha256Digest], data, undefined, {async:true, base:1024*8});
     if (ofEnd >= len){
         eb.sh.misc.async((function(){
             this.sha1 = this.sha1Digest.finalize();
