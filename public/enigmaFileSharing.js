@@ -199,6 +199,7 @@ eb.sh.misc = {
                 }
             }
         }
+        data = [];
 
         //Enqueue onCompleted callback
         if (onCompleted) {
@@ -239,6 +240,7 @@ eb.sh.misc = {
                 onCompleted(res, false);
             }
         }
+        data = [];
 
         //Enqueue onCompleted callback
         eb.sh.misc.async(function(){
