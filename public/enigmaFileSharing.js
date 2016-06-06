@@ -3260,7 +3260,7 @@ EnigmaDownloader.prototype.processPlainBuffer_ = function(){
 
         if (toProcessSize > 0){
             // Async decryption.
-            eb.sh.misc.updateCipherAsync(this.gcm, w.bitSlice(this.plain.buff, 0, toProcessSize*8), (function(decrypted, last){
+            var onDecrypted = (function(decrypted, last){
                 // Merge decrypted data buffer with the previously decrypted data.
                 this.mergeDecryptedBuffers_(decrypted);
 
@@ -3273,7 +3273,10 @@ EnigmaDownloader.prototype.processPlainBuffer_ = function(){
                     this.processPlainBuffer_();
                 }
 
-            }).bind(this));
+            }).bind(this);
+
+            // Start async decryption.
+            this.decryptDataAsync_(w.bitSlice(this.plain.buff, 0, toProcessSize*8), onDecrypted);
             return;
         }
     }
@@ -3302,6 +3305,11 @@ EnigmaDownloader.prototype.processPlainBuffer_ = function(){
     // Last step:
     // Download next chunk, if any.
     this.bufferProcessed_();
+};
+
+EnigmaDownloader.prototype.decryptDataAsync_ = function(ba, onChunkDone){
+    // Trigger async cipher update.
+    eb.sh.misc.updateCipherAsync(this.gcm, ba, onChunkDone, {async:true});
 };
 
 /**
