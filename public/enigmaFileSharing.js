@@ -1753,6 +1753,7 @@ var EnigmaUploader = function(options) {
     // Encryption related fields.
     this.encKey = options.encKey;                   // bitArray with encryption key for AES-256-GCM.
     this.secCtx = options.secCtx || [];             // bitArray with security context, result of UO application.
+    this.lnonceHash = options.lnonceHash || [];     // bitArray with SHA-256(linkNonce). Used for password hinting.
     this.aes = new sjcl.cipher.aes(this.encKey);    // AES cipher instance to be used with GCM for data encryption.
     this.iv = sjcl.random.randomWords(4);           // initialization vector for GCM, 1 block, 16B.
     this.gcm = undefined;                           // GCM encryption mode, initialized now.
@@ -1785,7 +1786,7 @@ EnigmaUploader.TAG_FNAME = 0x2;    // record with the data/file name.
 EnigmaUploader.TAG_MIME = 0x3;     // record with the data/file mime type.
 EnigmaUploader.TAG_TIME = 0x7;     // record with the timestamp of the upload.
 EnigmaUploader.TAG_MSG = 0x8;      // record with the user provided message (will be encrypted + auth together with the file).
-EnigmaUploader.TAG_MSG_HINT = 0xa; // record with the password hint - unencrypted.
+EnigmaUploader.TAG_MSG_HINT = 0xa; // record with the password hint - protected only by linkNonce.
 EnigmaUploader.TAG_FSIZE = 0x9;    // record with the file size.
 EnigmaUploader.TAG_METAMAC = 0xc;  // record with the HMAC of all previously stated meta blocks.
 EnigmaUploader.TAG_ENC = 0x4 | 0x80;      // record with the encrypted data/file. 64bit length field.
@@ -2243,6 +2244,43 @@ EnigmaUploader.prototype.setupUmphDataSource_ = function(blobSc, concealingSize)
 
     // Final data source
     return new MergedDataSource([hdrDs, encDs, tagDs, endDs], {name: 'umph'});
+};
+
+/**
+ * Returns a block with password hint. Password hint text is clamped to 1k.
+ * TAG-1B | len-4B | salt-16B | IV-16B | HMAC-32B | encrypted-hint | GCM-TAG-16B
+ *
+ * @returns {Array|bitArray}
+ * @private
+ */
+EnigmaUploader.prototype.buildMessageHintBlock_ = function(){
+    if (this.passwordHint === undefined || this.lnonceHash === undefined){
+        return [];
+    }
+
+    var w = sjcl.bitArray;
+    var salt = sjcl.random.randomWords(8);
+    var iv = sjcl.random.randomWords(4);
+    var key = sjcl.hash.sha256.hash(w.concat(this.lnonceHash, salt));
+    var aes = new sjcl.cipher.aes(key);
+
+    var encHdr = [];
+    encHdr = w.concat(encHdr, salt);
+    encHdr = w.concat(encHdr, iv);
+
+    var hintBa = sjcl.codec.utf8String.toBits(eb.sh.misc.takeMaxN(this.passwordHint, 1024));
+    var hintEncBa = sjcl.mode.gcmProgressive.encrypt(aes, hintBa, iv, [], 128); // GCM encryption mode, initialized now.
+
+    // As hint is protected only by linkNonce, it is easy for an attacker with the link to tamper the hint content.
+    // In order to detect tampering after the password entry, HMAC the whole hint with password derived from encKey.
+    // Note the hint is also protected as Associated data, protected by the GCM.
+    var hmacObj = sjcl.misc.hmac(w.concat(this.encKey, encHdr));
+    var hmac = hmacObj.mac(hintEncBa);
+    encHdr = w.concat(encHdr, hmac);
+    encHdr = w.concat(encHdr, hintEncBa);
+
+    var hdr = w.concat([w.partial(8, EnigmaUploader.TAG_MSG_HINT)], [w.bitLength(encHdr)/8]);
+    return w.concat(hdr, encHdr);
 };
 
 /**
