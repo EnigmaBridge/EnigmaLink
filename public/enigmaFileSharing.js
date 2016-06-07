@@ -246,6 +246,59 @@ eb.sh.misc = {
         eb.sh.misc.async(function(){
             onCompleted([], true);
         });
+    },
+
+    /**
+     * bitArray concatenation to the original array. Modifies a input.
+     * @param {Array|bitArray} a source to be appended.
+     * @param {Array|bitArray} b data to be appended to a.
+     * @return {Array|bitArray} a
+     */
+    concatSelf: function(a, b){
+        var w = sjcl.bitArray;
+        if (a.length == 0){
+            return b.slice(0);
+
+        } else if (w.getPartial(a[a.length-1]) === 32){
+            // Naive append to the a array, using the push() method.
+            var i = 0, blen = b.length;
+            for(; i < blen-128; ){
+                a.push(b[i   ], b[i+1 ], b[i+2 ], b[i+3 ], b[i+4 ], b[i+5 ], b[i+6 ], b[i+7 ],
+                       b[i+8 ], b[i+9 ], b[i+10], b[i+11], b[i+12], b[i+13], b[i+14], b[i+15],
+                       b[i+16], b[i+17], b[i+18], b[i+19], b[i+20], b[i+21], b[i+22], b[i+23],
+                       b[i+24], b[i+25], b[i+26], b[i+27], b[i+28], b[i+29], b[i+30], b[i+31]); i+= 32;
+                a.push(b[i   ], b[i+1 ], b[i+2 ], b[i+3 ], b[i+4 ], b[i+5 ], b[i+6 ], b[i+7 ],
+                       b[i+8 ], b[i+9 ], b[i+10], b[i+11], b[i+12], b[i+13], b[i+14], b[i+15],
+                       b[i+16], b[i+17], b[i+18], b[i+19], b[i+20], b[i+21], b[i+22], b[i+23],
+                       b[i+24], b[i+25], b[i+26], b[i+27], b[i+28], b[i+29], b[i+30], b[i+31]); i+= 32;
+                a.push(b[i   ], b[i+1 ], b[i+2 ], b[i+3 ], b[i+4 ], b[i+5 ], b[i+6 ], b[i+7 ],
+                       b[i+8 ], b[i+9 ], b[i+10], b[i+11], b[i+12], b[i+13], b[i+14], b[i+15],
+                       b[i+16], b[i+17], b[i+18], b[i+19], b[i+20], b[i+21], b[i+22], b[i+23],
+                       b[i+24], b[i+25], b[i+26], b[i+27], b[i+28], b[i+29], b[i+30], b[i+31]); i+= 32;
+                a.push(b[i   ], b[i+1 ], b[i+2 ], b[i+3 ], b[i+4 ], b[i+5 ], b[i+6 ], b[i+7 ],
+                       b[i+8 ], b[i+9 ], b[i+10], b[i+11], b[i+12], b[i+13], b[i+14], b[i+15],
+                       b[i+16], b[i+17], b[i+18], b[i+19], b[i+20], b[i+21], b[i+22], b[i+23],
+                       b[i+24], b[i+25], b[i+26], b[i+27], b[i+28], b[i+29], b[i+30], b[i+31]); i+= 32;
+
+            }
+            for(; i < blen-32; ){
+                a.push(b[i  ], b[i+1], b[i+2 ], b[i+3 ], b[i+4 ], b[i+5 ], b[i+6 ], b[i+7 ]); i+= 8;
+                a.push(b[i  ], b[i+1], b[i+2 ], b[i+3 ], b[i+4 ], b[i+5 ], b[i+6 ], b[i+7 ]); i+= 8;
+                a.push(b[i  ], b[i+1], b[i+2 ], b[i+3 ], b[i+4 ], b[i+5 ], b[i+6 ], b[i+7 ]); i+= 8;
+                a.push(b[i  ], b[i+1], b[i+2 ], b[i+3 ], b[i+4 ], b[i+5 ], b[i+6 ], b[i+7 ]); i+= 8;
+            }
+            for(; i < blen-8; ){
+                a.push(b[i], b[i+1], b[i+2], b[i+3], b[i+4], b[i+5], b[i+6], b[i+7]); i+= 8;
+            }
+            for(; i < blen; i++){
+                a.push(b[i]);
+            }
+            return a;
+
+        } else {
+            // Traditional concatenation.
+            return w.concat(a, b);
+        }
     }
 
 };
@@ -896,7 +949,7 @@ MergedDataSource.inheritsFrom(DataSource, {
             }
 
             // Append current data to the result.
-            res = w.concat(res, x);
+            res = eb.sh.misc.concatSelf(res, x);
             offsetStart+=bl/8;
 
             // Everything read?
@@ -1788,7 +1841,7 @@ eb.sh.pngParser.prototype = {
             // umph tag? Process it.
             if (this.tps.ctag == this.umphTag){
                 var fileData = w.bitSlice(cached.buff, cpos*8, (cpos+toConsume)*8);
-                resData = w.concat(resData, fileData);
+                resData = eb.sh.misc.concatSelf(resData, fileData);
 
                 cpos += toConsume;
                 this.tps.clen += toConsume;
@@ -2297,7 +2350,7 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
             var curStart = fOffset - this.cached.offset;
             var curStop = Math.min(this.cached.end - this.cached.offset, curStart + (fEnd - fOffset));
             var toUse = w.bitSlice(this.cached.buff, curStart * 8, curStop * 8);
-            result = w.concat(result, toUse);
+            result = eb.sh.misc.concatSelf(result, toUse);
 
             // Update fOffset, fEnd, reflect loaded data from buffer.
             // It may be still needed to load & process (encrypt) additional data.
@@ -2335,7 +2388,7 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
                 this.cached.tag = res.tag;
 
                 // Add the last data block, finalizing result.
-                ba = w.concat(ba, res.data);
+                ba = eb.sh.misc.concatSelf(ba, res.data);
             }
 
             // Update cached prepared data. If reupload happens, data is taken from buffer, no encryption of the same
@@ -2344,11 +2397,11 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
                 this.cached.offset = fOffset;
             }
             this.cached.end = fEnd;
-            this.cached.buff = w.concat(this.cached.buff, ba);
+            this.cached.buff = eb.sh.misc.concatSelf(this.cached.buff, ba);
 
             // Add appropriate amount of bytes from cres to result.
             var baBl = w.bitLength(ba);
-            result = w.concat(result, w.clamp(ba, Math.min(baBl, 8 * (fEndOrig - fOffset))));
+            result = eb.sh.misc.concatSelf(result, w.clamp(ba, Math.min(baBl, 8 * (fEndOrig - fOffset))));
             ba = []; // Drop allocation before going to callback.
 
             handler(result);
@@ -2377,7 +2430,7 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
 EnigmaUploader.prototype.encryptDataAsync_ = function(ba, onFinished){
     var tmp = [];
     var onFinish = (function(ba, last){
-        tmp = sjcl.bitArray.concat(tmp, ba);
+        tmp = eb.sh.misc.concatSelf(tmp, ba);
         if (last){
             onFinished(tmp);
             tmp = [];
@@ -2617,7 +2670,7 @@ EnigmaUploader.prototype.padBlockToBlockSize_ = function(input, beforeInput){
         if (beforeInput){
             input = w.concat(padBlock, input);
         } else {
-            input = w.concat(input, padBlock);
+            input = eb.sh.misc.concatSelf(input, padBlock);
         }
     }
 
@@ -3142,7 +3195,7 @@ EnigmaDownloader.prototype.mergeDownloadBuffers_ = function(from, to, buffer){
     // Consecutive - easy.
     if (this.cached.offset != -1 && this.cached.end == from){
         this.cached.end = to;
-        this.cached.buff = sjcl.bitArray.concat(this.cached.buff, bitArray);
+        this.cached.buff = eb.sh.misc.concatSelf(this.cached.buff, bitArray);
 
         // State update
         this.offset = to;
@@ -3215,7 +3268,7 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
  * @private
  */
 EnigmaDownloader.prototype.onPlainUpdated_ = function(buffer){
-    this.plain.buff = sjcl.bitArray.concat(this.plain.buff, buffer);
+    this.plain.buff = eb.sh.misc.concatSelf(this.plain.buff, buffer);
     this.plain.totalSize += sjcl.bitArray.bitLength(buffer)/8;
 
     // Start processing of the plain buffer.
@@ -3352,7 +3405,7 @@ EnigmaDownloader.prototype.decryptDataAsync_ = function(ba, onChunkDone){
  * @private
  */
 EnigmaDownloader.prototype.mergeDecryptedBuffers_ = function(buffer){
-    this.dec.buff = sjcl.bitArray.concat(this.dec.buff, buffer);
+    this.dec.buff = eb.sh.misc.concatSelf(this.dec.buff, buffer);
     this.dec.totalSize += sjcl.bitArray.bitLength(buffer)/8;
 };
 
@@ -3462,7 +3515,7 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
 
         // Process tag with defined length which can be processed only when the whole buffer is loaded.
         // Add toConsume bytes to the cdata buffer.
-        this.tps.cdata = w.concat(this.tps.cdata, w.bitSlice(this.dec.buff, cpos*8, (cpos+toConsume)*8));
+        this.tps.cdata = eb.sh.misc.concatSelf(this.tps.cdata, w.bitSlice(this.dec.buff, cpos*8, (cpos+toConsume)*8));
 
         cpos += toConsume;
         this.tps.clen += toConsume;
@@ -3522,7 +3575,8 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
             && !(this.tps.ctag in [EnigmaUploader.TAG_ENC, EnigmaUploader.TAG_METAMAC]))
         {
             // update: (TAG-1B | LEN-4B | DATA)
-            this.metaMacEngine.update(w.concat(w.concat([w.partial(8, this.tps.ctag)], [this.tps.tlen]), this.tps.cdata));
+            this.metaMacEngine.update(w.concat([w.partial(8, this.tps.ctag)], [this.tps.tlen]));
+            this.metaMacEngine.update(this.tps.cdata);
         }
     } while(true);
 
@@ -3627,7 +3681,7 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
 
         // Process tag with defined length which can be processed only when the whole buffer is loaded.
         // Add toConsume bytes to the cdata buffer.
-        this.tpo.cdata = w.concat(this.tpo.cdata, w.bitSlice(this.plain.buff, cpos*8, (cpos+toConsume)*8));
+        this.tpo.cdata = eb.sh.misc.concatSelf(this.tpo.cdata, w.bitSlice(this.plain.buff, cpos*8, (cpos+toConsume)*8));
 
         cpos += toConsume;
         this.tpo.clen += toConsume;
