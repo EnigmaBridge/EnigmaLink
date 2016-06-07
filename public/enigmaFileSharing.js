@@ -1574,6 +1574,10 @@ eb.sh.png.prototype = {
         this.pngHeadChunks.push(tag);
     },
 
+    createPaddingChunk: function(size){
+        return this.createChunk(this.genTag("umPp"), eb.misc.getZeroBits(size*8));
+    },
+
     addTrailUmphChunk: function(data){
         var tag = this.createChunk(this.genTag("umPh"), data);
         this.pngTailChunks.push(tag);
@@ -1617,6 +1621,7 @@ eb.sh.png.prototype = {
     getUmphWrappingDataSource: function(umphDataSource){
         var w = sjcl.bitArray, i, ln, trailData = [];
         this.crc32Engine = this.buildUmphCrcEngine();
+        var finalDataSources = [];
 
         // PNG head, until UMPH tag (exclusive).
         var pngHead = this.buildPngHead();
@@ -1624,6 +1629,18 @@ eb.sh.png.prototype = {
 
         // UMPH tag + length
         var umphHdrDs = new ConstDataSource( [(umphDataSource.length())|0, this.genTag("umPh")|0], {name: 'pngUmphHdr'} );
+
+        // Compute padding data source so the UMPHIO data starts at 32 B multiple.
+        var hdrLen = pngHeadDs.length() + umphHdrDs.length();
+        if ((hdrLen % 32) != 0){
+            var lenWithPadHdr = hdrLen + 4 + 4 + 4;
+            var padChunk = this.createPaddingChunk(32 - (lenWithPadHdr % 32));
+            var padDs = new ConstDataSource( padChunk, {name: 'pngPad'} );
+            finalDataSources = [pngHeadDs, padDs, umphHdrDs];
+
+        } else {
+            finalDataSources = [pngHeadDs, umphHdrDs];
+        }
 
         // UMPH content wrapped with hashing data source - computes CRC32 over input data.
         var umphDataSourceCrc32Ds = new HashingDataSource(umphDataSource, (function(ofStart, ofEnd, len, data){
@@ -1648,7 +1665,10 @@ eb.sh.png.prototype = {
         trailData = w.concat(trailData, this.pngTrail);
         var pngTrailDs = new ConstDataSource(trailData, {name: 'pngTrail'});
 
-        return new MergedDataSource([pngHeadDs, umphHdrDs, umphDataSourceCrc32Ds, crc32StaticDs, pngTrailDs], {name: "png"});
+        finalDataSources.push(umphDataSourceCrc32Ds);
+        finalDataSources.push(crc32StaticDs);
+        finalDataSources.push(pngTrailDs);
+        return new MergedDataSource(finalDataSources, {name: "png"});
     }
 };
 
