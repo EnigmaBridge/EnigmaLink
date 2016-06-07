@@ -2171,11 +2171,24 @@ EnigmaUploader.prototype.computeTotalSize_ = function(fstBlockSize, dataLen, tra
  */
 EnigmaUploader.prototype.computeEncryptedPartSize_ = function(dataLen){
     var totalSize = 0;
-    // conceal padding hdr
-    totalSize += this.isPaddingEnabled_() ? (1 + 4) : 0;
+    // enc data padding to 32B
+    totalSize += this.computeEncDataPadding_() + 1 + 4;
     // encHdr + data len
     totalSize += (1 + 8) + dataLen;
+    // conceal padding hdr
+    totalSize += this.isPaddingEnabled_() ? (1 + 4) : 0;
     return totalSize;
+};
+
+/**
+ * Computes padding that needs to be added in front of TAG_ENC so the file starts at position
+ * aligned on 32B.
+ *
+ * @returns {number}
+ * @private
+ */
+EnigmaUploader.prototype.computeEncDataPadding_ = function(){
+    return 32 - 1-4 - 1-8; // 32B block - padding header - TAG_ENC header (9B)
 };
 
 /**
@@ -2240,7 +2253,7 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
     var blobScSize = blobSc.length();
 
     // Add padding such that file data is aligned to 32B multiple.
-    var encPadLen = 32 - 1-4 - 1-8; // 32B block - padding header - TAG_ENC header (9B)
+    var encPadLen = this.computeEncDataPadding_(); // 32B block - padding header - TAG_ENC header (9B)
     var padDs = new ConstDataSource(
         w.concat(
             w.concat([w.partial(8, EnigmaUploader.TAG_PADDING)], [encPadLen]),
