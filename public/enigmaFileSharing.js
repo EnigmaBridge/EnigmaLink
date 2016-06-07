@@ -1514,17 +1514,14 @@ eb.sh.png.prototype = {
             switch(tag){
                 case this.genTag("IHDR"):
                     this.chunks.hdr = chunk;
-                    console.log(sprintf("HEADER, %s", tagStart));
                     break;
                 case this.genTag("IDAT"):
                     if (this.chunks.idat === undefined) {
                         this.chunks.idat = chunk;
-                        console.log(sprintf("IDAT, %s", tagStart));
                     }
                     break;
                 case this.genTag("IEND"):
                     this.chunks.end = chunk;
-                    console.log(sprintf("END, %s", tagStart));
                     break;
                 default:
                     break;
