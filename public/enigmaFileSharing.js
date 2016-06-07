@@ -743,6 +743,7 @@ DataSource.prototype = {
  * Data source with blob. Can be a static blob or a file.
  * Data is read with FileReader.
  * @param blob
+ * @param {Object} [options]
  * @constructor
  */
 var BlobDataSource = function(blob, options){
@@ -756,6 +757,7 @@ var BlobDataSource = function(blob, options){
 /**
  * Constant data source.
  * @param {bitArray} data
+ * @param {Object} [options]
  * @constructor
  */
 var ConstDataSource = function(data, options){
@@ -769,6 +771,7 @@ var ConstDataSource = function(data, options){
  * Data source wrapping a generator.
  * @param generator
  * @param length
+ * @param {Object} [options]
  * @constructor
  */
 var WrappedDataSource = function(generator, length, options){
@@ -787,6 +790,7 @@ var WrappedDataSource = function(generator, length, options){
  *
  * @param {DataSource} dataSource underlying datasource
  * @param {Function} hashingFnc hashing function. bitArray to hash update is provided as an argument.
+ * @param {Object} [options]
  * @constructor
  */
 var HashingDataSource = function(dataSource, hashingFnc, options){
@@ -804,6 +808,7 @@ var HashingDataSource = function(dataSource, hashingFnc, options){
 /**
  * Data source combining multiple different data sources to one.
  * @param sources array of data sources.
+ * @param {Object} [options]
  * @constructor
  */
 var MergedDataSource = function(sources, options){
