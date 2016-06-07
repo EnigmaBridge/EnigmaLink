@@ -530,6 +530,7 @@
         divQrCode.qrcode(link);
         $('#aDownloadLink').attr("href", link);
         statusFieldSet(fldStatus, "Upload finished", true);
+        setDisabled(btnShare, false);
     }
 
     function processClicked(){
@@ -559,6 +560,7 @@
             },
             onError: function(data){
                 bodyProgress(false);
+                setDisabled(btnShare, false);
                 statusFieldSet(fldEbStatus, "Encryption key computation failed", false);
                 statusFieldSet(fldStatus, "Upload failed");
 
@@ -576,6 +578,7 @@
         statusFieldSet(fldEbStatus, "Computing encryption key...");
         statusFieldSet(fldStatus, "Preparing upload");
         bodyProgress(true);
+        setDisabled(btnShare, true);
         encScheme.build(fldPassword.val());
     }
 
