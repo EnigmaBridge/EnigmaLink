@@ -179,7 +179,7 @@ eb.sh.misc = {
 
         var ln = data.length, base = options.base || 1024*64; // 256Kb (1024*64 4B words) is the basic chunk.
         var i, hl = hash.length, curChunk;
-        var isAsync = options.async || true;
+        var isAsync = options.async === 'undefined' ? true : options.async;
 
         // Hash chunks.
         for(i = 0; i < ln; i += base){
@@ -223,7 +223,7 @@ eb.sh.misc = {
         options = options || {};
         var ln = data.length, base = options.base || 1024*8; // 32Kb (1024*8 4B words) is the basic chunk.
         var i, curChunk;
-        var isAsync = options.async || true;
+        var isAsync = options.async === 'undefined' ? true : options.async;
 
         for(i = 0; i < ln; i += base){
             curChunk = data.slice(i, i+base);
