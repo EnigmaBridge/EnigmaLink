@@ -2009,11 +2009,11 @@ EnigmaUploader.prototype.initialize_ = function() {
     aad = block;
 
     // Build meta block (fname, mime, fsize, message), unencrypted, for length computation. No state modification.
-    // toEnc is already padded to multiple of 16.
+    // toEnc is already padded to multiple of 32.
     var toEnc = this.buildMetaBlock_();
 
-    // Build padding of the first block so the whole first block is multiple of 16B.
-    // fstBlock = format | secCtx | TAG_ENCWRAP | len-8B | ENC($meta | $padding)
+    // Build padding of the first block so the fstBlock is padded to 32B multiple.
+    // fstBlock = magic | secCtx | TAG_ENCWRAP | len-8B | ENC($meta | $padding)
     var encMetaSize = w.bitLength(toEnc)/8;
     var fstBlockWoPadding = w.bitLength(block)/8 + (1 + 8) + encMetaSize;
     var padBlock = this.buildPaddingBlock_(fstBlockWoPadding);
@@ -2022,7 +2022,7 @@ EnigmaUploader.prototype.initialize_ = function() {
     block = w.concat(block, padBlock);
 
     // Compute first block size (no data sources included, static data).
-    // toEnc is aligned to 16B, encrypted size will be the same.
+    // toEnc is aligned to 32B, encrypted size will be the same.
     fstBlockSize = fstBlockWoPadding + w.bitLength(padBlock)/8;
 
     // Compute overall sizes required for the format.
@@ -2548,9 +2548,10 @@ EnigmaUploader.prototype.buildEncryptedMetaBlock_ = function(toEnc){
  */
 EnigmaUploader.prototype.getSizeAfterBlockPadding_ = function(curSize){
     // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
-    if ((curSize % 16) != 0){
+    var base = 32; // padding to 32 bytes as bitArray operations are much faster with 1 word aligned vectors.
+    if ((curSize % base) != 0){
         // pad tag + pad length = minimal size for new pad record.
-        return eb.misc.padToBlockSize(curSize + 5, 16); // length after padding to the whole block.
+        return eb.misc.padToBlockSize(curSize + 5, base); // length after padding to the whole block.
     } else {
         return curSize;
     }
@@ -2565,12 +2566,13 @@ EnigmaUploader.prototype.getSizeAfterBlockPadding_ = function(curSize){
 EnigmaUploader.prototype.buildPaddingBlock_ = function(size){
     var h = sjcl.codec.hex;
     var w = sjcl.bitArray;
+    var base = 32; // padding to 32 bytes as bitArray operations are much faster with 1 word aligned vectors.
     var padBytesToAdd;
 
     // Align to one AES block with padding record - encryption returns block immediately, easier size computation.
-    if ((size % 16) != 0){
+    if ((size % base) != 0){
         var numBytesAfterPadBlock = size + 5; // pad tag + pad length = minimal size for new pad record.
-        var totalFblockSize = eb.misc.padToBlockSize(numBytesAfterPadBlock, 16); // length after padding to the whole block.
+        var totalFblockSize = eb.misc.padToBlockSize(numBytesAfterPadBlock, base); // length after padding to the whole block.
         padBytesToAdd = totalFblockSize - numBytesAfterPadBlock;
 
         // Generate padding block
