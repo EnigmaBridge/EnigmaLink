@@ -3083,7 +3083,10 @@ EnigmaDownloader.prototype.fetch = function() {
     } else if (this.url) {
         this.fetchFile_();
     } else {
-        throw new eb.exception.invalid("URL not valid");
+        this.onError_({
+            'reason':'URL not valid',
+            'exception': new eb.exception.invalid("URL not valid")});
+        return;
     }
 };
 
@@ -3252,7 +3255,10 @@ EnigmaDownloader.prototype.mergeDownloadBuffers_ = function(from, to, buffer){
     }
 
     log("Download buffer is in invalid state, gaps could be present");
-    throw new eb.exception.invalid("Illegal download buffer state");
+    this.onError_({
+        'reason':'Internal error',
+        'exception': new eb.exception.invalid("Illegal download buffer state")});
+    return;
 };
 
 /**
@@ -3294,12 +3300,20 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
             this.inputParser = this.baseParser_;
 
         } else {
-            throw new eb.exception.invalid("Unrecognized input file");
+            this.onError_({
+                'reason':'Unrecognized input file',
+                'exception': new eb.exception.invalid("Unrecognized input file")});
+            return;
         }
     }
 
     // Pass downloaded data through parser.
-    this.inputParser(this.cached, this.bufferProcessed_.bind(this), this.onPlainUpdated_.bind(this));
+    try {
+        this.inputParser(this.cached, this.bufferProcessed_.bind(this), this.onPlainUpdated_.bind(this));
+    } catch(e){
+        this.onError_({'reason':'Parsing error', 'exception': e});
+        return;
+    }
 };
 
 /**
@@ -3477,7 +3491,10 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
         }
         if (cpos > decLen){
             log("Invalid buffer state");
-            throw new eb.exception.invalid("Invalid decrypted buffer state");
+            this.onError_({
+                'reason':'Parsing error',
+                'exception': new eb.exception.invalid("Invalid decrypted buffer state")});
+            return;
         }
 
         // Previous tag can be closed?
@@ -3493,7 +3510,10 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
 
             // Check for weird tags that should not be present in this buffer.
             if (ctag == EnigmaUploader.TAG_ENCWRAP || ctag == EnigmaUploader.TAG_SEC){
-                throw new eb.exception.invalid("Invalid tag detected");
+                this.onError_({
+                    'reason':'Parsing error',
+                    'exception': new eb.exception.invalid("Invalid tag detected")});
+                return;
             }
 
             // If there is not enough data for parsing length field, abort parsing. We need more data then.
@@ -3511,7 +3531,10 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
             cpos += lenBytes;
 
             if (this.tps.tlen < 0){
-                throw new eb.exception.invalid("Negative length detected, field too big");
+                this.onError_({
+                    'reason':'Parsing error',
+                    'exception': new eb.exception.invalid("Negative length detected, field too big")});
+                return;
             }
 
             // Parser can accept this tag, change the parser state.
@@ -3578,7 +3601,10 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
                 if (this.tps.tlen == 8){
                     this.uploadTime = eb.misc.deserialize64bit(this.tps.cdata);
                     if (this.uploadTime > eb.misc.MAX_SAFE_INTEGER){
-                        throw new eb.exception.invalid("Upload timestamp too big");
+                        this.onError_({
+                            'reason':'Parsing error',
+                            'exception': new eb.exception.invalid("Upload timestamp too big")});
+                        return;
                     }
                 }
 
@@ -3588,7 +3614,10 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
                 if (this.tps.tlen == 8){
                     this.fsizeMeta = eb.misc.deserialize64bit(this.tps.cdata);
                     if (this.fsizeMeta > eb.misc.MAX_SAFE_INTEGER){
-                        throw new eb.exception.invalid("File size too big");
+                        this.onError_({
+                            'reason':'Parsing error',
+                            'exception': new eb.exception.invalid("File size too big")});
+                        return;
                     }
                 }
 
@@ -3620,11 +3649,6 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
             this.metaMacEngine.update(this.tps.cdata);
         }
     } while(true);
-
-    // If here, this.downloaded and dec.buff is not empty = error. Parsing fail, unparsed data left.
-    if (cpos < decLen && this.downloaded){
-        throw new eb.exception.invalid("Parsing error. Unparsed data left");
-    }
 
     // Slice off the processed part of the buffer.
     this.dec.buff = w.bitSlice(this.dec.buff, cpos*8);
@@ -3663,7 +3687,10 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
         }
         if (cpos > bufLen){
             log("Invalid buffer state");
-            throw new eb.exception.invalid("Invalid plain buffer state");
+            this.onError_({
+                'reason':'Parsing error',
+                'exception': new eb.exception.invalid("Invalid plain buffer state")});
+            return;
         }
 
         // Previous tag can be closed?
@@ -3679,7 +3706,10 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
 
             // Check for weird tags that should not be present in this buffer.
             if (ctag == EnigmaUploader.TAG_ENCWRAP || ctag == EnigmaUploader.TAG_SEC || ctag == EnigmaUploader.TAG_ENC){
-                throw new eb.exception.invalid("Invalid tag detected");
+                this.onError_({
+                    'reason':'Parsing error',
+                    'exception': new eb.exception.invalid("Invalid tag detected")});
+                return;
             }
 
             // If there is not enough data for parsing length field, abort parsing. We need more data then.
@@ -3697,7 +3727,10 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
             cpos += lenBytes;
 
             if (this.tpo.tlen < 0){
-                throw new eb.exception.invalid("Negative length detected, field too big");
+                this.onError_({
+                    'reason':'Parsing error',
+                    'exception': new eb.exception.invalid("Negative length detected, field too big")});
+                return;
             }
 
             // Parser can accept this tag, change the parser state.
@@ -3737,13 +3770,22 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
                 log("GCM tag found");
                 // Finalize with tag data.
                 // If tag is invalid, exception is thrown from finalize()
-                var finalBlock = this.gcm.finalize(this.tpo.cdata, {returnTag:true});
+                try {
+                    var finalBlock = this.gcm.finalize(this.tpo.cdata, {returnTag: true});
 
-                // Merge decrypted data buffer with the previously decrypted data.
-                this.mergeDecryptedBuffers_(finalBlock.data);
+                    // Merge decrypted data buffer with the previously decrypted data.
+                    this.mergeDecryptedBuffers_(finalBlock.data);
+
+                } catch(e){
+                    this.onError_({
+                        'reason':'Security exception',
+                        'exception': new eb.exception.invalid("Data authenticity cannot be verified")});
+                    return;
+                }
 
                 // Finish processing of decrypted buffer.
                 this.processDecryptedBlock_();
+
                 break;
 
             case EnigmaUploader.TAG_END:
@@ -3780,7 +3822,10 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
     var expectedHeader = this.getExpectedHeader_();
     var expectedHeaderBl = w.bitLength(expectedHeader);
     if (!w.equal(expectedHeader, w.clamp(this.plain.buff, expectedHeaderBl))){
-        throw new eb.exception.invalid("Unrecognized input file");
+        this.onError_({
+            'reason':'Parsing error',
+            'exception': new eb.exception.invalid("Unrecognized input file")});
+        return;
     }
     cpos += expectedHeaderBl/8;
 
@@ -3790,7 +3835,10 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
     // Process tags.
     do {
         if (cpos > bufLen){
-            throw new eb.exception.invalid("Input data invalid - reading out of bounds");
+            this.onError_({
+                'reason':'Parsing error',
+                'exception': new eb.exception.invalid("Input data invalid - reading out of bounds")});
+            return;
         } else if (cpos == bufLen){
             break;
         }
@@ -3816,14 +3864,20 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
                 tlen = w.extract32(this.plain.buff, cpos*8);
                 cpos += EnigmaUploader.LENGTH_BYTES;
                 if (this.encryptionInitialized || secBlock !== undefined){
-                    throw new eb.exception.invalid("Sec block already seen");
+                    this.onError_({
+                        'reason':'Parsing error',
+                        'exception': new eb.exception.invalid("Sec block already seen")});
+                    return;
                 }
 
                 secBlock = w.bitSlice(this.plain.buff, cpos*8, (cpos+tlen)*8);
                 cpos += tlen;
 
                 if (w.bitLength(secBlock) != tlen*8){
-                    throw new eb.exception.invalid("Sec block size does not match");
+                    this.onError_({
+                        'reason':'Parsing error',
+                        'exception': new eb.exception.invalid("Sec block size does not match")});
+                    return;
                 }
 
                 break;
@@ -3845,14 +3899,20 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
 
     // Throw an exception if ENCWRAP was not detected by the end of this call. Simple parser.
     if (!this.encWrapDetected){
-        throw new eb.exception.invalid("ENCWRAP tag was not detected in the data. Parser does not support chunked data");
+        this.onError_({
+            'reason':'Parsing error',
+            'exception': new eb.exception.invalid("ENCWRAP tag was not detected in the data. Parser does not support chunked data")});
+        return;
     }
 
     // Slice off the processed part of the buffer.
     this.plain.buff = w.bitSlice(this.plain.buff, cpos*8);
 
     if (secBlock === undefined){
-        throw new eb.exception.invalid("Security block not found");
+        this.onError_({
+            'reason':'Parsing error',
+            'exception': new eb.exception.invalid("Security block not found")});
+        return;
     }
 
     this.aad = w.concat(this.aad, [w.partial(8, EnigmaUploader.TAG_SEC)]);
@@ -3869,7 +3929,10 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
     var cpos=0, w=sjcl.bitArray;
     var ln = w.bitLength(buffer)/8;
     if (ln < 16){
-        throw new eb.exception.invalid("Input data buffer is in invalid state");
+        this.onError_({
+            'reason':'Parsing error',
+            'exception': new eb.exception.invalid("Input data buffer is in invalid state")});
+        return;
     }
 
     // Extract GCM IV.
@@ -3942,7 +4005,10 @@ EnigmaDownloader.prototype.bufferProcessed_ = function(){
 
     // If file is downloaded, new processing is required and end tag was still not found, it is format error.
     if (this.downloaded && !this.endTagDetected){
-        throw new eb.exception.corrupt("File is malformed");
+        this.onError_({
+            'reason':'Parsing error',
+            'exception': new eb.exception.invalid("File is malformed")});
+        return;
     }
 
     // Once the download is completed, signalize process has finished.
@@ -4073,4 +4139,11 @@ EnigmaDownloader.prototype.progressHandler_ = function(meta, evt){
 EnigmaDownloader.prototype.changeState_ = function(newState, data){
     this.curState = newState;
     this.onStateChange({'state':newState, data:data||{}});
+};
+
+EnigmaDownloader.prototype.onError_ = function(data){
+    eb.sh.misc.async((function() {
+        this.changeState_(EnigmaDownloader.STATE_ERROR);
+        this.onError(data);
+    }).bind(this));
 };
