@@ -418,7 +418,7 @@ sjcl.mode.gcmProgressive.engine.prototype = {
         }
 
         if (returnTag) {
-            return {tag: w.bitSlice(this._tag, 0, this._tlen), data: interm};
+            return {tag: w.clamp(this._tag, this._tlen), data: interm};
         }
 
         return this._enc ? w.concat(interm || [], this._tag) : interm;
@@ -1528,7 +1528,7 @@ eb.sh.png.prototype = {
             }
         }
 
-        this.pngHead = w.bitSlice(this.png, 0, this.chunks.idat.offset*8);
+        this.pngHead = w.clamp(this.png, this.chunks.idat.offset*8);
         this.pngData = w.bitSlice(this.png, this.chunks.idat.offset*8, this.chunks.end.offset*8);
         this.pngTrail = w.bitSlice(this.png, this.chunks.end.offset*8);
     },
@@ -1709,7 +1709,7 @@ eb.sh.pngParser.prototype = {
      */
     isSupportedFormat: function(ba){
         var w = sjcl.bitArray;
-        return w.equal(this.pngHeader, w.bitSlice(ba, 0, w.bitLength(this.pngHeader)));
+        return w.equal(this.pngHeader, w.clamp(ba, w.bitLength(this.pngHeader)));
     },
 
     /**
@@ -3190,7 +3190,7 @@ EnigmaDownloader.prototype.processDownloadBuffer_ = function(){
             log("Input is a PNG file");
             this.inputParser = this.pngParser_;
 
-        } else if (w.equal(expectedHeader, w.bitSlice(this.cached.buff, 0, expectedHeaderBl))){
+        } else if (w.equal(expectedHeader, w.clamp(this.cached.buff, expectedHeaderBl))){
             log("Input is raw UMPHIO file");
             this.inputParser = this.baseParser_;
 
@@ -3305,7 +3305,7 @@ EnigmaDownloader.prototype.processPlainBuffer_ = function(){
             }).bind(this);
 
             // Start async decryption.
-            this.decryptDataAsync_(w.bitSlice(this.plain.buff, 0, toProcessSize*8), onDecrypted);
+            this.decryptDataAsync_(w.clamp(this.plain.buff, toProcessSize*8), onDecrypted);
             return;
         }
     }
@@ -3679,7 +3679,7 @@ EnigmaDownloader.prototype.processEncryptionBlock_ = function(){
     // Header check. Magic string. In future here we can process PNGs, PDFs, ...
     var expectedHeader = this.getExpectedHeader_();
     var expectedHeaderBl = w.bitLength(expectedHeader);
-    if (!w.equal(expectedHeader, w.bitSlice(this.plain.buff, 0, expectedHeaderBl))){
+    if (!w.equal(expectedHeader, w.clamp(this.plain.buff, expectedHeaderBl))){
         throw new eb.exception.invalid("Unrecognized input file");
     }
     cpos += expectedHeaderBl/8;
@@ -3773,7 +3773,7 @@ EnigmaDownloader.prototype.processSecCtx_ = function(buffer){
     }
 
     // Extract GCM IV.
-    this.iv = w.bitSlice(buffer, 0, 16*8);
+    this.iv = w.clamp(buffer, 16*8);
     cpos += 16;
 
     // Security context, contains decryption key, wrapped.
