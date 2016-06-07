@@ -60,11 +60,15 @@
         <div class="inner-wrap">
             <label>App key
                 <input type="text" id="fldAppKey" placeholder="App key" value="0000000000000000000000000000000000000000000000000000000000000000"/>
-                <span>Application key in UO</span>
+                <span>Application key in UO.
+                <a onclick="fldAppKey.val(eb.misc.genHexNonce(64));">Random</a>
+                </span>
             </label>
             <label>Comm key - Single derivation
                 <input type="text" id="fldCommKey" placeholder="Comm key deriv" value="00000000000000000000000000000000"/>
-                <span>Single comm key derivation source - if changed, encKey, macKey changes</span>
+                <span>Single comm key derivation source - if changed, encKey, macKey changes
+                <a onclick="fldCommKey.val(eb.misc.genHexNonce(32));onCommChanged();">Random</a>
+                </span>
             </label>
             <label>Comm key - EncKey
                 <input type="text" id="fldEncKey" placeholder="Enc key" value="0000000000000000000000000000000000000000000000000000000000000000"/>
