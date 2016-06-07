@@ -1113,7 +1113,9 @@ EnigmaShareScheme.prototype.build = function(password, onBuildFinishedCb){
     var onEbOpSuccess = (function(data){
         var e2 = data.data;
         if (w.bitLength(e2) != w.bitLength(plainSecBlock)){
-            throw new eb.exception.invalid("Returned encrypted block has invalid length");
+            this.onError({'reason':'Internal error', data: data, scheme: this,
+                exception: new eb.exception.invalid("Returned encrypted block has invalid length")});
+            return;
         }
 
         // Compute e1 block.
@@ -1146,12 +1148,16 @@ EnigmaShareScheme.prototype.process = function(secCtx){
 
     // Parse the context.
     if (w.extract(secCtx, cpos*8, 8) != EnigmaShareScheme.VERSION){
-        throw new eb.exception.invalid("Unsupported version");
+        this.onError({'reason':'Internal error', scheme: this,
+            exception: new eb.exception.invalid("Unsupported version")});
+        return;
     }
     cpos += 1;
 
     if (w.extract(secCtx, cpos*8, 8) != EnigmaShareScheme.TAG_V1){
-        throw new eb.exception.invalid("V1 tag is missing");
+        this.onError({'reason':'Internal error', scheme: this,
+            exception: new eb.exception.invalid("V1 tag is missing")});
+        return;
     }
     cpos += 1;
 
@@ -1177,7 +1183,9 @@ EnigmaShareScheme.prototype.process = function(secCtx){
     cpos += 4;
 
     if (pkeyIter != EnigmaShareScheme.ITERATIONS_PKEY || lkeyIter != EnigmaShareScheme.ITERATIONS_LKEY){
-        throw new eb.exception.invalid("Number of iterations not supported");
+        this.onError({'reason':'Internal error', scheme: this,
+            exception: new eb.exception.invalid("Number of iterations not supported")});
+        return;
     }
 
     this.e1 = w.bitSlice(secCtx, cpos*8);
@@ -1187,7 +1195,9 @@ EnigmaShareScheme.prototype.process = function(secCtx){
         || w.bitLength(this.phSalt) != 128
         || w.bitLength(this.e1Iv) != 128
     ) {
-        throw new eb.exception.invalid("Invalid element sizes in secCtx");
+        this.onError({'reason':'Internal error', scheme: this,
+            exception: new eb.exception.invalid("Invalid element sizes in secCtx")});
+        return;
     }
 
     // If password protection is set, call password provide callback.
