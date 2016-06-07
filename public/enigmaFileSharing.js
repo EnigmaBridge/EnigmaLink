@@ -2343,7 +2343,7 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
 
             // Add appropriate amount of bytes from cres to result.
             var baBl = w.bitLength(ba);
-            result = w.concat(result, w.bitSlice(ba, 0, Math.min(baBl, 8 * (fEndOrig - fOffset))));
+            result = w.concat(result, w.clamp(ba, Math.min(baBl, 8 * (fEndOrig - fOffset))));
             ba = []; // Drop allocation before going to callback.
 
             handler(result);
