@@ -2197,7 +2197,7 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
 
     // Simple padding data source generator - stream of zero bytes, generated on demand.
     var padGenerator = function(offsetStart, offsetEnd, handler){
-        handler(eb.misc.getZeroBits((offsetEnd-offsetStart)*8));
+        handler(eb.misc.getRandomBits((offsetEnd-offsetStart)*8));
     };
 
     if (concealingSize < 0){
@@ -2578,7 +2578,7 @@ EnigmaUploader.prototype.buildPaddingBlock_ = function(size){
         // Generate padding block
         var padBlock = h.toBits(sprintf("%02x%08x", EnigmaUploader.TAG_PADDING, padBytesToAdd));
         if (padBytesToAdd > 0){
-            padBlock = w.concat(padBlock, eb.misc.getZeroBits(padBytesToAdd * 8));
+            padBlock = w.concat(padBlock, eb.misc.getRandomBits(padBytesToAdd * 8));
         }
 
         return padBlock;
