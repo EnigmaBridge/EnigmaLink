@@ -2410,8 +2410,8 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
 
         // Event handler called when data is loaded from the underlying data source.
         var onDataToEncryptLoadedFnc = (function (ba) {
-            log(sprintf("onBytesRead: %s - %s of %s B file. TotalUploadSize: %s B, bitArray: %s B. GCM start.",
-                fOffset, fEnd, ln, this.totalSize, w.bitLength(ba) / 8));
+            log(sprintf("onBytesRead: %s - %s of %s B file. TotalUploadSize: %s B, bitArray: %s B. Cached: %s. GCM start.",
+                fOffset, fEnd, ln, this.totalSize, w.bitLength(ba) / 8, w.bitLength(this.cached.buff)/8));
 
             // Encrypt this chunk with GCM mode.
             // Output length is cipher-block aligned, this can cause underflows in certain situations. To make it easier
