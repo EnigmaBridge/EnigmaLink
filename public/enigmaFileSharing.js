@@ -2181,7 +2181,15 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
     // Main blob containing input data / file size.
     var blobScSize = blobSc.length();
 
-    // Encryption block, the last tag in the message - without length
+    // Add padding such that file data is aligned to 32B multiple.
+    var encPadLen = 32 - 1-4 - 1-8; // 32B block - padding header - TAG_ENC header (9B)
+    var padDs = new ConstDataSource(
+        w.concat(
+            w.concat([w.partial(8, EnigmaUploader.TAG_PADDING)], [encPadLen]),
+            eb.misc.getRandomBits(encPadLen*8)
+            ), {name: 'encPadDs'});
+
+    // Encryption block, contains the shared data, has 8B length field.
     var encHdr = w.concat([w.partial(8, EnigmaUploader.TAG_ENC)], eb.misc.serialize64bit(blobScSize));
     var encHdrDs = new ConstDataSource(encHdr, {name: 'encHdr'});
 
@@ -2192,7 +2200,7 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
 
     // Message size concealing padding data sources.
     if (!paddingEnabled){
-        return new MergedDataSource([encHdrDs, inputHashingDs], {name: 'encData'});
+        return new MergedDataSource([padDs, encHdrDs, inputHashingDs], {name: 'encData'});
     }
 
     // Simple padding data source generator - stream of zero bytes, generated on demand.
@@ -2209,7 +2217,7 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
     var padGen = new WrappedDataSource(padGenerator, concealingSize, {name: 'concealData'});
 
     // Padding + data to encrypt
-    return new MergedDataSource([padConst, padGen, encHdrDs, inputHashingDs], {name: 'encConcData'});
+    return new MergedDataSource([padDs, encHdrDs, inputHashingDs, padConst, padGen], {name: 'encConcData'});
 };
 
 /**
