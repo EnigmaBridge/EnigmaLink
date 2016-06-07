@@ -3699,7 +3699,7 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
         cpos += toConsume;
         this.tpo.clen += toConsume;
         if (this.tpo.clen != this.tpo.tlen){
-            log("Not enough data");
+            log(sprintf("Not enough data for tag: 0x%x, tlen: %s, clen: %s", this.tpo.ctag, this.tpo.tlen, this.tpo.clen));
             continue;
         }
 
