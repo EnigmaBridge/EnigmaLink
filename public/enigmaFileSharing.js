@@ -3912,6 +3912,11 @@ EnigmaDownloader.prototype.bufferProcessed_ = function(){
         this.fetchFile_();
     }
 
+    // If file is downloaded, new processing is required and end tag was still not found, it is format error.
+    if (this.downloaded && !this.endTagDetected){
+        throw new eb.exception.corrupt("File is malformed");
+    }
+
     // Once the download is completed, signalize process has finished.
     if (this.downloaded && this.endTagDetected) {
         // If hash is computed in async way, enqueue so we know for sure the last block was updated.
