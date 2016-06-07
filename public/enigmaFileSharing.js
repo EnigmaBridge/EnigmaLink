@@ -2233,7 +2233,10 @@ EnigmaUploader.prototype.buildGcmTagDataSource_ = function(){
             var res = this.gcm.finalize([], {returnTag: true});
             this.cached.tag = res.tag;
             if (res.data.length > 0){
-                throw new eb.exception.invalid("GCM tag finalizing, data produced, should not happen");
+                this.onError_({
+                    'reason':'Internal error',
+                    'exception': new eb.exception.invalid("GCM tag finalizing, data produced, should not happen")});
+                return;
             }
         }
 
@@ -2290,7 +2293,10 @@ EnigmaUploader.prototype.buildEncryptionInputDataSource_ = function(blobSc, conc
     };
 
     if (concealingSize < 0){
-        throw new eb.exception.invalid("Padding cannot be negative");
+        this.onError_({
+            'reason':'Internal error',
+            'exception': new eb.exception.invalid("Padding cannot be negative")});
+        return;
     }
 
     // Padding tag source + padding generator.
@@ -2338,14 +2344,20 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
         var aheadBytes = 0;
 
         if (fEnd > ln){
-            throw new eb.exception.invalid(sprintf("Requesting larger chunk than available, end: %s, len: %s", fEnd, ln));
+            this.onError_({
+                'reason':'Internal error',
+                'exception': new eb.exception.invalid(sprintf("Requesting larger chunk than available, end: %s, len: %s", fEnd, ln))});
+            return;
         }
 
         // If old chunk is requested - error, should not happen.
         // We already discarded processed data in the cache cleanup and it cannot be computed again as
         // GCM state already moved forward.
         if (this.cached.offset != -1 && fOffset < this.cached.offset) {
-            throw new sjcl.exception.invalid("Data requested were deleted.");
+            this.onError_({
+                'reason':'Internal error',
+                'exception': new eb.exception.invalid("Data requested were deleted.")});
+            return;
         }
 
         // Drop old processed chunks from the processed buffer. Won't be needed anymore.
@@ -2833,6 +2845,12 @@ EnigmaUploader.prototype.onUploadError_ = function(e) {
 
 EnigmaUploader.prototype.progressHandler_ = function(meta, evt){
     this.onProgress(evt, meta);
+};
+
+EnigmaUploader.prototype.onError_ = function(data){
+    eb.sh.misc.async((function() {
+        this.onError(data);
+    }).bind(this));
 };
 
 /**
