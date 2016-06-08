@@ -26,6 +26,8 @@ var divBoxProgress;
 var oldLabelData;
 var divShareInfo;
 var fldLink;
+var fldSha256;
+var fldSha1;
 var divProgressBar;
 
 // Google Drive access token.
@@ -435,9 +437,11 @@ function onFileShared(data){
 	var link = eb.sh.misc.buildUrl("/download.html", linkConfig, shareConfig.baseUrl, true);
 	if (data.uploader.sha1){
 		log(sprintf("SHA1:   %s", sjcl.codec.hex.fromBits(data.uploader.sha1)));
+		fldSha1.val(sjcl.codec.hex.fromBits(data.uploader.sha1));
 	}
 	if (data.uploader.sha256){
 		log(sprintf("SHA256: %s", sjcl.codec.hex.fromBits(data.uploader.sha256)));
+		fldSha256.val(sjcl.codec.hex.fromBits(data.uploader.sha256));
 	}
 
 	currentFileLink = link;
@@ -783,6 +787,8 @@ $(function()
 	divBoxProgress = $('#divBoxProgress');
 	divShareInfo = $('#bloc-info');
 	fldLink = $('#fldLink');
+	fldSha256 = $('#fldSha256');
+	fldSha1 = $('#fldSha1');
 	divProgressBar = $('.progress-bar');
 
 	fldMsg = $('#fldMessage');
