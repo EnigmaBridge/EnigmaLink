@@ -216,8 +216,8 @@ function initUploadDiv(form){
 
 	// Firefox focus bug fix for file input
 	$fldInput
-		.on( 'focus', function(){ $input.addClass( 'has-focus' ); })
-		.on( 'blur', function(){ $input.removeClass( 'has-focus' ); });
+		.on( 'focus', function(){ $fldInput.addClass( 'has-focus' ); })
+		.on( 'blur', function(){ $fldInput.removeClass( 'has-focus' ); });
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
