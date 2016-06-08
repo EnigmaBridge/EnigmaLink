@@ -260,7 +260,7 @@ function uploadClicked(){
 		return false;
 	}
 
-	$form.addClass( 'is-uploading' ).removeClass( 'is-error is-success' );
+	$form.addClass( 'is-uploading' ).removeClass( 'is-error is-success is-ready' );
 	onUploadStateChange(false, "Generating encryption key");
 
 	if (!isAdvancedUpload){
@@ -431,10 +431,9 @@ function onFileShared(data){
 	//divQrCode.qrcode(link);
 	//$('#aDownloadLink').attr("href", link);
 	onUploadStateChange(false, "Upload finished");
-	$form.removeClass( 'is-uploading').addClass( 'is-success');
-
-
-
+	$form.removeClass( 'is-uploading is-ready').addClass( 'is-success');
+	setFillScreenBlocHeight();
+	eb.sh.misc.async(setFillScreenBlocHeight);
 
 	//statusFieldSet(fldStatus, "Upload finished", true);
 	//setDisabled(btnUpload, false);
@@ -527,8 +526,7 @@ function onShareFolderFetched(err){
 	log("Share folder fetched");
 
 	// Now sharing can be enabled.
-	divUploadInput.show();
-	divUploadLogin.hide();
+	$(updForm).addClass('is-ready');
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -566,21 +564,16 @@ function initUploadDiv(form){
 		divButtons.hide();
 		$fldLabel.html(oldLabelData);
 		if (!storageLoaded){
-			divUploadLogin.show();
-			divUploadInput.hide();
+			$(updForm).removeClass('is-ready');
 		} else {
-			divUploadLogin.hide();
-			divUploadInput.show();
+			$(updForm).addClass('is-ready');
 		}
-		//$fldInput.trigger( 'click' );
 	});
 
 	// Firefox focus bug fix for file input
 	$fldInput
 		.on( 'focus', function(){ $fldInput.addClass( 'has-focus' ); })
 		.on( 'blur', function(){ $fldInput.removeClass( 'has-focus' ); });
-
-	divUploadInput.hide();
 
 	// Upload behavior.
 	initUploadDivBehavior(updForm);
@@ -613,7 +606,6 @@ function initUploadDivBehavior(form){
 		{
 			var newFiles = e.originalEvent.dataTransfer.files; // the files that were dropped
 			logFiles(newFiles);
-			divUploadLogin.hide();
 
 			if (!storageLoaded){
 				onUploadError( "Storage is not yet connected, please wait" );
@@ -650,7 +642,7 @@ function onUploadStateChange(progress, data){
 
 function onUploadError(data){
 	var $form = $(updForm);
-	$form.removeClass( 'is-uploading is-success' ).addClass( 'is-error' );
+	$form.removeClass( 'is-uploading is-success is-ready' ).addClass( 'is-error' );
 	$fldErrorMsg.text( data );
 }
 

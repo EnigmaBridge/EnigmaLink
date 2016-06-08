@@ -9,9 +9,14 @@ body
     font-size: 2rem; /* 20 */
     background-color: rgba(0, 167, 215, 0.06);
     position: relative;
-    padding: 100px 20px;
+    padding: 150px 20px;
     text-align: center;
 }
+
+.box.is-success {
+    padding: 150px 20px;
+}
+
 .box.has-advanced-upload
 {
     outline: 2px dashed #00A7D7;
@@ -47,20 +52,26 @@ body
 
 .box.is-uploading .box__input,
 .box.is-success .box__input,
-.box.is-error .box__input
+.box.is-error .box__input,
+.box.is-ready .box__login,
+.box.is-uploading .box__login,
+.box.is-success .box__login,
+.box.is-error .box__login
 {
     visibility: hidden;
 }
 
 .box__uploading,
 .box__success,
-.box__error
+.box__error,
+.box__input
 {
     display: none;
 }
 .box.is-uploading .box__uploading,
 .box.is-success .box__success,
-.box.is-error .box__error
+.box.is-error .box__error,
+.box.is-ready .box__input
 {
     display: block;
     position: absolute;
@@ -169,10 +180,6 @@ body
 #divButtons{
     display: none;
     margin-top: 10px;
-}
-
-#divUploadInput{
-    display: none;
 }
 
 .box #divUploadLogin{
