@@ -337,14 +337,19 @@ function onUploadKeyCreated(encScheme){
 		encKey: encKey,
 		secCtx: secCtx,
 		lnonceHash: sjcl.hash.sha256.hash(lnonce),
-		chunkSize: 262144*32,
+
+		chunkSizeMax: 262144*16, // 4MB chunk size
+		chunkSizeAdaptive: true,
+
 		fname: fldFname.val(),
 		fnameOrig: fldFnameOrig.val(),
 		extraMessage: extraMessage,
 		parents: [shareFolderId],
 		contentType: isChecked(chkMask) ? 'application/octet-stream' : undefined,
 		padFnc: isChecked(chkSizeConceal) ? EnigmaSharingUpload.sizeConcealPadFnc : undefined,
+
 		png: isChecked(chkPng) ? pngImg : undefined,
+
 		onProgress: function(oEvent, aux){
 			if (oEvent.lengthComputable) {
 				var totalPercent = (aux.offset+oEvent.loaded) / aux.total;
