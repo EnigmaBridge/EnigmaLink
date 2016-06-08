@@ -168,7 +168,8 @@
 
                 <span>Embeds encrypted file in the PNG image so people see the file contains encrypted content.
                     With this option encrypted file in your GoogleDrive will look like PNG file.
-                Warning! All image manipulation (e.g. rotation, flip, resizing, ...) on the produced file will wipe out encrypted content.</span>
+                Warning! All image manipulation (e.g. rotation, flip, resizing, ...) on the produced file will wipe out encrypted conten
+                    .</span>
             </label>
 
             <label>Password
@@ -348,23 +349,6 @@
             aesKey: aesKey,
             macKey: macKey,
         };
-    }
-
-    /**
-     * Callback for G+ Sign-in. Swaps views if login successful.
-     */
-    function signinCallback(result) {
-        if(result.access_token) {
-            accessToken = result.access_token;
-            document.getElementById('signin').style.display = 'none';
-            document.getElementById('signedin').style.display = null;
-            log(sprintf("Google Drive auth successful, token: %s", accessToken));
-
-            catDrive.click();
-
-            // Load google drive lib.
-            loadDrive();
-        }
     }
 
     function logFiles(files){
@@ -642,6 +626,23 @@
 
         });
         uploader.upload();
+    }
+
+    /**
+     * Callback for G+ Sign-in. Swaps views if login successful.
+     */
+    function signinCallback(result) {
+        if(result.access_token) {
+            accessToken = result.access_token;
+            document.getElementById('signin').style.display = 'none';
+            document.getElementById('signedin').style.display = null;
+            log(sprintf("Google Drive auth successful, token: %s", accessToken));
+
+            catDrive.click();
+
+            // Load google drive lib.
+            loadDrive();
+        }
     }
 
     /**
