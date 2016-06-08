@@ -17,6 +17,10 @@ var $fldInput;
 var $fldLabel;
 var $fldErrorMsg;
 var $fldRestart;
+var svgUpload;
+var divButtons;
+var divUploadInput;
+var divUploadLogin;
 
 // Google Drive access token.
 var accessToken = null;
@@ -176,7 +180,40 @@ function bodyProgress(started){
 // Logic
 // ---------------------------------------------------------------------------------------------------------------------
 
-// ...
+function genRandomName(){
+	return eb.misc.genAlphaNonce(12);
+}
+
+function logFiles(files){
+	$.each( files, function( i, file )
+	{
+		log(sprintf("File: [%s], size: %s B, type: %s", file.name, file.size, file.type));
+	});
+}
+
+function showFiles(files, $input, $label){
+	logFiles(files);
+	$label.text( files.length > 1 ? ( $input.attr( 'data-multiple-caption' ) || '' ).replace( '{count}', files.length ) : files[ 0 ].name );
+
+	// Set default file name.
+	if (files.length == 1) {
+		fldFname.val(isChecked(chkMask) ? genRandomName() : files[0].name);
+		fldFnameOrig.val(files[0].name);
+	}
+
+	// Hide upload icon
+	svgUpload.hide();
+	divButtons.show();
+}
+
+function enableLinkButtons(enable){
+	setDisabled($('#btnCopyLink'), !enable);
+	setDisabled($('#btnTryLink'), !enable);
+	setDisabled($('#btnSaveLink'), !enable);
+	setDisabled($('#btSaveQr'), !enable);
+	setDisabled($('#btnChangeSharing'), !enable);
+}
+
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Google Drive
@@ -264,6 +301,8 @@ function onShareFolderFetched(err){
 	log("Share folder fetched");
 
 	// Now sharing can be enabled.
+	divUploadInput.show();
+	divUploadLogin.hide();
 	//setDisabled(btnShare, false);
 	//spnBtnShare.hide('fast');
 }
@@ -277,7 +316,7 @@ function initUploadDiv(form){
 	$fldInput		 = $form.find( 'input[type="file"]' );
 	$fldLabel		 = $form.find( 'label' );
 	$fldErrorMsg	 = $form.find( '.box__error span' );
-	$fldRestart	 = $form.find( '.box__restart' );
+	$fldRestart	 	 = $form.find( '.box__restart' );
 
 	// On file change show file info.
 	$fldInput.on( 'change', function( e )
@@ -311,11 +350,14 @@ function initUploadDiv(form){
 		{
 			var newFiles = e.originalEvent.dataTransfer.files; // the files that were dropped
 			if (newFiles.length > 1){
-				$fldLabel.text("Only one file is supported for now.");
+				$form.removeClass( 'is-uploading' ).addClass( 'is-error' );
+				$fldErrorMsg.text( "Only one file is supported for now." );
+				//$fldLabel.text("Only one file is supported for now.");
 				logFiles(newFiles);
 				return;
 			}
 
+			$form.removeClass( 'is-error' );
 			droppedFiles = newFiles;
 			showFiles( droppedFiles, $fldInput, $fldLabel );
 		});
@@ -325,13 +367,17 @@ function initUploadDiv(form){
 	{
 		e.preventDefault();
 		$form.removeClass( 'is-error is-success' );
-		$fldInput.trigger( 'click' );
+		svgUpload.show();
+		divButtons.hide();
+		//$fldInput.trigger( 'click' );
 	});
 
 	// Firefox focus bug fix for file input
 	$fldInput
 		.on( 'focus', function(){ $fldInput.addClass( 'has-focus' ); })
 		.on( 'blur', function(){ $fldInput.removeClass( 'has-focus' ); });
+
+	divUploadInput.hide();
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -343,6 +389,10 @@ $(function()
 	sjcl.random.startCollectors();
 	htmlBody = $("body");
 	updForm = $('.box')[0];
+	svgUpload = $('#svgUpload');
+	divButtons = $('#divButtons');
+	divUploadInput = $('#divUploadInput');
+	divUploadLogin = $('#divUploadLogin');
 
 	fldMsg = $('#fldMessage');
 	fldFname = $('#filename');
