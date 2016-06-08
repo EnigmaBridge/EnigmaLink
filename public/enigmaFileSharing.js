@@ -1924,11 +1924,13 @@ eb.sh.pngParser.prototype = {
  * @param {object} [options.fnameOrig] Original file name to be stored to the encrypted meta block.
  * @param {object} [options.extraMessage] Extra text message to share with the file.
  * @param {object} [options.passwordHint] Password hint phrase, non-protected.
+ * @param {Array|bitArray} [options.lnonceHash] SHA256(linkNonce) required for the password hint.
  * @param {object} [options.retry] Options for RetryHandler.
  * @param {Array} [options.parents] Parent folder IDs of the uploaded file. If null, root directory is the only parent.
  * @param {function} [options.onComplete] Callback for when upload is complete
  * @param {function} [options.onProgress] Callback for status for the in-progress upload
  * @param {function} [options.onError] Callback if upload fails
+ * @param {function} [options.onStateChange] Callback listening on state changes
  * @param {number} [options.chunkSize] Upload chunk size in bytes.
  * @param {bitArray} options.encKey AES-256 file encryption key.
  * @param {bitArray} options.secCtx security context for the file (encrypted form of encKey)
@@ -1956,12 +1958,14 @@ var EnigmaUploader = function(options) {
     this.onComplete = options.onComplete || noop;
     this.onProgress = options.onProgress || noop;
     this.onError = options.onError || noop;
+    this.onStateChange = options.onStateChange || noop;
 
     this.chunkSize = options.chunkSize || 262144*2; // requirement by Google, minimal size of a chunk.
     this.offset = 0;
     this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
     this.url = options.url;
     this.png = options.png;
+    this.curState = EnigmaUploader.STATE_INIT;
 
     if (!this.url) {
         var params = options.params || {};
@@ -2017,6 +2021,15 @@ EnigmaUploader.TAG_END = 0xf;     // final tag, no more tags in the current enve
 EnigmaUploader.LENGTH_BYTES = 0x4;
 EnigmaUploader.MAGIC_STRING = "UMPHIO";
 
+EnigmaUploader.STATE_INIT = 1;
+EnigmaUploader.STATE_INITIAL_PROCESS = 3;
+EnigmaUploader.STATE_UPLOADING = 5;
+EnigmaUploader.STATE_PROCESSING = 6;
+EnigmaUploader.STATE_DONE = 7;
+EnigmaUploader.STATE_CANCELLED = 8;
+EnigmaUploader.STATE_ERROR = 9;
+EnigmaUploader.STATE_BACKOFF = 10;
+
 /**
  * Initiate the upload.
  * Store file metadata, start resumable upload to obtain upload ID.
@@ -2045,6 +2058,7 @@ EnigmaUploader.prototype.upload = function() {
 
     this.retryHandler.reset();
     log("Starting session with metadata: " + JSON.stringify(this.metadata));
+    this.changeState_(EnigmaUploader.STATE_UPLOADING);
     xhr.send(JSON.stringify(this.metadata));
 };
 
@@ -2052,6 +2066,7 @@ EnigmaUploader.prototype.upload = function() {
  * Cancels current operation - mainly for cancelling backoff waiting.
  */
 EnigmaUploader.prototype.cancel = function() {
+    this.changeState_(EnigmaUploader.STATE_CANCELLED);
     this.retryHandler.cancel();
     // TODO: cancellation of download, encryption.
     // TODO: handling of cancellation. Eventing?
@@ -2069,6 +2084,7 @@ EnigmaUploader.prototype.initialize_ = function() {
     var block = [], encWrapHeader, fstBlockSize, aad = [];
     var h = sjcl.codec.hex;
     var w = sjcl.bitArray;
+    this.changeState_(EnigmaUploader.STATE_INITIAL_PROCESS);
 
     // Format header, magic string + version number. Defines file format (useful if wrapped in another format).
     this.formatHeader = w.concat(sjcl.codec.utf8String.toBits(EnigmaUploader.MAGIC_STRING), [w.partial(8, 1)]);
@@ -2764,9 +2780,12 @@ EnigmaUploader.prototype.sendFile_ = function() {
         xhr.onerror = this.onContentUploadError_.bind(this);
         log(sprintf("Uploading %s - %s / %s, len: %s, bufferSize: %s",
             this.offset, end-1, this.totalSize, end-this.offset, finalBuffer.byteLength));
+
+        this.changeState_(EnigmaUploader.STATE_UPLOADING);
         xhr.send(finalBuffer);
     };
 
+    this.changeState_(EnigmaUploader.STATE_PROCESSING);
     this.getBytesToSend_(this.offset, end, onDataToSendLoadedFnc.bind(this));
 };
 
@@ -2786,6 +2805,8 @@ EnigmaUploader.prototype.resume_ = function() {
     //}
     xhr.onload = this.onContentUploadSuccess_.bind(this);
     xhr.onerror = this.onContentUploadError_.bind(this);
+
+    this.changeState_(EnigmaUploader.STATE_UPLOADING);
     xhr.send();
 };
 
@@ -2811,11 +2832,14 @@ EnigmaUploader.prototype.extractRange_ = function(xhr) {
  */
 EnigmaUploader.prototype.onContentUploadSuccess_ = function(e) {
     if (e.target.status == 200 || e.target.status == 201) {
+        this.changeState_(EnigmaUploader.STATE_DONE);
         this.onComplete(e.target.response);
+
     } else if (e.target.status == 308) {
         this.extractRange_(e.target);
         this.retryHandler.reset();
         this.sendFile_();
+
     } else {
         this.onContentUploadError_(e);
     }
@@ -2830,8 +2854,9 @@ EnigmaUploader.prototype.onContentUploadSuccess_ = function(e) {
  */
 EnigmaUploader.prototype.onContentUploadError_ = function(e) {
     if (e.target.status && e.target.status < 500) {
-        this.onError(e.target.response);
+        this.onError_(e.target.response);
     } else {
+        this.changeState_(EnigmaUploader.STATE_BACKOFF);
         this.retryHandler.retry(this.resume_.bind(this));
     }
 };
@@ -2844,8 +2869,9 @@ EnigmaUploader.prototype.onContentUploadError_ = function(e) {
  */
 EnigmaUploader.prototype.onUploadError_ = function(e) {
     if (this.retryHandler.limitReached()){
-        this.onError(e ? e.target.response : e);
+        this.onError_(e ? e.target.response : e);
     } else {
+        this.changeState_(EnigmaUploader.STATE_BACKOFF);
         this.retryHandler.retry(this.upload.bind(this));
     }
 };
@@ -2854,8 +2880,14 @@ EnigmaUploader.prototype.progressHandler_ = function(meta, evt){
     this.onProgress(evt, meta);
 };
 
+EnigmaUploader.prototype.changeState_ = function(newState, data){
+    this.curState = newState;
+    this.onStateChange({'state':newState, data:data||{}});
+};
+
 EnigmaUploader.prototype.onError_ = function(data){
     eb.sh.misc.async((function() {
+        this.changeState_(EnigmaUploader.STATE_ERROR);
         this.onError(data);
     }).bind(this));
 };
