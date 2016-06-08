@@ -6,7 +6,7 @@ body
 
 .box
 {
-    font-size: 1.25rem; /* 20 */
+    font-size: 2rem; /* 20 */
     background-color: rgba(0, 167, 215, 0.06);
     position: relative;
     padding: 100px 20px;
@@ -122,6 +122,7 @@ body
     display: inline-block;
     overflow: hidden;
     font-size: inherit;
+    font-weight: normal;
 }
 .js .box__file + label:hover strong,
 .box__file:focus + label strong,

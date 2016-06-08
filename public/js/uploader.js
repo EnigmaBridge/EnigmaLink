@@ -22,6 +22,7 @@ var divButtons;
 var divUploadInput;
 var divUploadLogin;
 var divBoxProgress;
+var oldLabelData;
 
 // Google Drive access token.
 var accessToken = null;
@@ -238,6 +239,14 @@ function getSettings(){
 	};
 }
 
+function formatSeconds(s){
+	if (s < 60){
+		return sprintf("%d s", s);
+	} else {
+		return sprintf("%d:%d s", Math.floor(s/60), s%60);
+	}
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Upload
 // ---------------------------------------------------------------------------------------------------------------------
@@ -251,7 +260,7 @@ function uploadClicked(){
 	}
 
 	$form.addClass( 'is-uploading' ).removeClass( 'is-error is-success' );
-	uploadStateShow(false, "Generating encryption key");
+	onUploadStateChange(false, "Generating encryption key");
 
 	if (!isAdvancedUpload){
 		alert("Unsupported browser");
@@ -279,13 +288,13 @@ function uploadClicked(){
 		onRetry: function(data){
 			//statusFieldSet(fldEbStatus, "Computing encryption key...");
 			log("EB operation retry in: " + data.interval + " ms");
+			onUploadStateChange(false, "Generating encryption key in " + formatSeconds(data.interval/1000));
 		}
 	});
 
 	// Generate the file encryption key.
 	//statusFieldSet(fldEbStatus, "Computing encryption key...");
 	//statusFieldSet(fldStatus, "Preparing upload");
-	//setDisabled(btnUpload, true);
 	bodyProgress(true);
 	encScheme.build(fldPassword.val());
 }
@@ -329,13 +338,12 @@ function onUploadKeyCreated(encScheme){
 		onProgress: function(oEvent, aux){
 			if (oEvent.lengthComputable) {
 				var totalPercent = (aux.offset+oEvent.loaded) / aux.total;
-				uploadStateShow(true, totalPercent);
+				onUploadStateChange(true, totalPercent);
 				//statusFieldSet(fldStatus, sprintf("Uploading: %02.2f%%", totalPercent*100));
 			}
 		},
 		onComplete: function(data) {
 			log("Upload complete: " + data);
-			$form.removeClass( 'is-uploading' );
 			onFileUploaded($.extend(JSON.parse(data), {
 				secCtx: secCtx,
 				lnonce: lnonce,
@@ -350,7 +358,7 @@ function onUploadKeyCreated(encScheme){
 		}
 	});
 
-	uploadStateShow(true, 0);
+	onUploadStateChange(true, 0);
 	uploader.upload();
 }
 
@@ -364,7 +372,7 @@ function onFileUploaded(data){
 
 	// Share with general public by default.
 	shareUploadedFile(data);
-	uploadStateShow(false, "Setting up the sharing");
+	onUploadStateChange(false, "Setting up the sharing");
 	//statusFieldSet(fldStatus, "Setting up the sharing");
 }
 
@@ -394,6 +402,7 @@ function shareUploadedFile(data){
 }
 
 function onFileShared(data){
+	var $form = $(updForm);
 	var linkConfig = {
 		u: eb.sh.misc.inputToLinkBase64(eb.misc.inputToBits(shareConfig.ebConfigDownload.userObjectId))
 	};
@@ -419,7 +428,8 @@ function onFileShared(data){
 	//divQrCode.html("");
 	//divQrCode.qrcode(link);
 	//$('#aDownloadLink').attr("href", link);
-	uploadStateShow(false, "Upload finished");
+	onUploadStateChange(false, "Upload finished");
+	$form.removeClass( 'is-uploading').addClass( 'is-success');
 
 
 
@@ -529,6 +539,7 @@ function initUploadDiv(form){
 	$fldLabel		 = $form.find( 'label' );
 	$fldErrorMsg	 = $form.find( '.box__error span' );
 	$fldRestart	 	 = $form.find( '.box__restart' );
+	oldLabelData     = $fldLabel.html();
 
 	// On file change show file info.
 	$fldInput.on( 'change', function( e )
@@ -548,9 +559,10 @@ function initUploadDiv(form){
 	$fldRestart.on( 'click', function( e )
 	{
 		e.preventDefault();
-		$form.removeClass( 'is-error is-success' );
+		$form.removeClass( 'is-error is-success');
 		svgUpload.show();
 		divButtons.hide();
+		$fldLabel.html(oldLabelData);
 		if (!storageLoaded){
 			divUploadLogin.show();
 			divUploadInput.hide();
@@ -598,21 +610,23 @@ function initUploadDivBehavior(form){
 		.on( 'drop', function( e )
 		{
 			var newFiles = e.originalEvent.dataTransfer.files; // the files that were dropped
+			logFiles(newFiles);
 			divUploadLogin.hide();
 
 			if (!storageLoaded){
-				onUploadError( "Storage is not yet connected, please wait." );
-				logFiles(newFiles);
+				onUploadError( "Storage is not yet connected, please wait" );
 				return;
 
-			}else if (newFiles.length > 1){
-				onUploadError( "Only one file is supported for now." );
-				//$fldLabel.text("Only one file is supported for now.");
-				logFiles(newFiles);
+			} else if (newFiles.length > 1){
+				onUploadError( "Only one file is supported (more coming soon)" );
+				return;
+
+			} else if (newFiles[0].size > 1024*1024*128){
+				onUploadError( "The maximum file size is 128 MB (more coming soon)" );
 				return;
 			}
 
-			$form.removeClass( 'is-error' );
+			$form.removeClass( 'is-error is-success' );
 			droppedFiles = newFiles;
 			showFiles( droppedFiles, $fldInput, $fldLabel );
 		});
@@ -621,7 +635,7 @@ function initUploadDivBehavior(form){
 var progressData = {
 	lastProgress: -1.0
 };
-function uploadStateShow(progress, data){
+function onUploadStateChange(progress, data){
 	if (progress){
 		if (progressData.lastProgress != Math.round(data*10000)) {
 			spnUploadPcnt.text(sprintf("Uploading... %02.2f%%", data * 100));
