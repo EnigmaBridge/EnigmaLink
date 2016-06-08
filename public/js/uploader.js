@@ -26,6 +26,7 @@ var divBoxProgress;
 var oldLabelData;
 var divShareInfo;
 var fldLink;
+var divProgressBar;
 
 // Google Drive access token.
 var accessToken = null;
@@ -36,6 +37,11 @@ var shareFolderId;
 
 // Uploader object.
 var uploader;
+
+// Upload progress monitoring state.
+var progressData = {
+	lastProgress: -1.0
+};
 
 // Other fields.
 var fldMsg;
@@ -359,6 +365,9 @@ function onUploadKeyCreated(encScheme){
 			//statusFieldSet(fldStatus, "Upload failed", false);
 			log("Critical error: " + JSON.stringify(data));
 			onUploadError("Upload failed: " + data);
+		},
+		onStateChange: function(state){
+			onUploadStateChange(true, {state:state});
 		}
 	});
 
@@ -626,19 +635,39 @@ function initUploadDivBehavior(form){
 			}
 
 			$form.removeClass( 'is-error is-success' );
+			if (storageLoaded){
+				$form.addClass( 'is-ready' );
+			}
 			droppedFiles = newFiles;
 			showFiles( droppedFiles, $fldInput, $fldLabel );
 		});
 }
 
-var progressData = {
-	lastProgress: -1.0
-};
 function onUploadStateChange(progress, data){
 	if (progress){
-		if (progressData.lastProgress != Math.round(data*10000)) {
-			spnUploadPcnt.text(sprintf("Uploading... %02.2f%%", data * 100));
-			progressData.lastProgress = Math.round(data*10000);
+		var pcnt0, lblSet = false;
+		if (typeof data === 'number'){
+			data = {val:data};
+		}
+		if (data.val === undefined){
+			data.val = progressData.lastProgress/1000;
+ 		}
+
+		if (data.state !== undefined){
+			if (data.state.state === EnigmaUploader.STATE_PROCESSING){
+				spnUploadPcnt.text(sprintf("Encrypting... "));
+				lblSet = true;
+			}
+		}
+
+		if (!lblSet){
+			spnUploadPcnt.text(sprintf("Uploading... "));
+		}
+
+		if (progressData.lastProgress != Math.round(data.val*1000)) {
+			progressData.lastProgress = Math.round(data.val*1000);
+			pcnt0 = sprintf("%1.1f", Math.round(data.val*1000)/10);
+			divProgressBar.css('width', pcnt0+'%').attr('aria-valuenow', pcnt0).text(pcnt0+"%");
 		}
 	} else {
 		spnUploadPcnt.text(data);
@@ -749,6 +778,7 @@ $(function()
 	divBoxProgress = $('#divBoxProgress');
 	divShareInfo = $('#bloc-info');
 	fldLink = $('#fldLink');
+	divProgressBar = $('.progress-bar');
 
 	fldMsg = $('#fldMessage');
 	fldFname = $('#filename');
