@@ -2900,7 +2900,8 @@ EnigmaUploader.prototype.chunkAdaptiveStep_ = function(success){
     }
 
     if (success){
-        this.chunkSizePrefs.cur = Math.min(this.chunkSizePrefs.max, this.chunkSizePrefs.cur*2);
+        var curMax = Math.min(EnigmaSharingUpload.getMaximumAdaptiveChunkSize(this.totalSize), this.chunkSizePrefs.max);
+        this.chunkSizePrefs.cur = Math.min(curMax, this.chunkSizePrefs.cur*2);
     } else {
         this.chunkSizePrefs.cur = Math.max(this.chunkSizePrefs.min, this.chunkSizePrefs.cur/2);
     }
@@ -2990,6 +2991,20 @@ EnigmaSharingUpload.sizeConcealPadFnc = function(curSize){
     nSize = ifGrAlignTo(nSize, 1024*1024*100, 1024*1024*10);
 
     return nSize - curSize;
+};
+
+/**
+ * Returns chunk size
+ * @param totalSize
+ */
+EnigmaSharingUpload.getMaximumAdaptiveChunkSize = function(totalSize){
+    if (totalSize >= 1024*1024*80){
+        return 1024*1024*8;
+    } else if (totalSize >= 1024*1024*40){
+        return 1024*1024*4;
+    } else {
+        return 1024*1024*2;
+    }
 };
 
 /**
