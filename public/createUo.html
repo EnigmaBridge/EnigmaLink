@@ -225,7 +225,7 @@
             request.logger = append_message;
 
             var requestData = {
-                "type": fldUoType.val(), //eb.comm.createUO.consts.uoType.PLAINAES,        //<32bit integer>,
+                "type": ""+parseInt(fldUoType.val(),16), //eb.comm.createUO.consts.uoType.PLAINAES,        //<32bit integer>,
                 "environment": eb.comm.createUO.consts.environment.DEV, // shows whether the UO should be for production (live), test (pre-production testing), or dev (development)
                 "maxtps": eb.comm.createUO.consts.maxtps.UNLIMITED, // maximum guaranteed TPS
                 "core": eb.comm.createUO.consts.core.EMPTY, // how many cards have UO loaded permanently
