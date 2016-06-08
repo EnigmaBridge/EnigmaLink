@@ -10,6 +10,7 @@ var isAdvancedUpload = false;
 var droppedFiles = false;
 var updForm;
 var lastUploadedFileId;
+var currentFileLink;
 var driveShareDialog;
 
 // We have only one upload form.
@@ -422,6 +423,7 @@ function onFileShared(data){
 		log(sprintf("SHA256: %s", sjcl.codec.hex.fromBits(data.uploader.sha256)));
 	}
 
+	currentFileLink = link;
 	log(link);
 	//fldShareLink.val(link);
 	//enableLinkButtons(link && link.length>0);
