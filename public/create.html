@@ -588,11 +588,12 @@
         }
 
         uploader = new EnigmaUploader({
-            file: fFile,
             token: accessToken,
+            file: fFile,
             encKey: encKey,
             secCtx: secCtx,
             chunkSize: 262144*5,
+            lnonceHash: sjcl.hash.sha256.hash(lnonce),
             fname: fldFname.val(),
             fnameOrig: fldFnameOrig.val(),
             extraMessage: extraMessage,
