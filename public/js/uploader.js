@@ -24,6 +24,8 @@ var divUploadInput;
 var divUploadLogin;
 var divBoxProgress;
 var oldLabelData;
+var divShareInfo;
+var fldLink;
 
 // Google Drive access token.
 var accessToken = null;
@@ -261,6 +263,7 @@ function uploadClicked(){
 	}
 
 	$form.addClass( 'is-uploading' ).removeClass( 'is-error is-success is-ready' );
+	divShareInfo.hide('slow');
 	onUploadStateChange(false, "Generating encryption key");
 
 	if (!isAdvancedUpload){
@@ -424,14 +427,16 @@ function onFileShared(data){
 	}
 
 	currentFileLink = link;
+
 	log(link);
-	//fldShareLink.val(link);
+	fldLink.val(link);
 	//enableLinkButtons(link && link.length>0);
-	divQrCode.html("");
-	divQrCode.qrcode(link);
 	//$('#aDownloadLink').attr("href", link);
 	onUploadStateChange(false, "Upload finished");
 	$form.removeClass( 'is-uploading is-ready').addClass( 'is-success');
+	regenerateQrCode();
+
+	divShareInfo.show();
 	setFillScreenBlocHeight();
 	eb.sh.misc.async(setFillScreenBlocHeight);
 
@@ -646,6 +651,88 @@ function onUploadError(data){
 	$fldErrorMsg.text( data );
 }
 
+/**
+ * Saves current link as a file.
+ */
+function onDownloadShareLinkClicked(){
+	var link = fldLink.val();
+	if (!link || link.length == 0 || !uploader || !uploader.fname){
+		log("Empty link, cannot save as a file");
+		return;
+	}
+
+	var linkBlob = new Blob(["" + link], {"type": "text/plain"});
+	saveAs(linkBlob, "ebshare-" + uploader.fname + ".link.txt");
+}
+
+/**
+ * Saves generated QR code as a file.
+ */
+function onDownloadQRCodeLinkClicked(){
+	var children = divQrCode.children("canvas");
+	if (!children || children.length == 0 || !children[0] || !uploader || !uploader.fname){
+		log("No QRcode to save");
+		return;
+	}
+
+	var canvas = children[0];
+	canvas.toBlob(function(blob) {
+		saveAs(blob, ("ebshare-" + uploader.fname + ".qr.png"));
+	}, "image/png");
+}
+
+/**
+ * Change GoogleDrive sharing permissions
+ */
+function changeSharingPermissions(){
+	if (!driveShareDialog){
+		alert("No file has been uploaded yet");
+		return;
+	}
+	driveShareDialog.showSettingsDialog();
+}
+
+function onOpenInGoogleDriveClicked(){
+	var fileLink = eb.sh.misc.getDriveDownloadLink(lastUploadedFileId);
+	window.open(fileLink,'_blank');
+}
+
+function onOpenFolderInGoogleDriveClicked(){
+	var folderLink = eb.sh.misc.getDriveFolderLink(shareFolderId);
+	window.open(folderLink,'_blank');
+}
+
+function onQrRegenerateClicked(type){
+	regenerateQrCode(type);
+}
+
+function regenerateQrCode(type){
+	type = type || 'link';
+	var qrCodeSettings = {
+		"render": "canvas",
+		"text": currentFileLink,
+		"size": 300
+	};
+
+	switch(type){
+		case 'email':
+			qrCodeSettings.text = sprintf("MATMSG:TO:your@recipient.com;SUB:New file share;BODY:%s;;", encodeURIComponent(currentFileLink)); //mailto:test@test.test?subject=Congrats&body=Enjoy%20your%20stay%0ARegards%20
+			break;
+		case 'text':
+			qrCodeSettings.text = sprintf("SMSTO:+44999999999:%s", encodeURIComponent(currentFileLink));
+			break;
+		case 'tweet':
+			qrCodeSettings.text = sprintf("https://twitter.com/intent/tweet?text=%s", encodeURIComponent(currentFileLink));
+			break;
+		case 'link':
+			qrCodeSettings.text = currentFileLink;
+			break;
+	}
+
+	divQrCode.html("");
+	divQrCode.qrcode(qrCodeSettings);
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // onLoad
 // ---------------------------------------------------------------------------------------------------------------------
@@ -660,6 +747,8 @@ $(function()
 	divUploadInput = $('#divUploadInput');
 	divUploadLogin = $('#divUploadLogin');
 	divBoxProgress = $('#divBoxProgress');
+	divShareInfo = $('#bloc-info');
+	fldLink = $('#fldLink');
 
 	fldMsg = $('#fldMessage');
 	fldFname = $('#filename');

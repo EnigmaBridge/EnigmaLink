@@ -186,3 +186,16 @@ body
     margin: 50px 0 50px 0;
     font-size: 1.5rem;
 }
+
+#bloc-info{
+    display:none;
+}
+
+.qr {
+    font-size: 1em; /*1rem;*/
+    /*padding-top: 10px;*/
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+}

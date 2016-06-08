@@ -75,9 +75,6 @@
 				<div class="row">
 					<div class="col-sm-4">
 						<span id="signin">
-							<!--<span style="display:block; margin-bottom: 10px;">-->
-								<!--Please allow this application creating a new files in your GoogleDrive so we can put there your encrypted shares.-->
-							<!--</span>-->
 							<span
 									class="g-signin"
 									data-callback="signinCallback"
@@ -91,7 +88,7 @@
 						</span>
 					</div>
 					<div class="col-sm-4">
-						<a class="btn btn-clean  btn-lg btn-rich-electric-blue btn-disabled">DropBox</a>
+						<a class="btn btn-clean  btn-lg btn-rich-electric-blue " onclick="setFillScreenBlocHeight();">DropBox</a>
 						<br/><span class="text-center">Coming soon</span>
 					</div>
 					<div class="col-sm-4">
@@ -129,13 +126,48 @@
 
 						<div class="row">
 							<div class="col-sm-12">
+
+								<div class="form-group">
+									<div class="btn-group">
+										<div class="btn-group">
+											<button type="button" class="btn btn-primary btn-rich-electric-blue dropdown-toggle" data-toggle="dropdown">
+												QR <span class="caret"></span></button>
+											<ul class="dropdown-menu" role="menu">
+												<li><a href="#" onclick="onQrRegenerateClicked('email')">Email</a></li>
+												<li><a href="#" onclick="onQrRegenerateClicked('text')">Text</a></li>
+												<li><a href="#" onclick="onQrRegenerateClicked('tweet')">Tweet</a></li>
+												<li><a href="#" onclick="onQrRegenerateClicked('link')">Link</a></li>
+											</ul>
+										</div>
+
+										<div class="btn-group">
+											<button type="button" class="btn btn-primary btn-rich-electric-blue dropdown-toggle" data-toggle="dropdown">
+												Link <span class="caret"></span></button>
+											<ul class="dropdown-menu" role="menu">
+												<li><a href="#" onclick="copyElementToClipboard(fldLink)">Copy</a></li>
+												<li><a href="#" onclick="window.open(currentFileLink,'_blank')">Try</a></li>
+												<li><a href="#" onclick="onDownloadShareLinkClicked()">Save</a></li>
+												<li><a href="#" onclick="onDownloadQRCodeLinkClicked()">Save QR</a></li>
+											</ul>
+										</div>
+
+										<div class="btn-group">
+											<button type="button" class="btn btn-primary btn-rich-electric-blue dropdown-toggle" data-toggle="dropdown">
+												Settings <span class="caret"></span></button>
+											<ul class="dropdown-menu" role="menu">
+												<li><a href="#" onclick="changeSharingPermissions()">Change sharing settings</a></li>
+												<li><a href="#" onclick="onOpenInGoogleDriveClicked()">Open shared file</a></li>
+												<li><a href="#" onclick="onOpenFolderInGoogleDriveClicked()">Open share folder</a></li>
+											</ul>
+										</div>
+									</div>
+									<!--<a class="btn  btn-rich-electric-blue">QR</a>-->
+									<!--<a class="btn  btn-rich-electric-blue">Link</a>-->
+									<!--<a class="btn  btn-rich-electric-blue">Settings</a>-->
+								</div>
+
 								<div class="qrWrap">
 									<div id="qrcode" class="qr"></div>
-								</div>
-								<div class="form-group">
-									<a class="btn  btn-rich-electric-blue">Email</a>
-									<a class="btn  btn-rich-electric-blue">Text</a>
-									<a class="btn  btn-rich-electric-blue">Tweet</a>
 								</div>
 							</div>
 						</div>
@@ -144,6 +176,62 @@
 				</div>
 			</div>
 		</div>
+
+		<div class="row" id="bloc-info">
+			<div class="col-sm-12">
+				<h2 class="mg-md tc-rich-electric-blue">
+					Share details
+				</h2>
+				<div class="row tc-outer-space">
+					<div class="col-sm-12">
+						<form novalidate>
+							<div class="form-group">
+								<label for="fldLink">
+									Share link
+								</label><input class="form-control" id="fldLink"/>
+							</div>
+							<!--<div class="form-group">-->
+								<!--<label for="fldLink">-->
+									<!--Link actions-->
+								<!--</label>-->
+								<!--<div class="btn-group btn-group-justified">-->
+									<!--<div class="btn-group">-->
+										<!--<input type="button" class="btn btn-rich-electric-blue btn-primary" id="btnCopyLink" onclick="copyElementToClipboard(fldLink)" value="Copy Link">-->
+									<!--</div>-->
+									<!--<div class="btn-group">-->
+										<!--<input type="button" class="btn btn-rich-electric-blue btn-primary" id="btnTryLink" onclick="window.open(currentFileLink,'_blank')" value="Try Link">-->
+									<!--</div>-->
+									<!--<div class="btn-group">-->
+										<!--<input type="button" class="btn btn-rich-electric-blue btn-primary" id="btnSaveLink" onclick="onDownloadShareLinkClicked()" value="Save Link">-->
+									<!--</div>-->
+									<!--<div class="btn-group">-->
+										<!--<input type="button" class="btn btn-rich-electric-blue btn-primary" id="btSaveQr" onclick="onDownloadQRCodeLinkClicked()" value="Save QR code">-->
+									<!--</div>-->
+								<!--</div>-->
+							<!--</div>-->
+							<!--<div class="form-group">-->
+								<!--<label for="fldLink">-->
+									<!--GoogleDrive actions-->
+								<!--</label>-->
+								<!--<div class="btn-group btn-group-justified">-->
+									<!--<div class="btn-group">-->
+										<!--<input type="button" class="btn btn-rich-electric-blue btn-primary" id="btnChangeSharing" onclick="changeSharingPermissions()" value="Change sharing settings">-->
+									<!--</div>-->
+									<!--<div class="btn-group">-->
+										<!--<input type="button" class="btn btn-rich-electric-blue btn-primary" id="btnOpenInGoogleDrive" onclick="onOpenInGoogleDriveClicked()" value="Open shared file">-->
+									<!--</div>-->
+									<!--<div class="btn-group">-->
+										<!--<input type="button" class="btn btn-rich-electric-blue btn-primary" id="btnOpenFolderInGoogleDrive" onclick="onOpenFolderInGoogleDriveClicked()" value="Open share folder">-->
+									<!--</div>-->
+								<!--</div>-->
+							<!--</div>-->
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+
+
 	</div>
 </div>
 <!-- bloc-0 END -->
@@ -207,11 +295,10 @@
 								</label>
 								<input type="text" class="form-control" name="filename" id="filename" value="" placeholder="New filename for the file"/>
 								<input type="hidden" name="filenameOrig" id="filenameOrig" value=""/>
-
-								<span>
+								<span class="help-block">
 									Filename of the encrypted file in your GoogleDrive. Name is publicly available, not protected.<br/>
-									<input type="button" class="btnMisc" id="btnRandomName" onclick="fldFname.val(genRandomName())" value="Random name">
-									<input type="button" class="btnMisc" id="btnOrigName" onclick="fldFname.val(fldFnameOrig.val())" value="Original name">
+									<input type="button" class="btn btn-rich-electric-blue btnMisc" id="btnRandomName" onclick="fldFname.val(genRandomName())" value="Random name">
+									<input type="button" class="btn btn-rich-electric-blue btnMisc" id="btnOrigName" onclick="fldFname.val(fldFnameOrig.val())" value="Original name">
 								</span>
 							</div>
 
@@ -221,7 +308,7 @@
 									<input type="checkbox" id="chkMask" value="1" checked="checked"/>
 									Hide file name and type
 								</label>
-								<br/><span>Masks encrypted file in the storage - random file name, hides mime type. Hides original
+								<span class="help-block">Masks encrypted file in the storage - random file name, hides mime type. Hides original
 									file name from the attacker.
 								</span>
 							</div>
@@ -231,7 +318,7 @@
 									<input type="checkbox" id="chkSizeConceal" value="1" checked="checked"/>
 									Conceal file size
 								</label>
-								<br/><span>File size concealing helps to hide original message/file size by inflating encrypted file with random noise
+								<span class="help-block">File size concealing helps to hide original message/file size by inflating encrypted file with random noise
 										(noise gets removed on download). It is highly recommended to keep this ON.
 								</span>
 							</div>
@@ -241,7 +328,7 @@
 									<input type="checkbox" id="chkPng" value="1" checked="checked"/>
 									Embed in PNG image
 								</label>
-								<br/><span>Embeds encrypted file in the PNG image so people see the file contains encrypted content.
+								<span class="help-block">Embeds encrypted file in the PNG image so people see the file contains encrypted content.
 										With this option encrypted file in your GoogleDrive will look like PNG file.
 										Warning! All image manipulation (e.g. rotation, flip, resizing, ...) on the produced file will wipe out encrypted content.
 								</span>
