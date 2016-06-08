@@ -73,7 +73,21 @@
 				</h3>
 				<div class="row">
 					<div class="col-sm-6">
-						<a href="index.html" class="btn btn-clean  btn-lg btn-rich-electric-blue">Google Drive</a>
+						<span id="signin">
+							<!--<span style="display:block; margin-bottom: 10px;">-->
+								<!--Please allow this application creating a new files in your GoogleDrive so we can put there your encrypted shares.-->
+							<!--</span>-->
+							<span
+									class="g-signin"
+									data-callback="signinCallback"
+									data-clientid="1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com"
+									data-cookiepolicy="single_host_origin"
+									data-scope="https://www.googleapis.com/auth/drive.file">
+							</span>
+						</span>
+						<span id="signedin" style="display: none;">
+							Signed in GoogleDrive
+						</span>
 					</div>
 					<div class="col-sm-6">
 						<a href="index.html" class="btn btn-clean  btn-lg btn-rich-electric-blue">hidden / for DB</a>
@@ -172,7 +186,7 @@
 
 </div>
 <!-- Main container END -->
-
+<script src="https://apis.google.com/js/client:plusone.js"></script>
 <div class="modal"><div class="modal-wrap"></div></div>
 </body>
     

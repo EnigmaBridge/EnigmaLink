@@ -18,6 +18,12 @@ var $fldLabel;
 var $fldErrorMsg;
 var $fldRestart;
 
+// Google Drive access token.
+var accessToken = null;
+
+// Share folder drive ID where to put uploaded files in the Google Drive.
+var shareFolderId;
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Functions & handlers
 // ---------------------------------------------------------------------------------------------------------------------
@@ -51,13 +57,18 @@ function statusFieldSet(x, msg, success){
 	successBg(x, success);
 }
 
+var logBuffer = {
+	buffer: [],
+	idx:0,
+	max:100
+};
+
 /**
  * Simple logging method used in this script, passed to request objects for logging.
  * @param msg
  */
 function log(msg){
-	console.log(msg);
-	append_message(msg);
+	console.log(formatDate(new Date()) + " " + msg);
 }
 
 /**
@@ -153,6 +164,107 @@ function bodyProgress(started){
 // ---------------------------------------------------------------------------------------------------------------------
 
 // ...
+// ---------------------------------------------------------------------------------------------------------------------
+// Google Drive
+// ---------------------------------------------------------------------------------------------------------------------
+
+/**
+ * Callback for G+ Sign-in. Swaps views if login successful.
+ */
+function signinCallback(result) {
+	if(result.access_token) {
+		accessToken = result.access_token;
+		document.getElementById('signin').style.display = 'none';
+		document.getElementById('signedin').style.display = null;
+		log(sprintf("Google Drive auth successful, token: %s", accessToken));
+
+		// Load google drive lib.
+		loadDrive();
+	}
+}
+
+/**
+ * Loads Google Drive library, after load fetches share folder.
+ */
+function loadDrive(){
+	// Google drive API
+	gapi.client.load('drive', 'v3', driveLoaded);
+
+	// Load share logic
+	gapi.load('drive-share');
+}
+
+/**
+ * Called when Drive library is loaded.
+ */
+function driveLoaded(){
+	fetchShareFolder();
+}
+
+/**
+ * Find share folder ID, if does not exist, create it.
+ */
+function fetchShareFolder() {
+	//spnBtnShare.text("Please wait until Google Drive is loaded");
+
+	// Search the share folder.
+	var request = gapi.client.drive.files.list({
+		'q': "mimeType='application/vnd.google-apps.folder'" +
+		" and name='" + shareConfig.shareFolderName + "' " +
+		" and trashed=false " +
+		" and 'root' in parents",
+		'fields': "nextPageToken, files(id, name)"
+	});
+
+	// Request for creating a new one should share folder not be found.
+	var requestCreate = gapi.client.drive.files.create({
+		resource: {
+			'name' : shareConfig.shareFolderName,
+			'mimeType' : 'application/vnd.google-apps.folder'
+		},
+		fields: 'id'
+	});
+
+	request.execute(function(resp) {
+		var files = resp.files;
+		if (files && files.length > 0) {
+			var file = files[0];
+			shareFolderId = file.id;
+			log(sprintf("Share folder found [%s], ID: %s, matches: %d", file.name, shareFolderId, files.length));
+			onShareFolderFetched();
+
+		} else {
+			log('Share folder not found, creating a new one');
+			requestCreate.execute(function(resp) {
+				if(resp.id === undefined) {
+					log("Creating share folder failed: " + err);
+					onShareFolderFetched(err);
+				} else {
+					shareFolderId = resp.id;
+					log(sprintf("Share folder created, ID: %s", shareFolderId));
+					onShareFolderFetched();
+				}
+			});
+		}
+	});
+}
+
+/**
+ * Share folder fetching finished.
+ * @param err
+ */
+function onShareFolderFetched(err){
+	if (err){
+		log("Creating share folder failed. Please, try again later.");
+		return;
+	}
+
+	log("Share folder fetched");
+
+	// Now sharing can be enabled.
+	//setDisabled(btnShare, false);
+	//spnBtnShare.hide('fast');
+}
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Misc
