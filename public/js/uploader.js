@@ -24,44 +24,28 @@ var accessToken = null;
 // Share folder drive ID where to put uploaded files in the Google Drive.
 var shareFolderId;
 
+// Uploader object.
+var uploader;
+
+// Other fields.
+var fldMsg;
+var fldFname;
+var fldFnameOrig;
+var fldPassword;
+var fldPasswordCheck;
+var chkMask;
+var chkSizeConceal;
+var chkPng;
+
+var spnUploadPcnt;
+var fldShareLink;
+var divQrCode;
+var spnBtnShare;
+var btnUpload;
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Functions & handlers
 // ---------------------------------------------------------------------------------------------------------------------
-
-/**
- * Sets element its success class / background color. Used for status fields.
- * @param x
- * @param success if true, success is set, if false failed is set. If undefined, none is set (both classes removed), reset.
- */
-function successBg(x, success){
-	if (success === undefined){
-		x.removeClass('successBg');
-		x.removeClass('failedBg');
-	} else if (success){
-		x.addClass('successBg');
-		x.removeClass('failedBg');
-	} else {
-		x.removeClass('successBg');
-		x.addClass('failedBg');
-	}
-}
-
-/**
- * Sets message to the status field together by setting its success class / background color.
- * @param x
- * @param msg
- * @param success
- */
-function statusFieldSet(x, msg, success){
-	x.val(msg);
-	successBg(x, success);
-}
-
-var logBuffer = {
-	buffer: [],
-	idx:0,
-	max:100
-};
 
 /**
  * Simple logging method used in this script, passed to request objects for logging.
@@ -92,6 +76,35 @@ function formatDate(date) {
 function append_message(msg) {
 	var newMsg = formatDate(new Date()) + " - " + msg;
 	logElem.val((logElem.val() + "\n" + newMsg).trim());
+}
+
+/**
+ * Sets element its success class / background color. Used for status fields.
+ * @param x
+ * @param success if true, success is set, if false failed is set. If undefined, none is set (both classes removed), reset.
+ */
+function successBg(x, success){
+	if (success === undefined){
+		x.removeClass('successBg');
+		x.removeClass('failedBg');
+	} else if (success){
+		x.addClass('successBg');
+		x.removeClass('failedBg');
+	} else {
+		x.removeClass('successBg');
+		x.addClass('failedBg');
+	}
+}
+
+/**
+ * Sets message to the status field together by setting its success class / background color.
+ * @param x
+ * @param msg
+ * @param success
+ */
+function statusFieldSet(x, msg, success){
+	x.val(msg);
+	successBg(x, success);
 }
 
 /**
@@ -164,6 +177,7 @@ function bodyProgress(started){
 // ---------------------------------------------------------------------------------------------------------------------
 
 // ...
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Google Drive
 // ---------------------------------------------------------------------------------------------------------------------
@@ -208,22 +222,10 @@ function fetchShareFolder() {
 	//spnBtnShare.text("Please wait until Google Drive is loaded");
 
 	// Search the share folder.
-	var request = gapi.client.drive.files.list({
-		'q': "mimeType='application/vnd.google-apps.folder'" +
-		" and name='" + shareConfig.shareFolderName + "' " +
-		" and trashed=false " +
-		" and 'root' in parents",
-		'fields': "nextPageToken, files(id, name)"
-	});
+	var request = gapi.client.drive.files.list(shareConfig.sharedFolderQuery);
 
 	// Request for creating a new one should share folder not be found.
-	var requestCreate = gapi.client.drive.files.create({
-		resource: {
-			'name' : shareConfig.shareFolderName,
-			'mimeType' : 'application/vnd.google-apps.folder'
-		},
-		fields: 'id'
-	});
+	var requestCreate = gapi.client.drive.files.create(shareConfig.shareFolderCreate);
 
 	request.execute(function(resp) {
 		var files = resp.files;
@@ -341,6 +343,20 @@ $(function()
 	sjcl.random.startCollectors();
 	htmlBody = $("body");
 	updForm = $('.box')[0];
+
+	fldMsg = $('#fldMessage');
+	fldFname = $('#filename');
+	fldFnameOrig = $('#filenameOrig');
+	chkMask = $('#chkMask');
+	chkSizeConceal = $('#chkSizeConceal');
+	chkPng = $('#chkPng');
+	spnUploadPcnt = $('#uploadPcnt');
+	fldShareLink = $('#qrLink');
+	divQrCode = $('#qrcode');
+	spnBtnShare = $('#spnBtnShare');
+	btnUpload = $('#btnShare');
+	fldPassword = $('#fldPassword');
+	fldPasswordCheck = $('#fldPasswordCheck');
 
 	// HTML5 support?
 	isAdvancedUpload = function() {
