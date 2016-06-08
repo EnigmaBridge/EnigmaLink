@@ -21,6 +21,7 @@ var svgUpload;
 var divButtons;
 var divUploadInput;
 var divUploadLogin;
+var divBoxProgress;
 
 // Google Drive access token.
 var accessToken = null;
@@ -208,13 +209,224 @@ function showFiles(files, $input, $label){
 }
 
 function enableLinkButtons(enable){
-	setDisabled($('#btnCopyLink'), !enable);
-	setDisabled($('#btnTryLink'), !enable);
-	setDisabled($('#btnSaveLink'), !enable);
-	setDisabled($('#btSaveQr'), !enable);
-	setDisabled($('#btnChangeSharing'), !enable);
+	//setDisabled($('#btnCopyLink'), !enable);
+	//setDisabled($('#btnTryLink'), !enable);
+	//setDisabled($('#btnSaveLink'), !enable);
+	//setDisabled($('#btSaveQr'), !enable);
+	//setDisabled($('#btnChangeSharing'), !enable);
 }
 
+function getSettings(){
+	var apiKey = shareConfig.ebConfigUpload.apiKey;
+	var endpoint = shareConfig.ebConfigUpload.remoteEndpoint;
+	var keyId = shareConfig.ebConfigUpload.userObjectId;
+	var aesKey = shareConfig.ebConfigUpload.encKey;
+	var macKey = shareConfig.ebConfigUpload.macKey;
+
+	return {
+		remoteEndpoint: endpoint,
+		remotePort: 11180,
+		requestMethod: eb.comm.REQ_METHOD_POST,
+		requestScheme: 'https',
+		requestTimeout: 35000,
+		debuggingLog: true,
+		apiKey: apiKey,
+		apiKeyLow4Bytes: keyId,
+		userObjectId : keyId,
+		aesKey: aesKey,
+		macKey: macKey
+	};
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Upload
+// ---------------------------------------------------------------------------------------------------------------------
+
+function uploadClicked(){
+	var $form = $(updForm);
+
+	// preventing the duplicate submissions if the current one is in progress
+	if( $form.hasClass( 'is-uploading' ) ){
+		return false;
+	}
+
+	$form.addClass( 'is-uploading' ).removeClass( 'is-error is-success' );
+	uploadStateShow(false, "Generating encryption key");
+
+	if (!isAdvancedUpload){
+		alert("Unsupported browser");
+		return
+	}
+
+	// Setup the encryption scheme.
+	var encScheme = new EnigmaShareScheme({
+		eb: shareConfig.ebConfigUpload,
+		logger: log,
+		onComplete: function(data){
+			bodyProgress(false);
+			//statusFieldSet(fldEbStatus, "Encryption key computed", true);
+			onUploadKeyCreated(encScheme);
+		},
+		onError: function(data){
+			bodyProgress(false);
+			//setDisabled(btnUpload, false);
+			//statusFieldSet(fldEbStatus, "Encryption key computation failed", false);
+			//statusFieldSet(fldStatus, "Upload failed");
+
+			log("Critical error: " + (data.reason ? data.reason : JSON.stringify(data)));
+			onUploadError("Encryption key computation failed");
+		},
+		onRetry: function(data){
+			//statusFieldSet(fldEbStatus, "Computing encryption key...");
+			log("EB operation retry in: " + data.interval + " ms");
+		}
+	});
+
+	// Generate the file encryption key.
+	//statusFieldSet(fldEbStatus, "Computing encryption key...");
+	//statusFieldSet(fldStatus, "Preparing upload");
+	//setDisabled(btnUpload, true);
+	bodyProgress(true);
+	encScheme.build(fldPassword.val());
+}
+
+function onUploadKeyCreated(encScheme){
+	var $form = $(updForm);
+
+	// Extract file encryption key & lnonce.
+	var encKey = encScheme.fKey;
+	var lnonce = encScheme.lnonce;
+	var secCtx = encScheme.secCtx;
+	log(sprintf("fKey:   %s", eb.misc.inputToHex(encKey)));
+	log(sprintf("lnonce: %s", eb.misc.inputToHex(lnonce)));
+	log(sprintf("secCtx: %s", eb.misc.inputToHex(secCtx)));
+
+	// Encrypt file in the browser, upload to drive, first file.
+	var fFile = droppedFiles && droppedFiles.length > 0 ? droppedFiles[0] : undefined;
+	var extraMessage = undefined;
+	// If file is not provided, use text message.
+	if (fFile === undefined){
+		log("File not provided, using text message only");
+		fFile = new Blob(["" + fldMsg.val()], {"type": "text/plain"});
+	} else {
+		extraMessage = fldMsg.val();
+	}
+
+	uploader = new EnigmaUploader({
+		token: accessToken,
+		file: fFile,
+		encKey: encKey,
+		secCtx: secCtx,
+		lnonceHash: sjcl.hash.sha256.hash(lnonce),
+		chunkSize: 262144*32,
+		fname: fldFname.val(),
+		fnameOrig: fldFnameOrig.val(),
+		extraMessage: extraMessage,
+		parents: [shareFolderId],
+		contentType: isChecked(chkMask) ? 'application/octet-stream' : undefined,
+		padFnc: isChecked(chkSizeConceal) ? EnigmaSharingUpload.sizeConcealPadFnc : undefined,
+		png: isChecked(chkPng) ? pngImg : undefined,
+		onProgress: function(oEvent, aux){
+			if (oEvent.lengthComputable) {
+				var totalPercent = (aux.offset+oEvent.loaded) / aux.total;
+				uploadStateShow(true, totalPercent);
+				//statusFieldSet(fldStatus, sprintf("Uploading: %02.2f%%", totalPercent*100));
+			}
+		},
+		onComplete: function(data) {
+			log("Upload complete: " + data);
+			$form.removeClass( 'is-uploading' );
+			onFileUploaded($.extend(JSON.parse(data), {
+				secCtx: secCtx,
+				lnonce: lnonce,
+				uploader: uploader,
+				encScheme: encScheme
+			}));
+		},
+		onError: function(data) {
+			//statusFieldSet(fldStatus, "Upload failed", false);
+			log("Critical error: " + JSON.stringify(data));
+			onUploadError("Upload failed: " + data);
+		}
+	});
+
+	uploadStateShow(true, 0);
+	uploader.upload();
+}
+
+function onFileUploaded(data){
+	lastUploadedFileId = data.id;
+
+	// Initialize sharing dialog if user wants to change sharing settings.
+	driveShareDialog = new gapi.drive.share.ShareClient();
+	driveShareDialog.setOAuthToken(accessToken);
+	driveShareDialog.setItemIds([data.id]);
+
+	// Share with general public by default.
+	shareUploadedFile(data);
+	uploadStateShow(false, "Setting up the sharing");
+	//statusFieldSet(fldStatus, "Setting up the sharing");
+}
+
+function shareUploadedFile(data){
+	log("Sharing file with public");
+	var request = gapi.client.drive.permissions.create({
+		resource: {
+			'type': 'anyone',
+			'role': 'reader'
+		},
+		fileId: data.id,
+		fields: 'id'
+	});
+
+	request.execute(function(resp) {
+		var permId;
+		if (resp && resp.id) {
+			permId = resp.id;
+			log("File shared with public, permissionId:" + permId + ", resp:" + JSON.stringify(resp));
+		} else {
+			log("Error: Could not share file with public! Resp: " + JSON.stringify(resp));
+		}
+
+		data.permId = permId;
+		onFileShared(data);
+	});
+}
+
+function onFileShared(data){
+	var linkConfig = {
+		u: eb.sh.misc.inputToLinkBase64(eb.misc.inputToBits(shareConfig.ebConfigDownload.userObjectId))
+	};
+
+	var linkKeys = getLinkKeys(shareConfig.ebConfigDownload);
+	linkConfig = $.extend(linkConfig, linkKeys);
+	linkConfig = $.extend(linkConfig, {
+		f: data.id,
+		n: eb.sh.misc.inputToLinkBase64(data.lnonce)
+	});
+
+	var link = eb.sh.misc.buildUrl("/download.html", linkConfig, shareConfig.baseUrl, true);
+	if (data.uploader.sha1){
+		log(sprintf("SHA1:   %s", sjcl.codec.hex.fromBits(data.uploader.sha1)));
+	}
+	if (data.uploader.sha256){
+		log(sprintf("SHA256: %s", sjcl.codec.hex.fromBits(data.uploader.sha256)));
+	}
+
+	log(link);
+	//fldShareLink.val(link);
+	//enableLinkButtons(link && link.length>0);
+	//divQrCode.html("");
+	//divQrCode.qrcode(link);
+	//$('#aDownloadLink').attr("href", link);
+	uploadStateShow(false, "Upload finished");
+
+
+
+
+	//statusFieldSet(fldStatus, "Upload finished", true);
+	//setDisabled(btnUpload, false);
+}
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Google Drive
@@ -305,8 +517,6 @@ function onShareFolderFetched(err){
 	// Now sharing can be enabled.
 	divUploadInput.show();
 	divUploadLogin.hide();
-	//setDisabled(btnShare, false);
-	//spnBtnShare.hide('fast');
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -391,14 +601,12 @@ function initUploadDivBehavior(form){
 			divUploadLogin.hide();
 
 			if (!storageLoaded){
-				$form.removeClass( 'is-uploading' ).addClass( 'is-error' );
-				$fldErrorMsg.text( "Storage is not yet connected, please wait." );
+				onUploadError( "Storage is not yet connected, please wait." );
 				logFiles(newFiles);
 				return;
 
 			}else if (newFiles.length > 1){
-				$form.removeClass( 'is-uploading' ).addClass( 'is-error' );
-				$fldErrorMsg.text( "Only one file is supported for now." );
+				onUploadError( "Only one file is supported for now." );
 				//$fldLabel.text("Only one file is supported for now.");
 				logFiles(newFiles);
 				return;
@@ -408,6 +616,26 @@ function initUploadDivBehavior(form){
 			droppedFiles = newFiles;
 			showFiles( droppedFiles, $fldInput, $fldLabel );
 		});
+}
+
+var progressData = {
+	lastProgress: -1.0
+};
+function uploadStateShow(progress, data){
+	if (progress){
+		if (progressData.lastProgress != Math.round(data*10000)) {
+			spnUploadPcnt.text(sprintf("Uploading... %02.2f%%", data * 100));
+			progressData.lastProgress = Math.round(data*10000);
+		}
+	} else {
+		spnUploadPcnt.text(data);
+	}
+}
+
+function onUploadError(data){
+	var $form = $(updForm);
+	$form.removeClass( 'is-uploading is-success' ).addClass( 'is-error' );
+	$fldErrorMsg.text( data );
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -423,6 +651,7 @@ $(function()
 	divButtons = $('#divButtons');
 	divUploadInput = $('#divUploadInput');
 	divUploadLogin = $('#divUploadLogin');
+	divBoxProgress = $('#divBoxProgress');
 
 	fldMsg = $('#fldMessage');
 	fldFname = $('#filename');
@@ -434,7 +663,7 @@ $(function()
 	fldShareLink = $('#qrLink');
 	divQrCode = $('#qrcode');
 	spnBtnShare = $('#spnBtnShare');
-	btnUpload = $('#btnShare');
+	btnUpload = $('#btnUpload');
 	fldPassword = $('#fldPassword');
 	fldPasswordCheck = $('#fldPasswordCheck');
 
@@ -446,6 +675,21 @@ $(function()
 
 	// Init upload
 	initUploadDiv(updForm);
+
+	// Button click handling.
+	btnUpload.click(function(){
+		uploadClicked();
+	});
+
+	var fncMask = function(){
+		var checked = isChecked(chkMask);
+		fldFname.val(checked ? genRandomName() : fldFnameOrig.val());
+	};
+	chkMask.click(fncMask);
+
+	// Behavior.
+	fncMask();
+	enableLinkButtons(false);
 
 	// Default form validation, not used.
 	$("input,textarea").jqBootstrapValidation(
