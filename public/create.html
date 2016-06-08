@@ -280,10 +280,6 @@
                 </span>
             </label>
 
-            <div id="redirBlock">
-                <a href="#" id="redirHref" target="_blank">Try authentication here</a>
-            </div>
-
             <div class="qrWrap">
                 <div id="qrcode" class="qr"></div>
             </div>
@@ -765,7 +761,6 @@
     $(function(){
         // Start random number collectors.
         sjcl.random.startCollectors();
-        $('#redirBlock').hide();
 
         // Init
         updForm = $('.box')[0];
