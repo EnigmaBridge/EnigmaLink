@@ -24,6 +24,7 @@ var divUploadLogin;
 
 // Google Drive access token.
 var accessToken = null;
+var storageLoaded = false;
 
 // Share folder drive ID where to put uploaded files in the Google Drive.
 var shareFolderId;
@@ -298,6 +299,7 @@ function onShareFolderFetched(err){
 		return;
 	}
 
+	storageLoaded = true;
 	log("Share folder fetched");
 
 	// Now sharing can be enabled.
@@ -330,8 +332,45 @@ function initUploadDiv(form){
 		return
 	}
 
+	$form.addClass( 'has-advanced-upload' ); // letting the CSS part to know drag&drop is supported by the browser
+
+	// restart the form if has a state of error/success
+	$fldRestart.on( 'click', function( e )
+	{
+		e.preventDefault();
+		$form.removeClass( 'is-error is-success' );
+		svgUpload.show();
+		divButtons.hide();
+		if (!storageLoaded){
+			divUploadLogin.show();
+			divUploadInput.hide();
+		} else {
+			divUploadLogin.hide();
+			divUploadInput.show();
+		}
+		//$fldInput.trigger( 'click' );
+	});
+
+	// Firefox focus bug fix for file input
+	$fldInput
+		.on( 'focus', function(){ $fldInput.addClass( 'has-focus' ); })
+		.on( 'blur', function(){ $fldInput.removeClass( 'has-focus' ); });
+
+	divUploadInput.hide();
+
+	// Upload behavior.
+	initUploadDivBehavior(updForm);
+}
+
+function initUploadDivBehavior(form){
+	var $form = $(form);
+	// drag&drop files if the feature is available
+	if (!isAdvancedUpload){
+		alert("Unsupported browser");
+		return
+	}
+
 	$form
-		.addClass( 'has-advanced-upload' ) // letting the CSS part to know drag&drop is supported by the browser
 		.on( 'drag dragstart dragend dragover dragenter dragleave drop', function( e )
 		{
 			// preventing the unwanted behaviours
@@ -349,7 +388,15 @@ function initUploadDiv(form){
 		.on( 'drop', function( e )
 		{
 			var newFiles = e.originalEvent.dataTransfer.files; // the files that were dropped
-			if (newFiles.length > 1){
+			divUploadLogin.hide();
+
+			if (!storageLoaded){
+				$form.removeClass( 'is-uploading' ).addClass( 'is-error' );
+				$fldErrorMsg.text( "Storage is not yet connected, please wait." );
+				logFiles(newFiles);
+				return;
+
+			}else if (newFiles.length > 1){
 				$form.removeClass( 'is-uploading' ).addClass( 'is-error' );
 				$fldErrorMsg.text( "Only one file is supported for now." );
 				//$fldLabel.text("Only one file is supported for now.");
@@ -361,23 +408,6 @@ function initUploadDiv(form){
 			droppedFiles = newFiles;
 			showFiles( droppedFiles, $fldInput, $fldLabel );
 		});
-
-	// restart the form if has a state of error/success
-	$fldRestart.on( 'click', function( e )
-	{
-		e.preventDefault();
-		$form.removeClass( 'is-error is-success' );
-		svgUpload.show();
-		divButtons.hide();
-		//$fldInput.trigger( 'click' );
-	});
-
-	// Firefox focus bug fix for file input
-	$fldInput
-		.on( 'focus', function(){ $fldInput.addClass( 'has-focus' ); })
-		.on( 'blur', function(){ $fldInput.removeClass( 'has-focus' ); });
-
-	divUploadInput.hide();
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
