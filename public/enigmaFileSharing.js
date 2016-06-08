@@ -1932,10 +1932,13 @@ eb.sh.pngParser.prototype = {
  * @param {function} [options.onError] Callback if upload fails
  * @param {function} [options.onStateChange] Callback listening on state changes
  * @param {number} [options.chunkSize] Upload chunk size in bytes.
+ * @param {boolean} [options.chunkSizeAdaptive] If true, adaptive chunk heuristic is used.
+ * @param {number} [options.chunkSizeMax] If true, adaptive chunk heuristic is used.
  * @param {bitArray} options.encKey AES-256 file encryption key.
  * @param {bitArray} options.secCtx security context for the file (encrypted form of encKey)
  * @param {number} [options.padding] Number of bytes to add to the file. Size concealing.
  * @param {function} [options.padFnc] If set, takes precedence over options.padding. Determines number of bytes to add to the message.
+ * @param {string} [options.png] base64 encoded concealing PNG in which to embed the encrypted file.
  */
 var EnigmaUploader = function(options) {
     var noop = function() {};
@@ -1960,7 +1963,16 @@ var EnigmaUploader = function(options) {
     this.onError = options.onError || noop;
     this.onStateChange = options.onStateChange || noop;
 
-    this.chunkSize = options.chunkSize || 262144*2; // requirement by Google, minimal size of a chunk.
+    this.chunkSize = Math.max(options.chunkSize || 262144*2, 262144*2); // requirement by Google, minimal size of a chunk.
+
+    // Adaptive chunk setting.
+    this.chunkSizePrefs = {};
+    this.chunkSizePrefs.cur = this.chunkSize;
+    this.chunkSizePrefs.min = 262144 * 2;
+    this.chunkSizePrefs.max = Math.min(options.chunkSizeMax || 1024 * 1024 * 4, 1024 * 1024 * 8); // Larger may cause problems with RAM & Performance.
+    this.chunkSizePrefs.maxAchieved = this.chunkSize;
+    this.chunkSizePrefs.adaptive = options.chunkSizeAdaptive || false;
+
     this.offset = 0;
     this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
     this.url = options.url;
@@ -2393,13 +2405,13 @@ EnigmaUploader.prototype.buildEncryptionDataSource_ = function(inputDs) {
 
         // Cleanup. Keep only last chunk in the buffer just in case a weird reupload request comes.
         // We assume we won't need more data from the past than 1 upload chunk size. If we do, it is a critical error.
-        if (this.cached.offset != -1 && (this.cached.offset + this.chunkSize) < fOffset) {
+        if (this.cached.offset != -1 && (this.cached.offset + this.chunkSizePrefs.maxAchieved) < fOffset) {
             log(sprintf("Dropping old chunk. Cached: %s - %s. FileReq: %s - %s, newCachedOffset: %s, DropFromPos: %s",
-                this.cached.offset, this.cached.end, fOffset, fEnd, fOffset - this.chunkSize,
-                fOffset - this.chunkSize - this.cached.offset));
+                this.cached.offset, this.cached.end, fOffset, fEnd, fOffset - this.chunkSizePrefs.maxAchieved,
+                fOffset - this.chunkSizePrefs.maxAchieved - this.cached.offset));
 
-            this.cached.buff = w.bitSlice(this.cached.buff, (fOffset - this.chunkSize - this.cached.offset) * 8);
-            this.cached.offset = fOffset - this.chunkSize;
+            this.cached.buff = w.bitSlice(this.cached.buff, (fOffset - this.chunkSizePrefs.maxAchieved - this.cached.offset) * 8);
+            this.cached.offset = fOffset - this.chunkSizePrefs.maxAchieved;
             eb.misc.assert(w.bitLength(this.cached.buff) == 8 * (this.cached.end - this.cached.offset), "Invariant broken");
         }
 
@@ -2754,9 +2766,7 @@ EnigmaUploader.prototype.getBytesToSend_ = function(offset, end, loadedCb) {
 EnigmaUploader.prototype.sendFile_ = function() {
     var end = this.totalSize;
     if (this.offset || this.chunkSize) {
-        if (this.chunkSize) {
-            end = Math.min(this.offset + this.chunkSize, this.totalSize);
-        }
+        end = Math.min(this.offset + this.chunkSizePrefs.cur, this.totalSize);
     }
 
     // Handler for uploading requested data range.
@@ -2836,6 +2846,7 @@ EnigmaUploader.prototype.onContentUploadSuccess_ = function(e) {
         this.onComplete(e.target.response);
 
     } else if (e.target.status == 308) {
+        this.chunkAdaptiveStep_(true);
         this.extractRange_(e.target);
         this.retryHandler.reset();
         this.sendFile_();
@@ -2856,6 +2867,7 @@ EnigmaUploader.prototype.onContentUploadError_ = function(e) {
     if (e.target.status && e.target.status < 500) {
         this.onError_(e.target.response);
     } else {
+        this.chunkAdaptiveStep_(false);
         this.changeState_(EnigmaUploader.STATE_BACKOFF);
         this.retryHandler.retry(this.resume_.bind(this));
     }
@@ -2871,9 +2883,28 @@ EnigmaUploader.prototype.onUploadError_ = function(e) {
     if (this.retryHandler.limitReached()){
         this.onError_(e ? e.target.response : e);
     } else {
+        this.chunkAdaptiveStep_(false);
         this.changeState_(EnigmaUploader.STATE_BACKOFF);
         this.retryHandler.retry(this.upload.bind(this));
     }
+};
+
+/**
+ * Changes adaptive chunkSize value.
+ * @param success
+ * @private
+ */
+EnigmaUploader.prototype.chunkAdaptiveStep_ = function(success){
+    if (!this.chunkSizePrefs.adaptive){
+        return;
+    }
+
+    if (success){
+        this.chunkSizePrefs.cur = Math.min(this.chunkSizePrefs.max, this.chunkSizePrefs.cur*2);
+    } else {
+        this.chunkSizePrefs.cur = Math.max(this.chunkSizePrefs.min, this.chunkSizePrefs.cur/2);
+    }
+    this.chunkSizePrefs.maxAchieved = Math.max(this.chunkSizePrefs.maxAchieved, this.chunkSizePrefs.cur);
 };
 
 EnigmaUploader.prototype.progressHandler_ = function(meta, evt){
