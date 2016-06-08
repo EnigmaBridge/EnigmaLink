@@ -98,3 +98,9 @@ label + .radio, label + .checkbox {
 .icon-md-inline {
     display: inline !important;
 }
+
+.btn-disabled {
+    pointer-events: none;
+    cursor: default;
+    opacity: 0.6;
+}

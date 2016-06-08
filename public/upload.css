@@ -7,7 +7,7 @@ body
 .box
 {
     font-size: 1.25rem; /* 20 */
-    background-color: rgba(0, 167, 215, 0.11);
+    background-color: rgba(0, 167, 215, 0.06);
     position: relative;
     padding: 100px 20px;
     text-align: center;
