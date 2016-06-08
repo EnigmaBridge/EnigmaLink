@@ -3041,7 +3041,7 @@ var EnigmaDownloader = function(options){
     this.chunkSizePrefs = {};
     this.chunkSizePrefs.cur = this.chunkSize;
     this.chunkSizePrefs.min = 262144 * 2;
-    this.chunkSizePrefs.max = options.chunkSizeMax || 1024 * 1024 * 8; // Larger may cause problems with RAM & Performance.
+    this.chunkSizePrefs.max = Math.min(options.chunkSizeMax || 1024 * 1024 * 8, 1024 * 1024 * 8); // Larger may cause problems with RAM & Performance.
     this.chunkSizePrefs.maxAchieved = this.chunkSize;
     this.chunkSizePrefs.adaptive = options.chunkSizeAdaptive || false;
 
