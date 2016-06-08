@@ -73,27 +73,35 @@
 					Connect your file storage
 				</h3>
 				<div class="row">
-					<div class="col-sm-4">
-						<span id="signin">
-							<span
-									class="g-signin"
-									data-callback="signinCallback"
-									data-clientid="1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com"
-									data-cookiepolicy="single_host_origin"
-									data-scope="https://www.googleapis.com/auth/drive.file">
+					<div class="col-sm-12">
+						<div class="form-group">
+							<span id="signin">
+								<span
+										class="g-signin"
+										data-callback="signinCallback"
+										data-clientid="1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com"
+										data-cookiepolicy="single_host_origin"
+										data-scope="https://www.googleapis.com/auth/drive.file">
+								</span>
 							</span>
-						</span>
-						<span id="signedin" style="display: none;">
-							Signed in GoogleDrive
-						</span>
+							<span id="signedin" style="display: none;">
+								Signed in GoogleDrive
+							</span>
+						</div>
 					</div>
-					<div class="col-sm-4">
-						<a class="btn btn-clean  btn-lg btn-rich-electric-blue " onclick="setFillScreenBlocHeight();">DropBox</a>
-						<br/><span class="text-center">Coming soon</span>
+				</div>
+				<div class="row">
+					<div class="col-sm-12">
+						<div class="form-group">
+							<a class="btn btn-clean btn-rich-electric-blue disabled">DropBox</a>
+							<span class="text-center">Coming soon</span>
+						</div>
 					</div>
-					<div class="col-sm-4">
-						<a class="btn btn-clean  btn-lg btn-rich-electric-blue btn-disabled">OneDrive</a>
-						<br/><span class="text-center">Coming soon</span>
+				</div>
+				<div class="row">
+					<div class="col-sm-12">
+						<a class="btn btn-clean btn-rich-electric-blue disabled">OneDrive</a>
+						<span class="text-center">Coming soon</span>
 					</div>
 				</div>
 			</div>
