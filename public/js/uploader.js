@@ -427,8 +427,8 @@ function onFileShared(data){
 	log(link);
 	//fldShareLink.val(link);
 	//enableLinkButtons(link && link.length>0);
-	//divQrCode.html("");
-	//divQrCode.qrcode(link);
+	divQrCode.html("");
+	divQrCode.qrcode(link);
 	//$('#aDownloadLink').attr("href", link);
 	onUploadStateChange(false, "Upload finished");
 	$form.removeClass( 'is-uploading is-ready').addClass( 'is-success');
