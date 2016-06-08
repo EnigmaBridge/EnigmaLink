@@ -26,6 +26,22 @@ var shareConfig = {
     }
 };
 
+shareConfig.sharedFolderQuery = {
+        'q': "mimeType='application/vnd.google-apps.folder'" +
+        " and name='" + shareConfig.shareFolderName + "' " +
+        " and trashed=false " +
+        " and 'root' in parents",
+        'fields': "nextPageToken, files(id, name)"
+};
+
+shareConfig.shareFolderCreate = {
+    resource: {
+        'name' : shareConfig.shareFolderName,
+        'mimeType' : 'application/vnd.google-apps.folder'
+    },
+    fields: 'id'
+};
+
 function getProxyRedirLink(fileId){
     //return sprintf("http://deadcode.me/proxy-redir.php?id=%s", encodeURIComponent(fileId));
     return sprintf("https://expert.enigmabridge.com/cgi-bin/proxy-redir.php?id=%s", encodeURIComponent(fileId));

@@ -670,22 +670,10 @@
         spnBtnShare.text("Please wait until Google Drive is loaded");
 
         // Search the share folder.
-        var request = gapi.client.drive.files.list({
-            'q': "mimeType='application/vnd.google-apps.folder'" +
-            " and name='" + shareConfig.shareFolderName + "' " +
-            " and trashed=false " +
-            " and 'root' in parents",
-            'fields': "nextPageToken, files(id, name)"
-        });
+        var request = gapi.client.drive.files.list(shareConfig.sharedFolderQuery);
 
         // Request for creating a new one should share folder not be found.
-        var requestCreate = gapi.client.drive.files.create({
-            resource: {
-                'name' : shareConfig.shareFolderName,
-                'mimeType' : 'application/vnd.google-apps.folder'
-            },
-            fields: 'id'
-        });
+        var requestCreate = gapi.client.drive.files.create(shareConfig.shareFolderCreate);
 
         request.execute(function(resp) {
             var files = resp.files;
