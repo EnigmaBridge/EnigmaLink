@@ -222,36 +222,6 @@ function showFiles(files, $input, $label){
 	divButtons.show();
 }
 
-function enableLinkButtons(enable){
-	//setDisabled($('#btnCopyLink'), !enable);
-	//setDisabled($('#btnTryLink'), !enable);
-	//setDisabled($('#btnSaveLink'), !enable);
-	//setDisabled($('#btSaveQr'), !enable);
-	//setDisabled($('#btnChangeSharing'), !enable);
-}
-
-function getSettings(){
-	var apiKey = shareConfig.ebConfigUpload.apiKey;
-	var endpoint = shareConfig.ebConfigUpload.remoteEndpoint;
-	var keyId = shareConfig.ebConfigUpload.userObjectId;
-	var aesKey = shareConfig.ebConfigUpload.encKey;
-	var macKey = shareConfig.ebConfigUpload.macKey;
-
-	return {
-		remoteEndpoint: endpoint,
-		remotePort: 11180,
-		requestMethod: eb.comm.REQ_METHOD_POST,
-		requestScheme: 'https',
-		requestTimeout: 35000,
-		debuggingLog: true,
-		apiKey: apiKey,
-		apiKeyLow4Bytes: keyId,
-		userObjectId : keyId,
-		aesKey: aesKey,
-		macKey: macKey
-	};
-}
-
 function formatSeconds(s){
 	if (s < 60){
 		return sprintf("%d s", s);
@@ -450,8 +420,6 @@ function onFileShared(data){
 
 	log(link);
 	fldLink.val(link);
-	//enableLinkButtons(link && link.length>0);
-	//$('#aDownloadLink').attr("href", link);
 	onUploadStateChange(false, "Upload finished");
 	$form.removeClass( 'is-uploading is-ready').addClass( 'is-success');
 	regenerateQrCode();
@@ -846,7 +814,6 @@ $(function()
 
 	// Behavior.
 	fncMask();
-	enableLinkButtons(false);
 
 	// Default form validation, not used.
 	$("input,textarea").jqBootstrapValidation(
