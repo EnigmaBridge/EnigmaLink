@@ -30,6 +30,7 @@ var fldSha256;
 var fldSha1;
 var divProgressBar;
 var divQrInfo;
+var ahrefGoogleDrive;
 
 // Google Drive access token.
 var accessToken = null;
@@ -549,6 +550,11 @@ function onShareFolderFetched(err){
 	storageLoaded = true;
 	log("Share folder fetched");
 
+	// Setup href to point to user's share folder.
+	if (ahrefGoogleDrive){
+		ahrefGoogleDrive.attr("href", eb.sh.misc.getDriveFolderLink(shareFolderId));
+	}
+
 	// Now sharing can be enabled.
 	$(updForm).addClass('is-ready');
 }
@@ -802,6 +808,7 @@ $(function()
 	fldSha1 = $('#fldSha1');
 	divProgressBar = $('.progress-bar');
 	divQrInfo = $('.qrInfo');
+	ahrefGoogleDrive = $('#ahrefGoogleDrive');
 
 	fldMsg = $('#fldMessage');
 	fldFname = $('#filename');
