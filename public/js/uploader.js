@@ -723,7 +723,7 @@ function onQrRegenerateClicked(type){
 }
 
 function regenerateQrCode(type){
-	type = type || 'link';
+	type = type || 'email';
 	var qrCodeSettings = {
 		"render": "canvas",
 		"text": currentFileLink,
