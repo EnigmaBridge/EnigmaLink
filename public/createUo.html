@@ -60,9 +60,9 @@
         <div class="section"><span>1</span>Input</div>
         <div class="inner-wrap">
             <label>App key
-                <input type="text" id="fldAppKey" placeholder="App key" value="0000000000000000000000000000000000000000000000000000000000000000"/>
+                <input type="text" id="fldAppKey" placeholder="App key" value="00000000000000000000000000000000"/>
                 <span>Application key in UO.
-                <a onclick="fldAppKey.val(eb.misc.genHexNonce(64));">Random</a>
+                <a onclick="fldAppKey.val(eb.misc.genHexNonce(32));">Random</a>
                 </span>
             </label>
             <label>Comm key - Single derivation
@@ -241,7 +241,7 @@
                 "clientiv": eb.comm.createUO.consts.YES, //  if "yes", we expect the data starts with an IV to initialize decryption of data - this is for communication security
                 "clientdiv": eb.comm.createUO.consts.NO, // if "yes", we expect the data starting with a diversification 16B for communication keys
                 "resource": eb.comm.createUO.consts.resource.GLOBAL,
-                "credit": 256, // <1-32767>, a limit a seed card can provide to the EB service
+                "credit": 32766, // <1-32767>, a limit a seed card can provide to the EB service
                 "generation": {
                     "commkey": eb.comm.createUO.consts.genKey.LOCAL,
                     "billingkey": eb.comm.createUO.consts.genKey.LOCAL,
@@ -303,7 +303,7 @@
 
             // Create a new user object.
             var tpl = response.uot;
-            var builder = new eb.comm.createUO.templateFiller({template: tpl});
+            var builder = new eb.comm.createUO.templateFiller({template: tpl, logger: log});
 
             // New keys.
             var keys = {
@@ -312,9 +312,9 @@
                 commac:{
                     key:sjcl.codec.hex.toBits(fldMacKey.val())},
                 comnextenc:{
-                    key:[0,0,0,0,0,0,0,0]}, // TODO: randomize
+                    key:sjcl.random.randomWords(8)},
                 conextmac:{
-                    key:[0,0,0,0,0,0,0,0]}, // TODO: randomize
+                    key:sjcl.random.randomWords(8)},
                 app:{
                     key:sjcl.codec.hex.toBits(fldAppKey.val())}
             };
