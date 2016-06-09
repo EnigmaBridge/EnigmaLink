@@ -333,7 +333,6 @@ function onSuccess(){
     var pretag = document.createElement( "pre" );
     $(pretag).text(fileInfo);
 
-    divStatusInfo.html("Finished");
     divFileInfo.text("File details:");
     divFileInfo.append(pretag);
     divFileInfo.show();
@@ -441,6 +440,12 @@ function onUploadStateChange(progress, data){
              || data.state.state === EnigmaDownloader.STATE_SECURITY_BLOCK_PROCESSING)
             {
                 divStatusInfo.text(sprintf("Decrypting... "));
+                lblSet = true;
+            }
+            if (data.state.state === EnigmaDownloader.STATE_DONE)
+            {
+                divStatusInfo.text(sprintf("Finished"));
+                data.val = 1.0;
                 lblSet = true;
             }
         }
