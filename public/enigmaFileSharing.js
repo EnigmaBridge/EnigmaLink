@@ -4108,6 +4108,8 @@ EnigmaDownloader.prototype.bufferProcessed_ = function(){
             if (!this.sha256){
                 this.sha256 = this.sha256Digest.finalize();
             }
+
+            this.changeState_(EnigmaDownloader.STATE_DONE);
             this.onComplete();
         }).bind(this));
     }
