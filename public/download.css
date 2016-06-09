@@ -1,0 +1,31 @@
+#passwordDiv{
+    display:none;
+    margin-top: 15px;
+}
+pre {
+    margin: 0;
+}
+.notif {
+    display: none;
+    padding: 10px;
+    margin: 15px 0 0 0;
+    border-style: dashed;
+    border-width: 1px;
+}
+.notifSuccess {
+    display: block;
+    background-color: #ddffdd;
+    border-color: #4cae4c;
+}
+.notifFail {
+    display: block;
+    background-color: #e4b9c0;
+    border-color: #a94442;
+}
+#divFileInfo{
+    display:none;
+    margin-top: 15px;
+}
+#divStatusWrapper {
+    display: none;
+}
