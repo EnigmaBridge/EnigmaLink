@@ -427,7 +427,7 @@ function onFileShared(data){
 		u: eb.sh.misc.inputToLinkBase64(eb.misc.inputToBits(shareConfig.ebConfigDownload.userObjectId))
 	};
 
-	var linkKeys = getLinkKeys(shareConfig.ebConfigDownload);
+	var linkKeys = eb.sh.misc.getLinkKeys(shareConfig.ebConfigDownload);
 	linkConfig = $.extend(linkConfig, linkKeys);
 	linkConfig = $.extend(linkConfig, {
 		f: data.id,

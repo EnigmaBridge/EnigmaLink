@@ -476,14 +476,7 @@ function loadParams(){
     console.log(location);
     log(sprintf("URL query: %s", location.search));
     log(sprintf("URL hash: %s", location.hash));
-    var params = location.hash;
-    linkCfg = {
-        uoid:       eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('u', params, true) || ""),
-        aesKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('e', params, true) || ""),
-        macKey:     eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('m', params, true) || ""),
-        fid:        eb.sh.misc.getURLParameter('f', params, true),
-        nonce:      eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('n', params, true) || "")
-    };
+    linkCfg = eb.sh.misc.buildLinkParams(location.hash);
 
     log(JSON.stringify(linkCfg));
     if (linkCfg.fid !== null && linkCfg.fid.length > 0 && linkCfg.nonce != null && w.bitLength(linkCfg.nonce) > 0){

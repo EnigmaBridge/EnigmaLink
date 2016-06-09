@@ -1,6 +1,6 @@
 "use strict";
 var defaults = {
-    site: 'site2.enigmabridge.com',
+    site: 'site1.enigmabridge.com',
     site1: 'site1.enigmabridge.com',
     site2: 'site2.enigmabridge.com'
 };
@@ -10,7 +10,7 @@ var shareConfig = {
     baseUrl: 'https://expert.enigmabridge.com/sharing',
     shareFolderName: 'EnigmaShares',
     clientId: '1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com',
-    ebConfigUpload: {
+    ebConfigUploadLegacy: {
         apiKey:       'API_TEST',
         remoteEndpoint:'site2.enigmabridge.com',
         userObjectId: 'EE01',
@@ -19,7 +19,7 @@ var shareConfig = {
         macKey:       'e224262820223456789012345678901234567890123456789012345678901234',
         comKey:       undefined
     },
-    ebConfigDownload: {
+    ebConfigDownloadLegacy: {
         apiKey:       'API_TEST',
         remoteEndpoint:'site2.enigmabridge.com',
         userObjectId: 'EE02',
@@ -27,6 +27,26 @@ var shareConfig = {
         encKey:       'e134567890123456789012345678901234567890123456789012345678901234',
         macKey:       'e224262820223456789012345678901234567890123456789012345678901234',
         comKey:       undefined
+    },
+    ebConfigUpload: {
+        apiKey:       'API_TEST',
+        uotype:       0x4,
+        remoteEndpoint:'site1.enigmabridge.com',
+        userObjectId: '7b',
+        method:       'PLAINAES',
+        encKey:       'f489e056b04f8af72c959326933ccb15a0bf2aaac18d59d8a8d3c07cf45f18ec',
+        macKey:       'aedcd9c1f0f2737fbd7da5242868a5bdb2a3afbab14000e03772e4d7da1f10d6',
+        comKey:       '4b27a1db039f0c8566d307ef03dde031'
+    },
+    ebConfigDownload: {
+        apiKey:       'API_TEST',
+        uotype:       0xf,
+        remoteEndpoint:'site1.enigmabridge.com',
+        userObjectId: '79',
+        method:       'PLAINAESDECRYPT',
+        encKey:       '1c71e939a348938c61eee1d12769f23c7e2a93e689f0cc065a916f9af29e73dd',
+        macKey:       '710b8ff6b9ac669cd437cb32d442c394206922dcab2dd8b6c52715dd0fac72c6',
+        comKey:       'e69cd6dd17447ecb676325aa2baf513e'
     }
 };
 
@@ -47,22 +67,6 @@ shareConfig.shareFolderCreate = {
 };
 
 function getProxyRedirLink(fileId){
-    //return sprintf("http://deadcode.me/proxy-redir.php?id=%s", encodeURIComponent(fileId));
-    return sprintf("https://expert.enigmabridge.com/cgi-bin/proxy-redir.php?id=%s", encodeURIComponent(fileId));
-}
-
-function getLinkKeys(config){
-    if (config && config.comKey){
-        return {
-            'c': eb.sh.misc.inputToLinkBase64(config.comKey)
-        };
-
-    } else {
-        return {
-            e: eb.sh.misc.inputToLinkBase64(config.encKey),
-            m: eb.sh.misc.inputToLinkBase64(config.macKey)
-        };
-    }
 }
 
 // Embedding PNG image.
