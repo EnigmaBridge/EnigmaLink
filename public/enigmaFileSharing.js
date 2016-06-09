@@ -2057,10 +2057,10 @@ EnigmaUploader.prototype.upload = function() {
 
     xhr.onload = function(e) {
         if (e.target.status < 400) {
-            this.retryHandler.reset();
             this.url = e.target.getResponseHeader('Location');
             log("Upload session started. Url: " + this.url);
 
+            this.retryHandler.reset();
             this.sendFile_();
         } else {
             this.onUploadError_(e);
@@ -3226,7 +3226,6 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
         }
 
         if (e.target.status < 400) {
-            this.retryHandler.reset();
             this.chunkAdaptiveStep_(true);
 
             var arraybuffer = xhr.response;
@@ -3240,6 +3239,7 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
                 this.onError({'reason':'Download length invalid', 'code':EnigmaDownloader.ERROR_CODE_INVALID_CHUNK_LEN});
                 return;
             }
+            this.retryHandler.reset();
 
             // If the size is less than we asked for we surely know it is the last chunk.
             // But if there is no total size information and the length is the size of the chunk it still
@@ -4137,7 +4137,6 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
     xhr.open("GET", this.proxyRedirUrl, true);
     xhr.onload = function(e) {
         if (e.target.status < 400) {
-            this.retryHandler.reset();
             try {
                 var json = JSON.parse(xhr.responseText);
                 console.log(json);
@@ -4160,6 +4159,7 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
                 this.totalSize = json.size;
             }
 
+            this.retryHandler.reset();
             this.url = json.url;
             this.fetchFile_();
 
