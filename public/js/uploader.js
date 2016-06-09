@@ -435,7 +435,7 @@ function onFileShared(data){
 		n: eb.sh.misc.inputToLinkBase64(data.lnonce)
 	});
 
-	var link = eb.sh.misc.buildUrl("/download.html", linkConfig, shareConfig.baseUrl, true);
+	var link = eb.sh.misc.buildUrl(shareConfig.downloadHandler, linkConfig, shareConfig.baseUrl, true);
 	if (data.uploader.sha1){
 		log(sprintf("SHA1:   %s", sjcl.codec.hex.fromBits(data.uploader.sha1)));
 		fldSha1.val(sjcl.codec.hex.fromBits(data.uploader.sha1));

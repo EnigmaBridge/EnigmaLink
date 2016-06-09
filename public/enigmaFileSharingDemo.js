@@ -8,6 +8,7 @@ var defaults = {
 // configuration
 var shareConfig = {
     baseUrl: 'https://expert.enigmabridge.com/sharing',
+    downloadHandler: '/download.html',
     shareFolderName: 'EnigmaShares',
     clientId: '1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com',
     ebConfigUploadLegacy: {
