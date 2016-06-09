@@ -342,10 +342,12 @@ function onSuccess(){
 }
 
 function onError(data){
-    btnDownload.show();
-    setDisabled(btnDownload, true);
+    bodyProgress(false);
+    setDisabled(btnDownload, false);
     setDisabled(btnPasswordUse, true);
     setDisabled(fldPassword, true);
+    btnDownload.show('slow');
+    setFillScreenBlocHeight();
     divStatusInfo.html("Failed");
     log(JSON.stringify(data));
     displayNotifyGlobal("Error: " + (data && data.reason ? data.reason : JSON.stringify(data)), true, true);
