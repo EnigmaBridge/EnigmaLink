@@ -559,6 +559,7 @@ function initUploadDiv(form){
 		e.preventDefault();
 		$form.removeClass( 'is-error is-success');
 		svgUpload.show();
+		divShareInfo.hide();
 		divButtons.hide();
 		$fldLabel.html(oldLabelData);
 		if (!storageLoaded){
@@ -566,6 +567,7 @@ function initUploadDiv(form){
 		} else {
 			$(updForm).addClass('is-ready');
 		}
+		setFillScreenBlocHeight();
 	});
 
 	// Firefox focus bug fix for file input
@@ -604,6 +606,7 @@ function initUploadDivBehavior(form){
 		{
 			var newFiles = e.originalEvent.dataTransfer.files; // the files that were dropped
 			logFiles(newFiles);
+			divShareInfo.hide();
 
 			if (!storageLoaded){
 				onUploadError( "Storage is not yet connected, please wait" );
