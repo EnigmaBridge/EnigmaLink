@@ -588,7 +588,8 @@
             file: fFile,
             encKey: encKey,
             secCtx: secCtx,
-            chunkSize: 262144*5,
+            chunkSizeMax: 262144*16, // 4MB chunk size
+            chunkSizeAdaptive: true,
             lnonceHash: sjcl.hash.sha256.hash(lnonce),
             fname: fldFname.val(),
             fnameOrig: fldFnameOrig.val(),
