@@ -95,15 +95,6 @@
 				<div class="row">
 					<div class="col-sm-12">
 						<div class="form-group">
-							<span id="signin">
-								<span
-										class="g-signin"
-										data-callback="signinCallback"
-										data-clientid="1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com"
-										data-cookiepolicy="single_host_origin"
-										data-scope="https://www.googleapis.com/auth/drive.file">
-								</span>
-							</span>
 							<span id="signedin" style="display: none;">
 								Signed in <a id="ahrefGoogleDrive" target="_blank">GoogleDrive</a>
 							</span>
@@ -139,13 +130,24 @@
 				<div class="js box">
 					<div id="divUploadLogin" class="box__login">
 						<h3 class="tc-rich-electric-blue">Please, connect your Google Drive</h3>
-						Enigma Bridge gives you control and safety. We ask for permission to create files and read
+						<p>Enigma Bridge gives you control and safety. We ask for permission to create files and read
                         only files we store in your <a href="https://drive.google.com/drive/my-drive" target="_blank">
                         Google Drive</a> (in the "<i>Enigma Bridge Umph</i>" folder). We can't see any other files.
                         See details at
                         <a href="https://myaccount.google.com/intro/security?target=permissions#connectedapps">Google
                             security</a>.
-
+						</p>
+						<div class="signinWrapper">
+						<span id="signin">
+								<span
+										class="g-signin"
+										data-callback="signinCallback"
+										data-clientid="1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com"
+										data-cookiepolicy="single_host_origin"
+										data-scope="https://www.googleapis.com/auth/drive.file">
+								</span>
+							</span>
+						</div>
 					</div>
 
 					<div id="divUploadInput" class="box__input">
