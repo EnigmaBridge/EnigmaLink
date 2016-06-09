@@ -43,10 +43,16 @@ $mode = getReq('mode', 1);
 $fetchLen = getReq('fetchLen', 1);
 $fetchChunk = getReq('fetchChunk', -1);
 
+// Construct response JSON.
+$json = new stdClass();
+
 if (empty($id)){
     $id = "0B4ObafdOo3JwbWtYa2ZjNWxRUk0";
-//    header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found", true, 404);
-//    die("ID not specified");
+    header($_SERVER["SERVER_PROTOCOL"]." 404 Not Found", true, 404);
+
+    $json->status = 'error';
+    $json->error = 'EmptyParameter';
+    die(json_encode($json));
 }
 
 if ($fetchChunk > 1024*256){
@@ -84,8 +90,6 @@ if ($header['status']==100){ //use the other "header"
     $header=parseHeaders($bh[1]);
 }
 
-// Construct response JSON.
-$json = new stdClass();
 if ($status == 200){
     // Check if cookie contains "download_warning", if yes, GoogleDrive is telling us the file
     // Being requested is too large for scanning and that it can potentially contain harmful content.
