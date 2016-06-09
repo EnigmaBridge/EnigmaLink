@@ -29,6 +29,7 @@ var fldLink;
 var fldSha256;
 var fldSha1;
 var divProgressBar;
+var divQrInfo;
 
 // Google Drive access token.
 var accessToken = null;
@@ -752,23 +753,29 @@ function regenerateQrCode(type){
 		"size": 300
 	};
 
+	var callToAction = "";
 	switch(type){
 		case 'email':
 			qrCodeSettings.text = sprintf("MATMSG:TO:your@recipient.com;SUB:New file share;BODY:%s;;", encodeURIComponent(currentFileLink)); //mailto:test@test.test?subject=Congrats&body=Enjoy%20your%20stay%0ARegards%20
+			callToAction = "Scan to email";
 			break;
 		case 'text':
 			qrCodeSettings.text = sprintf("SMSTO:+44999999999:%s", encodeURIComponent(currentFileLink));
+			callToAction = "Scan to text";
 			break;
 		case 'tweet':
 			qrCodeSettings.text = sprintf("https://twitter.com/intent/tweet?text=%s", encodeURIComponent(currentFileLink));
+			callToAction = "Scan to tweet";
 			break;
 		case 'link':
 			qrCodeSettings.text = currentFileLink;
+			callToAction = "Scan to download";
 			break;
 	}
 
 	divQrCode.html("");
 	divQrCode.qrcode(qrCodeSettings);
+	divQrInfo.text(callToAction);
 }
 
 function tweetText(text){
@@ -794,6 +801,7 @@ $(function()
 	fldSha256 = $('#fldSha256');
 	fldSha1 = $('#fldSha1');
 	divProgressBar = $('.progress-bar');
+	divQrInfo = $('.qrInfo');
 
 	fldMsg = $('#fldMessage');
 	fldFname = $('#filename');
