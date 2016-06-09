@@ -771,6 +771,10 @@ function regenerateQrCode(type){
 	divQrCode.qrcode(qrCodeSettings);
 }
 
+function tweetText(text){
+	var twitterLink = sprintf("https://twitter.com/intent/tweet?text=%s", encodeURIComponent(text));
+	window.open(twitterLink,'_blank');
+}
 // ---------------------------------------------------------------------------------------------------------------------
 // onLoad
 // ---------------------------------------------------------------------------------------------------------------------
