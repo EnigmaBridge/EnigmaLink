@@ -131,6 +131,58 @@ eb.sh.misc = {
     },
 
     /**
+     * Builds part of the link consisting of the comm keys.
+     * If unified comkey exists, it is prefered.
+     *
+     * @param config
+     * @returns {*}
+     */
+    getLinkKeys: function(config){
+        if (config && config.comKey){
+            return {
+                'c': eb.sh.misc.inputToLinkBase64(config.comKey)
+            };
+
+        } else {
+            return {
+                e: eb.sh.misc.inputToLinkBase64(config.encKey),
+                m: eb.sh.misc.inputToLinkBase64(config.macKey)
+            };
+        }
+    },
+
+    /**
+     * Builds link configuration object for downloader/decryptor from the link part.
+     *
+     * @param params
+     * @returns {{uoid: *, aesKey: *, macKey: *, fid: (*|string|null), nonce: *}|*}
+     */
+    buildLinkParams: function(params){
+        var linkCfg = {};
+
+        // Search for comKey. If present, regenerate AES, MAC keys from it.
+        var comKey = eb.sh.misc.getURLParameter('c', params, true);
+        if (comKey !== undefined && comKey.length > 0){
+            comKey = eb.sh.misc.inputFromLinkBase64(comKey);
+        }
+        if (comKey !== undefined && comKey.length > 0){
+            var keys = eb.sh.misc.regenerateCommKeys(comKey);
+            linkCfg.comKey = comKey;
+            linkCfg.aesKey = keys.enc;
+            linkCfg.macKey = keys.mac;
+
+        } else {
+            linkCfg.aesKey = eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('e', params, true) || "");
+            linkCfg.macKey = eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('m', params, true) || "");
+        }
+
+        linkCfg.uoid  = eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('u', params, true) || "");
+        linkCfg.fid   = eb.sh.misc.getURLParameter('f', params, true);
+        linkCfg.nonce = eb.sh.misc.inputFromLinkBase64(eb.sh.misc.getURLParameter('n', params, true) || "");
+        return linkCfg;
+    },
+
+    /**
      *
      * Basic asynchronous operation.
      * May use setTimeout(fnc, 0) to implement the async nature or setImmediate(fnc) or postMessage.
@@ -256,7 +308,8 @@ eb.sh.misc = {
     },
 
     /**
-     * bitArray concatenation to the original array. Modifies a input.
+     * bitArray concatenation to the original array. Modifies the input.
+     *
      * @param {Array|bitArray} a source to be appended.
      * @param {Array|bitArray} b data to be appended to a.
      * @return {Array|bitArray} a
