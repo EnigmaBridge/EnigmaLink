@@ -298,6 +298,7 @@ function downloadClicked() {
     divPasswdNotif.hide();
     setFillScreenBlocHeight();
     bodyProgress(true);
+    scrollToElementBottom(divStatusWrapper);
     dwn.fetch();
 }
 
