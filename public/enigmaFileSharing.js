@@ -4147,6 +4147,11 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
                 return;
             }
 
+            if (json.error && json.error == 'Unsupported'){
+                this.onDownloadError_({'reason':'Could not fetch the file information', 'code':EnigmaDownloader.ERROR_CODE_PROXY_INVALID_URL}, true);
+                return;
+            }
+
             if (!json.url){
                 this.onDownloadError_({'reason':'Could not fetch the file information', 'code':EnigmaDownloader.ERROR_CODE_PROXY_INVALID_URL});
                 return;
@@ -4209,8 +4214,8 @@ EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
  * @private
  * @param {object} data aux data
  */
-EnigmaDownloader.prototype.onDownloadError_ = function(data) {
-    if (this.retryHandler.limitReached()){
+EnigmaDownloader.prototype.onDownloadError_ = function(data, fatal) {
+    if (this.retryHandler.limitReached() || fatal){
         this.changeState_(EnigmaDownloader.STATE_ERROR);
         this.onError(data);
     } else {
