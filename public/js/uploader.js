@@ -525,6 +525,9 @@ function onShareFolderFetched(err){
 
 	// Now sharing can be enabled.
 	$(updForm).addClass('is-ready');
+
+	// Page rescaling
+	setFillScreenBlocHeight();
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
