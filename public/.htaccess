@@ -1,1 +1,2 @@
 Redirect /index.html /upload.html
+Redirect /d /download.html
