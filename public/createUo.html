@@ -48,6 +48,7 @@
         var fldEncKey;
         var fldMacKey;
         var fldUoType;
+        var chkEbAppGen;
     </script>
 </head>
 <body>
@@ -89,6 +90,9 @@
                     <option value="12">RSA1024ENCRYPT_NOPAD</option>
                     <option value="13">RSA2048ENCRYPT_NOPAD</option>
                 </select>
+            </label>
+            <label><input type="checkbox" id="chkEbAppGen" value="1">
+                EB generates the App key
             </label>
 
         </div>
@@ -241,7 +245,7 @@
                 "generation": {
                     "commkey": eb.comm.createUO.consts.genKey.LOCAL,
                     "billingkey": eb.comm.createUO.consts.genKey.LOCAL,
-                    "appkey": eb.comm.createUO.consts.genKey.LOCAL
+                    "appkey": isChecked(chkEbAppGen) ? eb.comm.createUO.consts.genKey.SERVER : eb.comm.createUO.consts.genKey.LOCAL
                 }
             };
 
@@ -407,6 +411,7 @@
             fldEncKey = $('#fldEncKey');
             fldMacKey = $('#fldMacKey');
             fldUoType = $('#fldUoType');
+            chkEbAppGen = $('#chkEbAppGen');
 
             // Button click handling.
             btnCreate.click(function(){
