@@ -5081,11 +5081,13 @@ eb.comm.asn1decoder.prototype = {
  * @param {object} options
  * @param {object} options.template
  * @param {boolean} options.debuggingLog
+ * @param {Function} options.logger
  */
 eb.comm.createUO.templateFiller = function(options){
     options = options || {};
     this.template = options.template;
     this.debuggingLog = options.debuggingLog || true;
+    this.logger = options.logger;
 };
 eb.comm.createUO.templateFiller.prototype = {
     /**
@@ -5270,12 +5272,10 @@ eb.comm.createUO.templateFiller.prototype = {
             return;
         }
 
-        if (console && console.log){
-            console.log(x);
-        }
-
         if (this.logger){
             this.logger(x);
+        } else if (console && console.log){
+            console.log(x);
         }
     }
 };
