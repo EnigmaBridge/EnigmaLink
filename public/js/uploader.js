@@ -759,6 +759,11 @@ function tweetText(text){
 	var twitterLink = sprintf("https://twitter.com/intent/tweet?text=%s", encodeURIComponent(text));
 	window.open(twitterLink,'_blank');
 }
+
+function onEmailLinkClicked(){
+	var link = sprintf("mailto:your@recipient.com?subject=New%20File%20Share&body=%s", encodeURIComponent(currentFileLink));
+	window.open(link, '_self');
+}
 // ---------------------------------------------------------------------------------------------------------------------
 // onLoad
 // ---------------------------------------------------------------------------------------------------------------------
