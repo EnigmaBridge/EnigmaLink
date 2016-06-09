@@ -109,7 +109,7 @@ eb.sh.misc = {
 
     /**
      * Returns google drive link for the folder with given ID.
-     * @param fileId
+     * @param folderId
      * @returns {*}
      */
     getDriveFolderLink: function(folderId){
