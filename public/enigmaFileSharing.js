@@ -162,10 +162,10 @@ eb.sh.misc = {
 
         // Search for comKey. If present, regenerate AES, MAC keys from it.
         var comKey = eb.sh.misc.getURLParameter('c', params, true);
-        if (comKey !== undefined && comKey.length > 0){
+        if (comKey !== undefined && comKey && comKey.length > 0){
             comKey = eb.sh.misc.inputFromLinkBase64(comKey);
         }
-        if (comKey !== undefined && comKey.length > 0){
+        if (comKey !== undefined && comKey && comKey.length > 0){
             var keys = eb.sh.misc.regenerateCommKeys(comKey);
             linkCfg.comKey = comKey;
             linkCfg.aesKey = keys.enc;

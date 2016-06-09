@@ -226,10 +226,17 @@ function downloadClicked() {
     log("DirectLink: " + directLink);
     log("ProxyRedirLink: " + proxyLink);
 
+    // Use configuration from the config file (UOTYPE, endpoint) but UOID and commkeys take from the link.
+    var ebConfig = $.extend(shareConfig.ebConfigDownload, {
+        userObjectId: eb.misc.inputToHex(linkCfg.uoid),
+        encKey:       eb.misc.inputToBits(linkCfg.aesKey),
+        macKey:       eb.misc.inputToBits(linkCfg.macKey)
+    });
+
     // Initialize encryption scheme
     var encScheme = new EnigmaShareScheme({
         lnonce: linkCfg.nonce,
-        eb: shareConfig.ebConfigDownload,
+        eb: ebConfig,
         logger: log
     });
 
