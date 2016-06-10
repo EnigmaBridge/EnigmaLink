@@ -203,3 +203,17 @@ body
 .signinWrapper{
     margin-top: 25px;
 }
+
+.box.is-uploading .signinWrapper,
+.box.is-success .signinWrapper,
+.box.is-error .signinWrapper,
+.box.is-ready .signinWrapper {
+    visibility: hidden !important;
+}
+
+.box.is-uploading .signinWrapper iframe,
+.box.is-success .signinWrapper iframe,
+.box.is-error .signinWrapper iframe,
+.box.is-ready .signinWrapper iframe {
+    visibility: hidden !important;
+}
