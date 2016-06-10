@@ -34,7 +34,7 @@ var shareConfig = {
         macKey:       'e224262820223456789012345678901234567890123456789012345678901234',
         comKey:       undefined
     },
-    ebConfigUpload: {
+    ebConfigUploadUmphOld: {
         apiKey:       'API_TEST',
         uotype:       0x4,
         remoteEndpoint:'site1.enigmabridge.com',
@@ -44,7 +44,7 @@ var shareConfig = {
         macKey:       'aedcd9c1f0f2737fbd7da5242868a5bdb2a3afbab14000e03772e4d7da1f10d6',
         comKey:       '4b27a1db039f0c8566d307ef03dde031'
     },
-    ebConfigDownload: {
+    ebConfigDownloadUmphOld: {
         apiKey:       'API_TEST',
         uotype:       0xf,
         remoteEndpoint:'site1.enigmabridge.com',
@@ -53,6 +53,26 @@ var shareConfig = {
         encKey:       '1c71e939a348938c61eee1d12769f23c7e2a93e689f0cc065a916f9af29e73dd',
         macKey:       '710b8ff6b9ac669cd437cb32d442c394206922dcab2dd8b6c52715dd0fac72c6',
         comKey:       'e69cd6dd17447ecb676325aa2baf513e'
+    },
+    ebConfigUpload: {
+        apiKey:       'API_TEST',
+        uotype:       0x4,
+        remoteEndpoint:'site1.enigmabridge.com',
+        userObjectId: '7d',
+        method:       'PLAINAES',
+        encKey:       '6d8cd10dea702ba590aa580d711ff36d30e3d33d5d4173f29f2507a002c09857',
+        macKey:       'f724d2afdbd8c861dc90baa18301e8df47eccada838a3d8b1bc0cf647a4d7213',
+        comKey:       '3062fd96f932e47578455dd682da532f'
+    },
+    ebConfigDownload: {
+        apiKey:       'API_TEST',
+        uotype:       0xf,
+        remoteEndpoint:'site1.enigmabridge.com',
+        userObjectId: '7f',
+        method:       'PLAINAESDECRYPT',
+        encKey:       '06fdfbfe8649517ee963107a5395b954437d87c010596d73902320542e50569c',
+        macKey:       '4d87d90a69e9459951272f88662924d9adf311d683530bca408764959a1fb765',
+        comKey:       '156872c8734e32e17d4e48557bc0486c'
     }
 };
 
