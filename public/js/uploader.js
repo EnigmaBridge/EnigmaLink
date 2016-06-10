@@ -754,19 +754,19 @@ function regenerateQrCode(type){
 	switch(type){
 		case 'email':
 			qrCodeSettings.text = sprintf("MATMSG:TO:set@send.to;SUB:File link;BODY:%s;;", (currentFileLink));
-			callToAction = "Scan to email";
+			callToAction = "Scan QR to email";
 			break;
 		case 'text':
 			qrCodeSettings.text = sprintf("SMSTO:+44999999999:%s", (currentFileLink));
-			callToAction = "Scan to text";
+			callToAction = "Scan QR to text";
 			break;
 		case 'tweet':
 			qrCodeSettings.text = sprintf("https://twitter.com/intent/tweet?text=%s", encodeURIComponent(currentFileLink));
-			callToAction = "Scan to tweet";
+			callToAction = "Scan QR to tweet";
 			break;
 		case 'link':
 			qrCodeSettings.text = currentFileLink;
-			callToAction = "Scan to download";
+			callToAction = "Scan QR to download";
 			break;
 	}
 
