@@ -11,6 +11,11 @@ var shareConfig = {
     downloadHandler: '/download.html',
     shareFolderName: 'EnigmaShares',
     clientId: '1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com',
+    defaultShareSettings: {
+        maskFile: true,
+        sizeConceal: true,
+        pngWrap: true
+    },
     ebConfigUploadLegacy: {
         apiKey:       'API_TEST',
         remoteEndpoint:'site2.enigmabridge.com',

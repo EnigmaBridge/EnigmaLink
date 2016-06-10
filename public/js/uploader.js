@@ -63,12 +63,6 @@ var divQrCode;
 var spnBtnShare;
 var btnUpload;
 
-var defaultSettings = {
-	maskFile: true,
-	sizeConceal: true,
-	pngWrap: true
-};
-
 // ---------------------------------------------------------------------------------------------------------------------
 // Functions & handlers
 // ---------------------------------------------------------------------------------------------------------------------
@@ -238,7 +232,7 @@ function formatSeconds(s){
 }
 
 function getShareSettings(){
-	var settings = $.extend({}, defaultSettings);
+	var settings = $.extend({}, shareConfig.defaultShareSettings);
 	if (chkMask && chkMask.is(':input')){
 		settings.maskFile = isChecked(chkMask);
 	}
