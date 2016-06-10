@@ -1,6 +1,6 @@
 RewriteEngine on
-RewriteRule ^$ upload.html
-RewriteRule ^index\.html$ upload.html
-RewriteRule ^d$ download.html
+RewriteRule ^$ /upload.html
+RewriteRule ^index\.html$ /upload.html
+RewriteRule ^d$ /download.html
 #Redirect /index.html /upload.html
 #Redirect /d /download.html
