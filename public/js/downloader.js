@@ -379,6 +379,7 @@ function onPasswordRequired(required){
 
         divPassword.show('slow');
         scrollToIfNotVisible(divPassword, false);
+        fldPassword.focus();
 
     } else {
         divPassword.hide('slow');
