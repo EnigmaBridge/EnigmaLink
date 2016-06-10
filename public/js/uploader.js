@@ -562,7 +562,7 @@ function initUploadDiv(form){
 	// On file change show file info.
 	$fldInput.on( 'change', function( e )
 	{
-		showFiles( e.target.files, $fldInput, $fldLabel );
+		onFilesDropped(e.target.files);
 	});
 
 	// drag&drop files if the feature is available
@@ -582,6 +582,7 @@ function initUploadDiv(form){
 		divShareInfo.hide();
 		divButtons.hide();
 		$fldLabel.html(oldLabelData);
+		droppedFiles = false;
 		if (!storageLoaded){
 			$(updForm).removeClass('is-ready');
 		} else {
@@ -596,17 +597,6 @@ function initUploadDiv(form){
 		.on( 'blur', function(){ $fldInput.removeClass( 'has-focus' ); });
 
 	// Upload behavior.
-	initUploadDivBehavior(updForm);
-}
-
-function initUploadDivBehavior(form){
-	var $form = $(form);
-	// drag&drop files if the feature is available
-	if (!isAdvancedUpload){
-		alert("Unsupported browser");
-		return
-	}
-
 	$form
 		.on( 'drag dragstart dragend dragover dragenter dragleave drop', function( e )
 		{
@@ -625,29 +615,34 @@ function initUploadDivBehavior(form){
 		.on( 'drop', function( e )
 		{
 			var newFiles = e.originalEvent.dataTransfer.files; // the files that were dropped
-			logFiles(newFiles);
-			divShareInfo.hide();
-
-			if (!storageLoaded){
-				onUploadError( "Cloud drive is not yet connected" );
-				return;
-
-			} else if (newFiles.length > 1){
-				onUploadError( "Only one file is supported (more coming soon)" );
-				return;
-
-			} else if (newFiles[0].size > 1024*1024*128){
-				onUploadError( "The maximum file size is 128 MB (more coming soon)" );
-				return;
-			}
-
-			$form.removeClass( 'is-error is-success' );
-			if (storageLoaded){
-				$form.addClass( 'is-ready' );
-			}
-			droppedFiles = newFiles;
-			showFiles( droppedFiles, $fldInput, $fldLabel );
+			onFilesDropped(newFiles);
 		});
+}
+
+function onFilesDropped(newFiles){
+	var $form = $(updForm);
+	logFiles(newFiles);
+	divShareInfo.hide();
+
+	if (!storageLoaded){
+		onUploadError( "Cloud drive is not yet connected" );
+		return;
+
+	} else if (newFiles.length > 1){
+		onUploadError( "Only one file is supported (more coming soon)" );
+		return;
+
+	} else if (newFiles[0].size > 1024*1024*128){
+		onUploadError( "The maximum file size is 128 MB (more coming soon)" );
+		return;
+	}
+
+	$form.removeClass( 'is-error is-success' );
+	if (storageLoaded){
+		$form.addClass( 'is-ready' );
+	}
+	droppedFiles = newFiles;
+	showFiles( droppedFiles, $fldInput, $fldLabel );
 }
 
 function onUploadStateChange(progress, data){
