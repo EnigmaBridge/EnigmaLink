@@ -612,7 +612,7 @@ function initUploadDivBehavior(form){
 			divShareInfo.hide();
 
 			if (!storageLoaded){
-				onUploadError( "Storage is not yet connected, please wait" );
+				onUploadError( "Cloud drive is not yet connected" );
 				return;
 
 			} else if (newFiles.length > 1){
