@@ -260,7 +260,7 @@ function uploadClicked(){
 
 	$form.addClass( 'is-uploading' ).removeClass( 'is-error is-success is-ready' );
 	divShareInfo.hide('slow');
-	onUploadStateChange(true, {val:0.0, msg:"Generating encryption key"});
+	onUploadStateChange(true, {val:0.0, msg:"Generating encryption key at EnigmaBridge"});
 
 	if (!isAdvancedUpload){
 		alert("Unsupported browser");
@@ -288,7 +288,7 @@ function uploadClicked(){
 		onRetry: function(data){
 			//statusFieldSet(fldEbStatus, "Computing encryption key...");
 			log("EB operation retry in: " + data.interval + " ms");
-			onUploadStateChange(false, "Generating encryption key in " + formatSeconds(data.interval/1000));
+			onUploadStateChange(false, "Generating encryption key at EnigmaBridge in " + formatSeconds(data.interval/1000));
 		}
 	});
 
