@@ -239,13 +239,13 @@ function formatSeconds(s){
 
 function getShareSettings(){
 	var settings = $.extend({}, defaultSettings);
-	if (chkMask){
+	if (chkMask && chkMask.is(':input')){
 		settings.maskFile = isChecked(chkMask);
 	}
-	if (chkPng){
+	if (chkPng && chkPng.is(':input')){
 		settings.pngWrap = isChecked(chkPng);
 	}
-	if (chkSizeConceal){
+	if (chkSizeConceal && chkSizeConceal.is(':input')){
 		settings.sizeConceal = isChecked(chkSizeConceal);
 	}
 
