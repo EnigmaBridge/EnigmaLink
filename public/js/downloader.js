@@ -520,6 +520,17 @@ $(function()
         onPasswordSubmitted();
     });
 
+    // Enter press on password field
+    fldPassword.bind("enterKey",function(e){
+        onPasswordSubmitted();
+    });
+    fldPassword.keyup(function(e){
+        if(e.keyCode == 13)
+        {
+            $(this).trigger("enterKey");
+        }
+    });
+
     // Load URL parameters
     loadParams();
 
