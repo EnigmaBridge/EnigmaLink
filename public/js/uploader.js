@@ -63,6 +63,12 @@ var divQrCode;
 var spnBtnShare;
 var btnUpload;
 
+var defaultSettings = {
+	maskFile: true,
+	sizeConceal: true,
+	pngWrap: true
+};
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Functions & handlers
 // ---------------------------------------------------------------------------------------------------------------------
@@ -213,7 +219,8 @@ function showFiles(files, $input, $label){
 
 	// Set default file name.
 	if (files.length == 1) {
-		fldFname.val(isChecked(chkMask) ? genRandomName() : files[0].name);
+		var settings = getShareSettings();
+		fldFname.val(settings.maskFile ? genRandomName() : files[0].name);
 		fldFnameOrig.val(files[0].name);
 	}
 
@@ -228,6 +235,21 @@ function formatSeconds(s){
 	} else {
 		return sprintf("%d:%d s", Math.floor(s/60), s%60);
 	}
+}
+
+function getShareSettings(){
+	var settings = $.extend({}, defaultSettings);
+	if (chkMask){
+		settings.maskFile = isChecked(chkMask);
+	}
+	if (chkPng){
+		settings.pngWrap = isChecked(chkPng);
+	}
+	if (chkSizeConceal){
+		settings.sizeConceal = isChecked(chkSizeConceal);
+	}
+
+	return settings;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -305,6 +327,7 @@ function onUploadKeyCreated(encScheme){
 		extraMessage = fldMsg.val();
 	}
 
+	var settings = getShareSettings();
 	uploader = new EnigmaUploader({
 		token: accessToken,
 		file: fFile,
@@ -319,10 +342,10 @@ function onUploadKeyCreated(encScheme){
 		fnameOrig: fldFnameOrig.val(),
 		extraMessage: extraMessage,
 		parents: [shareFolderId],
-		contentType: isChecked(chkMask) ? 'application/octet-stream' : undefined,
-		padFnc: isChecked(chkSizeConceal) ? EnigmaSharingUpload.sizeConcealPadFnc : undefined,
+		contentType: settings.maskFile ? 'application/octet-stream' : undefined,
+		padFnc: settings.sizeConceal ? EnigmaSharingUpload.sizeConcealPadFnc : undefined,
 
-		png: isChecked(chkPng) ? pngImg : undefined,
+		png: settings.sizeConceal ? pngImg : undefined,
 
 		onProgress: function(oEvent, aux){
 			if (oEvent.lengthComputable) {
@@ -817,11 +840,13 @@ $(function()
 		uploadClicked();
 	});
 
-	var fncMask = function(){
-		var checked = isChecked(chkMask);
-		fldFname.val(checked ? genRandomName() : fldFnameOrig.val());
-	};
-	chkMask.click(fncMask);
+	if (chkMask) {
+		var fncMask = function () {
+			var checked = isChecked(chkMask);
+			fldFname.val(checked ? genRandomName() : fldFnameOrig.val());
+		};
+		chkMask.click(fncMask);
+	}
 
 	// Behavior.
 	fncMask();
