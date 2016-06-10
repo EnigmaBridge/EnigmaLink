@@ -260,7 +260,7 @@ function uploadClicked(){
 
 	$form.addClass( 'is-uploading' ).removeClass( 'is-error is-success is-ready' );
 	divShareInfo.hide('slow');
-	onUploadStateChange(false, "Generating encryption key");
+	onUploadStateChange(true, {val:0.0, msg:"Generating encryption key"});
 
 	if (!isAdvancedUpload){
 		alert("Unsupported browser");
@@ -662,8 +662,13 @@ function onUploadStateChange(progress, data){
 			}
 		}
 
+		if (data.msg !== undefined){
+			spnUploadPcnt.text(data.msg);
+			lblSet = true;
+		}
+
 		if (!lblSet){
-			spnUploadPcnt.text(sprintf("Uploading... "));
+			spnUploadPcnt.text("Uploading... ");
 		}
 
 		if (progressData.lastProgress != Math.round(data.val*1000)) {
