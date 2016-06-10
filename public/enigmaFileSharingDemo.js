@@ -93,7 +93,7 @@ shareConfig.shareFolderCreate = {
 };
 
 function getProxyRedirLink(fileId){
-    return sprintf("https://enigmalink.io/cgi-bin/proxy-redir.php?id=%s", encodeURIComponent(fileId));
+    return sprintf("https://enigmalink.io/proxy-redir.php?id=%s", encodeURIComponent(fileId));
 }
 
 // Embedding PNG image.
