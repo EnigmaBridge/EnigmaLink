@@ -7,9 +7,9 @@ var defaults = {
 
 // configuration
 var shareConfig = {
-    baseUrl: 'https://expert.enigmabridge.com/sharing',
-    downloadHandler: '/download.html',
-    shareFolderName: 'EnigmaShares',
+    baseUrl: 'https://enigmalink.io',
+    downloadHandler: '/d',
+    shareFolderName: 'EnigmaLink',
     clientId: '1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com',
     defaultShareSettings: {
         maskFile: true,
@@ -93,8 +93,7 @@ shareConfig.shareFolderCreate = {
 };
 
 function getProxyRedirLink(fileId){
-    //return sprintf("http://deadcode.me/proxy-redir.php?id=%s", encodeURIComponent(fileId));
-    return sprintf("https://expert.enigmabridge.com/cgi-bin/proxy-redir.php?id=%s", encodeURIComponent(fileId));
+    return sprintf("https://enigmalink.io/cgi-bin/proxy-redir.php?id=%s", encodeURIComponent(fileId));
 }
 
 // Embedding PNG image.
