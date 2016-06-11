@@ -790,6 +790,24 @@ function onEmailLinkClicked(){
 
 $(function()
 {
+    var language = window.navigator.userLanguage || window.navigator.language;
+//    alert(language);
+    if (language.toLowerCase().indexOf('cs') > -1){
+        language = "czech";
+    } else {
+        language = "english";
+    }
+    $.ajax({
+        url: 'languages.xml',
+        success: function(xml) {
+            $(xml).find('translation').each(function(){
+                var id = $(this).attr('id');
+                var text = $(this).find(language).text();
+                $("." + id).html(text);
+            });
+        }
+    });
+
 	sjcl.random.startCollectors();
 	htmlBody = $("body");
 	updForm = $('.box')[0];

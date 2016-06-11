@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<translations>
+    <translation id="title">
+        <english>EnigmaLink for Private Sharing</english>
+        <czech>EnigmaLink pro soukromé sdílení</czech>
+    </translation>
+    <translation id="text1">
+        <english>Select a document and email, text or tweet it directly.</english>
+        <czech>Vyberte dokument a pak už jej jen přímo mailujte, SMSkujte nebo tweetujte.</czech>
+    </translation>
+    <translation id="text2a">
+        <english>
+            Documents are encrypted and stored in your own
+        </english>
+        <czech>Dokumenty jsou zašifrovány a uloženy na vašem
+        </czech>
+    </translation>
+    <translation id="text2b">
+        <english>
+                and neither
+        </english>
+        <czech>
+            a ani
+        </czech>
+    </translation>
+    <translation id="text2c">
+        <english>
+                nor any
+        </english>
+        <czech>
+            ani jiné
+        </czech>
+    </translation>
+    <translation id="text2d">
+        <english>
+prying eyes
+        </english>
+        <czech>všetečné oči
+        </czech>
+    </translation>
+    <translation id="text2e">
+        <english>
+            can see them without links, which are created here and shared by you.
+        </english>
+        <czech>
+            je neuvidí bez odkazů. které jsou vytvořeny ve vašem prohlížeči a sdíleny jen vámi.
+        </czech>
+    </translation>
+
+
+
+    <translation id="step1">
+        <english>Step 1: Connect your Google Drive</english>
+        <czech>Krok 1. Přihlaste se ke svému Google účtu</czech>
+    </translation>
+    <translation id="step2">
+        <english>Step 2: Select document to link</english>
+        <czech>Krok 2. Vyberte dokument pro sdílení</czech>
+    </translation>
+    <translation id="step3">
+        <english>Step 3: Click "Upload"</english>
+        <czech>Krok 3. Stiskněte "Upload"</czech>
+    </translation>
+    <translation id="step4">
+        <english>Step 4: Scan, email, tweet</english>
+        <czech>Krok 4. Skenujte QR kód, mailujte, tweetujte</czech>
+    </translation>
+    <translation id="text3">
+        <english><strong>Click here</strong><span class="box__dragndrop"> to select a file or drag&amp;drop it</span>.</english>
+        <czech><strong>Zde klikněte</strong><span class="box__dragndrop">, nebo sem soubor přetáhněte</span>.</czech>
+    </translation>
+    <translation id="text4">
+        <english>Add a text message (optional)</english>
+        <czech>Přidejte textovou poznámku (volitelné)</czech>
+    </translation>
+    <translation id="text6">
+        <english>It will be encrypted and stored with the file.</english>
+        <czech>Bude zašifrována a uložena s vaším souborem.</czech>
+    </translation>
+    <translation id="text7">
+        <english>Enter a shared password (optional)</english>
+        <czech>Zadejte dodatečné přístupové heslo (volitelné)</czech>
+    </translation>
+    <translation id="text8">
+        <english>It is an optional security feature. If used, it is necessary for decryption and the addressee must know
+            it.
+        </english>
+        <czech>Dodatečné heslo je volitelné bezpečnostní vylepšení. Pokud jej zadáte, bude vyžadováno při dešifrování a
+            příjemce souboru jej musí také znát.
+        </czech>
+    </translation>
+    <translation id="text9">
+        <english>Please, connect your Google Drive
+        </english>
+        <czech>Přihlaste svůj Google Drive
+        </czech>
+    </translation>
+    <translation id="text10">
+        <english>Enigma Bridge gives you control and safety. We ask for permission to create files and read only files
+    we store in your Google Drive (in the "EnigmaLink" folder). We can't see any other files. See details at Google
+    security.
+
+        </english>
+        <czech>Enigma Bridge gives you control and safety. We ask for permission to create files and read only files
+            we store in your Google Drive (in the "EnigmaLink" folder). We can't see any other files. See details at Google
+            security.
+        </czech>
+    </translation>
+</translations>
