@@ -65,9 +65,13 @@ prying eyes
         <english>Step 4: Scan, email, tweet</english>
         <czech>Krok 4. Skenujte QR kód, mailujte, tweetujte</czech>
     </translation>
-    <translation id="text3">
-        <english><strong>Click here</strong><span class="box__dragndrop"> to select a file or drag&amp;drop it</span>.</english>
-        <czech><strong>Zde klikněte</strong><span class="box__dragndrop">, nebo sem soubor přetáhněte</span>.</czech>
+    <translation id="text3a">
+        <english>Click here</english>
+        <czech>Zde klikněte,</czech>
+    </translation>
+    <translation id="text3b">
+        <english>to select a file or drag&amp;drop it.</english>
+        <czech>nebo sem soubor přetáhněte.</czech>
     </translation>
     <translation id="text4">
         <english>Add a text message (optional)</english>
