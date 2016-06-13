@@ -809,7 +809,7 @@ function browserSpecific(){
 	var device = uaParser.getDevice();
 
 	console.log("OS: " + os);
-	console.log("Device:" + device);
+	console.log("Device:" + JSON.stringify(device));
 
 	if (os == "ios" || (os != "android" && device.type === undefined)){
 		// Not supported on iOS & desktops.
