@@ -3026,7 +3026,7 @@ EnigmaSharingUpload.sizeConcealPadFnc = function(curSize){
 
     // Simple aligning algorithm:
     // if x > 2^i then align x to 2^{i-1}
-    for(var cur=1024 ; cur <= 1024*1024; cur*=2){
+    for(var cur=512 ; cur <= 1024*1024; cur*=2){
         if (nSize < cur*2){
             break;
         }
