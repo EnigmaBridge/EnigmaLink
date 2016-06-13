@@ -252,6 +252,7 @@ function downloadClicked() {
         proxyRedirUrl: proxyLink,
         encScheme: encScheme,
         chunkSizeAdaptive: true,
+        chunkSizeMax: jQuery.browser.mobile ? 1024*1024 : 1024*1024*4, // 4MB chunk size
         onProgress: function(oEvent, aux){
             if (oEvent && oEvent.lengthComputable && oEvent.loaded && aux && aux.offset && aux.total) {
                 var totalPercent = (aux.offset+oEvent.loaded) / aux.total;
