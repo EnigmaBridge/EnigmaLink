@@ -784,6 +784,11 @@ function onEmailLinkClicked(){
 	var link = sprintf("mailto:your@recipient.com?subject=New%20File%20Share&body=%s", encodeURIComponent(currentFileLink));
 	window.open(link, '_self');
 }
+
+function onTextLinkClicked(){
+	var link = sprintf("sms:+44999999999?body=%s", encodeURIComponent(currentFileLink));
+	window.open(link, '_self');
+}
 // ---------------------------------------------------------------------------------------------------------------------
 // onLoad
 // ---------------------------------------------------------------------------------------------------------------------
