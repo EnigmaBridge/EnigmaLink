@@ -62,7 +62,9 @@ var fldShareLink;
 var divQrCode;
 var spnBtnShare;
 var btnUpload;
+var btnTextNow;
 
+var uaParser;
 // ---------------------------------------------------------------------------------------------------------------------
 // Functions & handlers
 // ---------------------------------------------------------------------------------------------------------------------
@@ -786,9 +788,30 @@ function onEmailLinkClicked(){
 }
 
 function onTextLinkClicked(){
-	//var link = sprintf("sms:+44999999999?body=%s", encodeURIComponent(currentFileLink));
 	var link = sprintf("SMSTO:+44999999999:%s", (currentFileLink));
 	window.open(link, '_self');
+}
+
+function onCopyToClipboardClicked() {
+	var os = uaParser.getOS().name.toLowerCase();
+	if (os == "ios"){
+		copyElementToClipboard(fldLink);
+		fldLink.select();
+
+	} else {
+		copyElementToClipboard(fldLink);
+	}
+}
+
+function browserSpecific(){
+	uaParser = new UAParser();
+	var os = uaParser.getOS().name.toLowerCase();
+	var device = uaParser.getDevice();
+	if (os == "ios"){
+		// Not supported on iOS.
+		btnTextNow.hide();
+	}
+	
 }
 // ---------------------------------------------------------------------------------------------------------------------
 // onLoad
@@ -797,7 +820,8 @@ function onTextLinkClicked(){
 $(function()
 {
     var language = window.navigator.userLanguage || window.navigator.language;
-//    alert(language);
+	log("Language detected: " + language);
+
     if (language.toLowerCase().indexOf('cs') > -1){
         language = "czech";
     } else {
@@ -843,6 +867,7 @@ $(function()
 	btnUpload = $('#btnUpload');
 	fldPassword = $('#fldPassword');
 	fldPasswordCheck = $('#fldPasswordCheck');
+	btnTextNow = $('#btnTextNow');
 
 	// HTML5 support?
 	isAdvancedUpload = function() {
@@ -868,6 +893,7 @@ $(function()
 
 	// Behavior.
 	fncMask();
+	browserSpecific();
 
 	// Default form validation, not used.
 	$("input,textarea").jqBootstrapValidation(
