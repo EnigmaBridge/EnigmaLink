@@ -807,11 +807,14 @@ function browserSpecific(){
 	uaParser = new UAParser();
 	var os = uaParser.getOS().name.toLowerCase();
 	var device = uaParser.getDevice();
+	console.log("OS: " + os);
+	console.log(device);
+
 	if (os == "ios"){
 		// Not supported on iOS.
 		btnTextNow.hide();
 	}
-	
+
 }
 // ---------------------------------------------------------------------------------------------------------------------
 // onLoad
