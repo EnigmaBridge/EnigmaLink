@@ -817,6 +817,25 @@ function browserSpecific(){
 		btnTextNow.hide();
 	}
 
+function loadTranslations(){
+	var language = window.navigator.userLanguage || window.navigator.language;
+	log("Language detected: " + language);
+
+	if (language.toLowerCase().indexOf('cs') > -1){
+		language = "czech";
+	} else {
+		language = "english";
+	}
+	$.ajax({
+		url: 'languages.xml',
+		success: function(xml) {
+			$(xml).find('translation').each(function(){
+				var id = $(this).attr('id');
+				var text = $(this).find(language).text();
+				$("." + id).html(text);
+			});
+		}
+	});
 }
 // ---------------------------------------------------------------------------------------------------------------------
 // onLoad
@@ -824,26 +843,9 @@ function browserSpecific(){
 
 $(function()
 {
-    var language = window.navigator.userLanguage || window.navigator.language;
-	log("Language detected: " + language);
-
-    if (language.toLowerCase().indexOf('cs') > -1){
-        language = "czech";
-    } else {
-        language = "english";
-    }
-    $.ajax({
-        url: 'languages.xml',
-        success: function(xml) {
-            $(xml).find('translation').each(function(){
-                var id = $(this).attr('id');
-                var text = $(this).find(language).text();
-                $("." + id).html(text);
-            });
-        }
-    });
-
 	sjcl.random.startCollectors();
+	loadTranslations();
+
 	htmlBody = $("body");
 	updForm = $('.box')[0];
 	svgUpload = $('#svgUpload');
