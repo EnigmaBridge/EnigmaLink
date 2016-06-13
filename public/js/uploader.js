@@ -796,6 +796,7 @@ function onCopyToClipboardClicked() {
 	var os = uaParser.getOS().name.toLowerCase();
 	if (os == "ios"){
 		copyElementToClipboard(fldLink);
+		scrollToIfNotVisible(fldLink, false);
 		fldLink.select();
 
 	} else {
