@@ -333,7 +333,7 @@ function onUploadKeyCreated(encScheme){
 		secCtx: secCtx,
 		lnonceHash: sjcl.hash.sha256.hash(lnonce),
 
-		chunkSizeMax: 262144*16, // 4MB chunk size
+		chunkSizeMax: jQuery.browser.mobile ? 1024*1024*2 : 1024*1024*4, // 4MB chunk size
 		chunkSizeAdaptive: true,
 
 		fname: fldFname.val(),
