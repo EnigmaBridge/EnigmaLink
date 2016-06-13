@@ -824,11 +824,6 @@ function browserSpecific(){
 		btnTextNow.hide();
 	}
 
-	// Readonly fields are not suitable for mobile
-	fldLink.attr("readonly", !jQuery.browser.mobile);
-	fldSha1.attr("readonly", !jQuery.browser.mobile);
-	fldSha256.attr("readonly", !jQuery.browser.mobile);
-
 	// If field is changed by user, change it back.
 	fldLink.on('input', function() {
 		$(this).val(currentFileLink);
