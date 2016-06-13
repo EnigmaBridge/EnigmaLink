@@ -164,7 +164,7 @@ function copyElementToClipboard(elem){
     try {
         document.execCommand('copy');
     } catch (err) {
-        log("Unable to copy");
+        log("Unable to copy: " + err);
     }
 }
 
