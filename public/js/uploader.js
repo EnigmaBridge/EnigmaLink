@@ -12,6 +12,8 @@ var updForm;
 var lastUploadedFileId;
 var currentFileLink;
 var driveShareDialog;
+var uploadSha1;
+var uploadSha256;
 
 // We have only one upload form.
 var $fldInput;
@@ -428,11 +430,13 @@ function onFileShared(data){
 	var link = eb.sh.misc.buildUrl(shareConfig.downloadHandler, linkConfig, shareConfig.baseUrl, true);
 	if (data.uploader.sha1){
 		log(sprintf("SHA1:   %s", sjcl.codec.hex.fromBits(data.uploader.sha1)));
-		fldSha1.val(sjcl.codec.hex.fromBits(data.uploader.sha1));
+		uploadSha1 = sjcl.codec.hex.fromBits(data.uploader.sha1);
+		fldSha1.val(uploadSha1);
 	}
 	if (data.uploader.sha256){
 		log(sprintf("SHA256: %s", sjcl.codec.hex.fromBits(data.uploader.sha256)));
-		fldSha256.val(sjcl.codec.hex.fromBits(data.uploader.sha256));
+		uploadSha256 = sjcl.codec.hex.fromBits(data.uploader.sha256);
+		fldSha256.val(uploadSha256);
 	}
 
 	currentFileLink = link;
@@ -796,8 +800,11 @@ function onCopyToClipboardClicked() {
 	var os = uaParser.getOS().name.toLowerCase();
 	if (os == "ios"){
 		copyElementToClipboard(fldLink);
-		scrollToIfNotVisible(fldLink, false);
-		fldLink.select();
+		setTimeout(function(){
+			fldLink.select();
+			fldLink[0].selectionStart = 0;
+			fldLink[0].selectionEnd = 9999;
+		}, 0);
 
 	} else {
 		copyElementToClipboard(fldLink);
@@ -810,12 +817,33 @@ function browserSpecific(){
 	var device = uaParser.getDevice();
 
 	console.log("OS: " + os);
-	console.log("Device:" + JSON.stringify(device));
+	console.log("Device:" + JSON.stringify(device) + ", mobile: " + jQuery.browser.mobile);
 
-	if (os == "ios" || (os != "android" && device.type === undefined)){
-		// Not supported on iOS & desktops.
+	// Not supported on iOS & desktops.
+	if (!jQuery.browser.mobile || os == "ios"){
 		btnTextNow.hide();
 	}
+
+	// Readonly fields are not suitable for mobile
+	fldLink.attr("readonly", !jQuery.browser.mobile);
+	fldSha1.attr("readonly", !jQuery.browser.mobile);
+	fldSha256.attr("readonly", !jQuery.browser.mobile);
+
+	// If field is changed by user, change it back.
+	fldLink.on('input', function() {
+		$(this).val(currentFileLink);
+	});
+	fldSha1.on('input', function() {
+		$(this).val(uploadSha1);
+	});
+	fldSha256.on('input', function() {
+		$(this).val(uploadSha256);
+	});
+}
+
+function initGui(){
+
+}
 
 function loadTranslations(){
 	var language = window.navigator.userLanguage || window.navigator.language;
@@ -901,6 +929,7 @@ $(function()
 	// Behavior.
 	fncMask();
 	browserSpecific();
+	initGui();
 
 	// Default form validation, not used.
 	$("input,textarea").jqBootstrapValidation(
