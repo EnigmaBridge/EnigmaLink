@@ -786,7 +786,8 @@ function onEmailLinkClicked(){
 }
 
 function onTextLinkClicked(){
-	var link = sprintf("sms:+44999999999?body=%s", encodeURIComponent(currentFileLink));
+	//var link = sprintf("sms:+44999999999?body=%s", encodeURIComponent(currentFileLink));
+	var link = sprintf("SMSTO:+44999999999:%s", (currentFileLink));
 	window.open(link, '_self');
 }
 // ---------------------------------------------------------------------------------------------------------------------
