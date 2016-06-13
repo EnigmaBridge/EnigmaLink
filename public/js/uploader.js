@@ -759,7 +759,7 @@ function regenerateQrCode(type){
 	var callToAction = "";
 	switch(type){
 		case 'email':
-			qrCodeSettings.text = sprintf("MATMSG:TO:set@send.to;SUB:File link;BODY:%s;;", (currentFileLink));
+			qrCodeSettings.text = sprintf("MATMSG:TO:set@whom.to;SUB:EnigmaLink;BODY:%s;;", (currentFileLink));
 			callToAction = "Scan QR to email";
 			break;
 		case 'text':
