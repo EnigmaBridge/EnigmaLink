@@ -37,9 +37,12 @@ pre {
 }
 .downloadFileInfo{
     font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+    font-size: 13px;
     overflow: auto;
     white-space: pre-wrap;
     white-space: -moz-pre-wrap;
     white-space: -o-pre-wrap;
     word-wrap: break-word;
+    padding-top: 0;
+    padding-bottom: 0;
 }
