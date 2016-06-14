@@ -26,6 +26,11 @@ var divStatusInfo;
 var divFileInfo;
 var divStatusNotif;
 var divProgressBar;
+var btnGet;
+var divGetFile;
+var preFileInfo;
+var divFileMessage;
+var divFileMessageContent;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Functions & handlers
@@ -113,8 +118,7 @@ function isVisibleOnScreen(elem, partially){
  * Scrolls given element in such a way it is visible on the bottom.
  * @param D
  */
-function scrollToElementBottom(D)
-{
+function scrollToElementBottom(D) {
     var top = D.offset().top - 200;
     if($('.sticky-nav').length) // Sticky Nav in use
     {
@@ -267,9 +271,6 @@ function downloadClicked() {
             log(sprintf("File size meta: %s", dwn.fsizeMeta));
             log(sprintf("Extra msg: %s", dwn.extraMessage));
 
-            // Reconstruct file.
-            var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
-            saveAs(blob, dwn.fname);
             onSuccess(data);
         },
         onStateChange: function(data){
@@ -338,15 +339,25 @@ function onSuccess(){
 
     setDisabled(btnDownload, false);
 
-    var pretag = document.createElement( "pre" );
-    $(pretag).text(fileInfo);
+    preFileInfo.text(fileInfo);
+    showMessageIfAny(true);
 
-    divFileInfo.text("File details:");
-    divFileInfo.append(pretag);
     divFileInfo.show();
     setFillScreenBlocHeight();
     displayNotifyGlobal("Download successful", false, true);
+
+    // For mobile browsers show button to download the file again.
+    if (jQuery.browser.mobile) {
+        divGetFile.show();
+    }
     setFillScreenBlocHeight();
+
+    // If this is a mobile browser and there is a message, do not trigger download immediately
+    // So user can view the message.
+    if (!jQuery.browser.mobile || dwn.extraMessage === undefined){
+        var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
+        saveAs(blob, dwn.fname);
+    }
 }
 
 function onError(data){
@@ -426,11 +437,10 @@ function onMetaReady(obj, continueCb, abortCb){
     );
 
     log(fileInfo);
-    var pretag = document.createElement( "pre" );
-    $(pretag).text(fileInfo);
 
-    divFileInfo.text("File details:");
-    divFileInfo.append(pretag);
+    preFileInfo.text(fileInfo);
+    showMessageIfAny();
+
     divFileInfo.show();
     setFillScreenBlocHeight();
     setTimeout(continueCb, 0);
@@ -479,6 +489,20 @@ function onUploadStateChange(progress, data){
 // Misc
 // ---------------------------------------------------------------------------------------------------------------------
 
+function showMessageIfAny(scrollIfAny){
+    if (dwn.extraMessage === undefined){
+        divFileMessage.hide();
+        return;
+    }
+
+    scrollIfAny = scrollIfAny || false;
+    divFileMessageContent.text(dwn.extraMessage);
+    divFileMessage.show();
+    if (scrollIfAny){
+        scrollToIfNotVisible(divFileMessage, false);
+    }
+}
+
 function loadParams(){
     var w = sjcl.bitArray;
 
@@ -490,6 +514,16 @@ function loadParams(){
     log(JSON.stringify(linkCfg));
     if (linkCfg.fid !== null && linkCfg.fid.length > 0 && linkCfg.nonce != null && w.bitLength(linkCfg.nonce) > 0){
         btnDownload.removeClass("disabled");
+    }
+}
+
+function onGetFileClicked(){
+    if (dwn && dwn.blobs){
+        var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
+        saveAs(blob, dwn.fname);
+
+    } else {
+        displayNotifyGlobal("Error: Get file failed", true, true);
     }
 }
 
@@ -513,14 +547,16 @@ $(function()
     divFileInfo = $('#divFileInfo');
     divStatusNotif = $('#divStatusNotif');
     divProgressBar = $('.progress-bar');
+    btnGet = $('#btnGet');
+    divGetFile = $('.divGetFile');
+    preFileInfo = $('.preFileInfo');
+    divFileMessage = $('.divFileMessage');
+    divFileMessageContent = $('.divFileMessageContent');
 
     // Button click handling.
-    btnDownload.click(function(){
-        downloadClicked();
-    });
-    btnPasswordUse.click(function(){
-        onPasswordSubmitted();
-    });
+    btnDownload.click(downloadClicked);
+    btnPasswordUse.click(onPasswordSubmitted);
+    btnGet.click(onGetFileClicked);
 
     // Enter press on password field
     fldPassword.bind("enterKey",function(e){
