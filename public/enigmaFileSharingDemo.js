@@ -17,7 +17,7 @@ var shareConfig = {
         pngWrap: true
     },
     ebConfigUploadLegacy: {
-        apiKey:       'API_TEST',
+        apiKey:       'TEST_API',
         remoteEndpoint:'site2.enigmabridge.com',
         userObjectId: 'EE01',
         method:       'PLAINAES',
@@ -26,7 +26,7 @@ var shareConfig = {
         comKey:       undefined
     },
     ebConfigDownloadLegacy: {
-        apiKey:       'API_TEST',
+        apiKey:       'TEST_API',
         remoteEndpoint:'site2.enigmabridge.com',
         userObjectId: 'EE02',
         method:       'PLAINAES',
@@ -35,7 +35,7 @@ var shareConfig = {
         comKey:       undefined
     },
     ebConfigUploadUmphOld: {
-        apiKey:       'API_TEST',
+        apiKey:       'TEST_API',
         uotype:       0x4,
         remoteEndpoint:'site1.enigmabridge.com',
         userObjectId: '7b',
@@ -45,7 +45,7 @@ var shareConfig = {
         comKey:       '4b27a1db039f0c8566d307ef03dde031'
     },
     ebConfigDownloadUmphOld: {
-        apiKey:       'API_TEST',
+        apiKey:       'TEST_API',
         uotype:       0xf,
         remoteEndpoint:'site1.enigmabridge.com',
         userObjectId: '79',
@@ -55,7 +55,7 @@ var shareConfig = {
         comKey:       'e69cd6dd17447ecb676325aa2baf513e'
     },
     ebConfigUpload: {
-        apiKey:       'API_TEST',
+        apiKey:       'TEST_API',
         uotype:       0x4,
         remoteEndpoint:'site1.enigmabridge.com',
         userObjectId: '7d',
@@ -65,7 +65,7 @@ var shareConfig = {
         comKey:       '3062fd96f932e47578455dd682da532f'
     },
     ebConfigDownload: {
-        apiKey:       'API_TEST',
+        apiKey:       'TEST_API',
         uotype:       0xf,
         remoteEndpoint:'site1.enigmabridge.com',
         userObjectId: '7f',

@@ -1419,7 +1419,7 @@ EnigmaShareScheme.prototype.ebOp_ = function(input, encrypt, ebOptions, onSucces
         requestScheme: "https",
         requestTimeout: 30000,
         debuggingLog: true,
-        apiKey: "API_TEST",
+        apiKey: "TEST_API",
         callRequestType: "PLAINAES",
         aesKey: undefined,
         macKey: undefined,
