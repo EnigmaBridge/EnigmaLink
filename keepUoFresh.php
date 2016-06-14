@@ -26,7 +26,7 @@ function visit($url){
     $response = curl_exec($ch);
     $error = curl_errno($ch);
     if ($error != 0){
-        echo 'Curl error: ' . curl_error($ch) . ' on url: ' . $url;
+        echo 'Curl error: ' . curl_error($ch) . ' on url: ' . $url . "\n";
     }
 
     curl_close($ch);
