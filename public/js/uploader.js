@@ -277,28 +277,21 @@ function uploadClicked(){
 		logger: log,
 		onComplete: function(data){
 			bodyProgress(false);
-			//statusFieldSet(fldEbStatus, "Encryption key computed", true);
 			onUploadKeyCreated(encScheme);
 		},
 		onError: function(data){
 			bodyProgress(false);
-			//setDisabled(btnUpload, false);
-			//statusFieldSet(fldEbStatus, "Encryption key computation failed", false);
-			//statusFieldSet(fldStatus, "Upload failed");
 
 			log("Critical error: " + (data.reason ? data.reason : JSON.stringify(data)));
 			onUploadError("Encryption key computation failed");
 		},
 		onRetry: function(data){
-			//statusFieldSet(fldEbStatus, "Computing encryption key...");
 			log("EB operation retry in: " + data.interval + " ms");
 			onUploadStateChange(false, "Generating encryption key at EnigmaBridge in " + formatSeconds(data.interval/1000));
 		}
 	});
 
 	// Generate the file encryption key.
-	//statusFieldSet(fldEbStatus, "Computing encryption key...");
-	//statusFieldSet(fldStatus, "Preparing upload");
 	bodyProgress(true);
 	encScheme.build(fldPassword.val());
 }
