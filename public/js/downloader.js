@@ -549,9 +549,9 @@ $(function()
     divProgressBar = $('.progress-bar');
     btnGet = $('#btnGet');
     divGetFile = $('.divGetFile');
-    preFileInfo = $('.preFileInfo');
-    divFileMessage = $('.divFileMessage');
-    divFileMessageContent = $('.divFileMessageContent');
+    preFileInfo = $('#preFileInfo');
+    divFileMessage = $('#divFileMessage');
+    divFileMessageContent = $('#divFileMessageContent');
 
     // Button click handling.
     btnDownload.click(downloadClicked);
