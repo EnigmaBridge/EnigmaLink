@@ -36,6 +36,8 @@ var ahrefGoogleDrive;
 
 // Google Drive access token.
 var accessToken = null;
+var accessTokenExpiresAt = null;
+var accessTokenRefreshAhead = 60 * 15;
 var storageLoaded = false;
 
 // Share folder drive ID where to put uploaded files in the Google Drive.
@@ -260,6 +262,11 @@ function uploadClicked(){
 	// preventing the duplicate submissions if the current one is in progress
 	if( $form.hasClass( 'is-uploading' ) ){
 		return false;
+
+	} else if (gapiTokenExpired()){
+		resetExpiredToken();
+		onUploadError( "GoogleDrive authorization expired. Please, refresh the page" );
+		return false;
 	}
 
 	$form.addClass( 'is-uploading' ).removeClass( 'is-error is-success is-ready' );
@@ -454,17 +461,39 @@ function onFileShared(data){
 
 /**
  * Callback for G+ Sign-in. Swaps views if login successful.
+ * https://developers.google.com/identity/sign-in/web/reference
+ * https://developers.google.com/identity/sign-in/web/quick-migration-guide#migrate_an_html_sign-in_button
+ * https://developers.google.com/identity/sign-in/web/sign-in#specify_your_apps_client_id
  */
 function signinCallback(result) {
-	if(result.access_token) {
-		accessToken = result.access_token;
-		document.getElementById('signin').style.display = 'none';
-		document.getElementById('signedin').style.display = null;
-		log(sprintf("Google Drive auth successful, token: %s", accessToken));
-
-		// Load google drive lib.
-		loadDrive();
+	var originalResult = result;
+	if(result.access_token === undefined && result.hg) {
+		result = result.hg;
 	}
+
+	if(result.access_token === undefined) {
+		log("Undefined token");
+		return;
+	}
+
+	accessToken = result.access_token;
+	accessTokenExpiresAt = jsonGetNumber(result.expires_at);
+	$('#signinWrapper').hide();
+	$('#signedin').show();
+	log(sprintf("Google Drive auth successful, token: %s", accessToken));
+
+	// Token watcher
+	if (result.expires_in){
+		var watcherTrigger = Math.max(10, jsonGetNumber(result.expires_in) - accessTokenRefreshAhead);
+		setTimeout(gapiTokenWatcher, watcherTrigger*1000);
+	}
+
+	// Load google drive lib.
+	loadDrive();
+}
+
+function signinCallbackFailure(){
+	onUploadError("Google Sign In failed");
 }
 
 /**
@@ -546,6 +575,52 @@ function onShareFolderFetched(err){
 	setFillScreenBlocHeight();
 }
 
+/**
+ * Parses number from the givne parameter.
+ * @param x
+ * @returns {*}
+ */
+function jsonGetNumber(x){
+	if (typeof x === 'string'){
+		return parseInt(x);
+	} else {
+		return x;
+	}
+}
+
+/**
+ * Returns true if Google auth token has expired.
+ * @param {Number} [offset=0] Number of seconds. If 60, the function returns yes 1 minute before expiration.
+ * @returns {boolean}
+ */
+function gapiTokenExpired(offset){
+	return accessTokenExpiresAt <= ((Date.now()/1000)+(offset || 0));
+}
+
+/**
+ * Function watching token expiration.
+ */
+function gapiTokenWatcher(){
+	var $form = $(updForm);
+	var isUploading = $form.hasClass( 'is-uploading' );
+	log(sprintf("Token watcher check. Uploading: %s, token expires in %s s", isUploading, accessTokenExpiresAt-Date.now()/1000));
+
+	if (!isUploading){
+		log("Refreshing the page");
+		resetExpiredToken();
+		$form.removeClass( 'is-ready' );
+
+		// Refresh the page here to get a new token.
+		// TODO: For token refresh, try signIn() again
+		// https://developers.google.com/identity/sign-in/web/reference
+		document.location.reload();
+
+	} else {
+		log("Download in progress, plan for later");
+		setTimeout(gapiTokenWatcher, 1000*10);
+	}
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Misc
 // ---------------------------------------------------------------------------------------------------------------------
@@ -625,6 +700,11 @@ function onFilesDropped(newFiles){
 
 	if (!storageLoaded){
 		onUploadError( "Cloud drive is not yet connected" );
+		return;
+
+	} else if (gapiTokenExpired()){
+		resetExpiredToken();
+		onUploadError( "GoogleDrive authorization expired. Please, refresh the page" );
 		return;
 
 	} else if (newFiles.length > 1){
@@ -726,6 +806,11 @@ function changeSharingPermissions(){
 		return;
 	}
 	driveShareDialog.showSettingsDialog();
+}
+
+function resetExpiredToken(){
+	storageLoaded = false;
+	accessToken = null;
 }
 
 function onOpenInGoogleDriveClicked(){
