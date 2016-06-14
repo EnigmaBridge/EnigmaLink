@@ -2924,8 +2924,12 @@ EnigmaUploader.prototype.onContentUploadSuccess_ = function(e) {
  * @param {object} e XHR event
  */
 EnigmaUploader.prototype.onContentUploadError_ = function(e) {
-    if (e.target.status && e.target.status < 500) {
+    if (e.target.status && (e.target.status < 500 && e.target.status != 403)) {
         this.onError_(e.target.response);
+
+    } else if (this.retryHandler.limitReached()){
+        this.onError_(e ? e.target.response : e);
+
     } else {
         this.chunkAdaptiveStep_(false);
         this.changeState_(EnigmaUploader.STATE_BACKOFF);
@@ -2940,8 +2944,12 @@ EnigmaUploader.prototype.onContentUploadError_ = function(e) {
  * @param {object} e XHR event
  */
 EnigmaUploader.prototype.onUploadError_ = function(e) {
-    if (this.retryHandler.limitReached()){
+    if (e.target.status && (e.target.status < 500 && e.target.status != 403)) {
+        this.onError_(e.target.response);
+
+    } else if (this.retryHandler.limitReached()){
         this.onError_(e ? e.target.response : e);
+
     } else {
         this.chunkAdaptiveStep_(false);
         this.changeState_(EnigmaUploader.STATE_BACKOFF);
