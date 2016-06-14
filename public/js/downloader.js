@@ -514,6 +514,8 @@ function loadParams(){
     log(JSON.stringify(linkCfg));
     if (linkCfg.fid !== null && linkCfg.fid.length > 0 && linkCfg.nonce != null && w.bitLength(linkCfg.nonce) > 0){
         btnDownload.removeClass("disabled");
+    } else {
+        btnDownload.addClass("disabled");
     }
 }
 
