@@ -326,15 +326,13 @@ function onSuccess(){
         "File size: %s B\n" +
         "Uploaded:  %s\n" +
         "SHA1:      %s\n" +
-        "SHA256:    %s\n" +
-        "Message:   %s",
+        "SHA256:    %s",
         he.encode(dwn.fname),
         he.encode(dwn.mimetype),
         dwn.fsize,
         dwn.uploadTime > 0 ? new Date(dwn.uploadTime).toString() : '-',
         sjcl.codec.hex.fromBits(dwn.sha1),
-        sjcl.codec.hex.fromBits(dwn.sha256),
-        he.encode(dwn.extraMessage ? dwn.extraMessage : "-")
+        sjcl.codec.hex.fromBits(dwn.sha256)
     );
 
     setDisabled(btnDownload, false);
@@ -427,13 +425,11 @@ function onMetaReady(obj, continueCb, abortCb){
         "File name: %s\n" +
         "Mime type: %s\n" +
         "File size: %s B\n" +
-        "Uploaded:  %s\n" +
-        "Message:   %s",
+        "Uploaded:  %s",
         he.encode(dwn.fname),
         he.encode(dwn.mimetype),
         dwn.fsizeMeta,
-        dwn.uploadTime > 0 ? new Date(dwn.uploadTime).toString() : '-',
-        he.encode(dwn.extraMessage ? dwn.extraMessage : '-')
+        dwn.uploadTime > 0 ? new Date(dwn.uploadTime).toString() : '-'
     );
 
     log(fileInfo);
