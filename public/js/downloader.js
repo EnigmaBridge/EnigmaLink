@@ -366,7 +366,8 @@ function onError(data){
     setFillScreenBlocHeight();
     divStatusInfo.html("Failed");
     log(JSON.stringify(data));
-    displayNotifyGlobal("Error: " + (data && data.reason ? data.reason : JSON.stringify(data)), true, true);
+    displayNotifyGlobal("Error: " + (data && data.reason ? data.reason : JSON.stringify(data))
+        + ". The link may be invalid, expired or the file may be deleted or corrupted.", true, true);
 }
 
 function onStateChanged(data){
