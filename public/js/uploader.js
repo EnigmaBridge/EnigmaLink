@@ -649,6 +649,7 @@ function onFilesDropped(newFiles){
 	}
 	droppedFiles = newFiles;
 	showFiles( droppedFiles, $fldInput, $fldLabel );
+	setFillScreenBlocHeight();
 }
 
 function onUploadStateChange(progress, data){
