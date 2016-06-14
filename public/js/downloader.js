@@ -522,7 +522,6 @@ function loadParams(){
 function onGetFileClicked(){
     if (dwn && dwn.blobs){
         setTimeout(triggerFileDownload, 0);
-        triggerFileDownload();
 
     } else {
         displayNotifyGlobal("Error: Get file failed", true, true);
