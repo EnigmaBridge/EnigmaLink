@@ -1113,7 +1113,7 @@ var EnigmaShareScheme = function(options){
     this.phSalt = undefined;       // 128bit of entropy for password verification (stored in encrypted file).
     this.passwordSet = false;      // flag indicating whether the password was used or not.
     this.logger = options.logger || nop; // logger to be used.
-    this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
+    this.retryHandler = new RetryHandler($.extend({maxAttempts: 8}, options.retry || {}));
 
     // Event handlers.
     this.onError = options.onError || nop;
@@ -2034,7 +2034,7 @@ var EnigmaUploader = function(options) {
     this.chunkSizePrefs.adaptive = options.chunkSizeAdaptive || false;
 
     this.offset = 0;
-    this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
+    this.retryHandler = new RetryHandler($.extend({maxAttempts: 8}, options.retry || {}));
     this.url = options.url;
     this.png = options.png;
     this.curState = EnigmaUploader.STATE_INIT;
@@ -3120,7 +3120,7 @@ var EnigmaDownloader = function(options){
     this.chunkSizePrefs.maxAchieved = this.chunkSize;
     this.chunkSizePrefs.adaptive = options.chunkSizeAdaptive || false;
 
-    this.retryHandler = new RetryHandler($.extend({maxAttempts: 10}, options.retry || {}));
+    this.retryHandler = new RetryHandler($.extend({maxAttempts: 8}, options.retry || {}));
     this.curState = EnigmaDownloader.STATE_INIT;
     this.downloadStarted = false;
 
