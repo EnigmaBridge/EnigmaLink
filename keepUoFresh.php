@@ -24,7 +24,7 @@ function visit($url){
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
     $response = curl_exec($ch);
-    $error = curl_errno();
+    $error = curl_errno($ch);
     if ($error != 0){
         echo 'Curl error: ' . curl_error($ch) . ' on url: ' . $url;
     }
