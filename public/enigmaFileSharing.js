@@ -1390,7 +1390,7 @@ EnigmaShareScheme.prototype.ebOpWithRetry_ = function(input, encrypt, ebOptions,
 
         var interval = this.retryHandler.retry(ebOpFnc.bind(this));
         this.onRetry({'interval': interval, 'scheme':this});
-        this.logger("EB failure, next attempt: " + interval + " ms");
+        this.logger(sprintf("EB failure[%s], next attempt: %s ms", this.retryHandler.numAttempts(), interval));
     }).bind(this);
 
     // Call EB operation.
