@@ -1302,8 +1302,15 @@ EnigmaShareScheme.prototype.tryDecrypt_ = function(password){
 
         // Test password correctness
         if (!w.equal(phSaltPrime, this.phSalt)){
-            // Password is invalid.
-            this.onPasswordFail({data:data, scheme:this});
+            if (this.passwordSet) {
+                // Password is invalid.
+                this.onPasswordFail({data: data, scheme: this});
+
+            } else {
+                // Key is invalid.
+                this.onError({'reason':'Encryption key is invalid', scheme: this,
+                    exception: new eb.exception.invalid("Key is invalid")});
+            }
             return;
         }
 
