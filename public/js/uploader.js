@@ -478,7 +478,7 @@ function signinCallback(result) {
 
 	accessToken = result.access_token;
 	accessTokenExpiresAt = jsonGetNumber(result.expires_at);
-	$('#signinWrapper').hide();
+	$('.signinWrapper').hide();
 	$('#signedin').show();
 	log(sprintf("Google Drive auth successful, token: %s", accessToken));
 
