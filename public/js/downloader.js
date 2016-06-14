@@ -353,8 +353,7 @@ function onSuccess(){
     // If this is a mobile browser and there is a message, do not trigger download immediately
     // So user can view the message.
     if (!jQuery.browser.mobile || dwn.extraMessage === undefined){
-        var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
-        saveAs(blob, dwn.fname);
+        triggerFileDownload();
     }
 }
 
@@ -515,12 +514,16 @@ function loadParams(){
 
 function onGetFileClicked(){
     if (dwn && dwn.blobs){
-        var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
-        saveAs(blob, dwn.fname);
+        triggerFileDownload();
 
     } else {
         displayNotifyGlobal("Error: Get file failed", true, true);
     }
+}
+
+function triggerFileDownload(){
+    var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
+    saveAs(blob, dwn.fname);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
