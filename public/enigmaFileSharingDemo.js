@@ -7,7 +7,7 @@ var defaults = {
 
 // configuration
 var shareConfig = {
-    baseUrl: 'https://enigmalink.io',
+    baseUrl: window.location.origin ? window.location.origin : 'https://enigmalink.io',
     downloadHandler: '/d',
     shareFolderName: 'EnigmaLink',
     clientId: '1044449456843-q4lt3nk61gulb67irbr45jvcr2siqfks.apps.googleusercontent.com',
@@ -93,7 +93,7 @@ shareConfig.shareFolderCreate = {
 };
 
 function getProxyRedirLink(fileId){
-    return sprintf("https://enigmalink.io/proxy-redir.php?id=%s", encodeURIComponent(fileId));
+    return sprintf("%s/proxy-redir.php?id=%s", shareConfig.baseUrl, encodeURIComponent(fileId));
 }
 
 // Embedding PNG image.
