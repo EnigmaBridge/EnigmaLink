@@ -222,6 +222,10 @@ function displayNotifyGlobal(text, isError, shouldScroll){
 // ---------------------------------------------------------------------------------------------------------------------
 
 function downloadClicked() {
+    // Fetch fresh parameters from the link.
+    // Link may got changed.
+    loadParams();
+
     var fileLink = eb.sh.misc.getDriveDownloadLink(linkCfg.fid);
     var directLink = eb.sh.misc.getDriveDirectLink(linkCfg.fid);
     var proxyLink = getProxyRedirLink(linkCfg.fid);
@@ -528,6 +532,33 @@ function triggerFileDownload(){
     saveAs(blob, dwn.fname);
 }
 
+function initGui(){
+    // Button click handling.
+    btnDownload.click(downloadClicked);
+    btnPasswordUse.click(onPasswordSubmitted);
+    btnGet.click(onGetFileClicked);
+
+    // Enter press on password field
+    fldPassword.bind("enterKey",function(e){
+        onPasswordSubmitted();
+    });
+    fldPassword.keyup(function(e){
+        if(e.keyCode == 13)
+        {
+            $(this).trigger("enterKey");
+        }
+    });
+
+    // Load URL parameters
+    loadParams();
+
+    // On hash change -> reload parameters
+    $(window).on('hashchange', function() {
+        log("URL hash changed, reloading parameters");
+        loadParams();
+    });
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // onLoad
 // ---------------------------------------------------------------------------------------------------------------------
@@ -554,24 +585,8 @@ $(function()
     divFileMessage = $('#divFileMessage');
     divFileMessageContent = $('#divFileMessageContent');
 
-    // Button click handling.
-    btnDownload.click(downloadClicked);
-    btnPasswordUse.click(onPasswordSubmitted);
-    btnGet.click(onGetFileClicked);
-
-    // Enter press on password field
-    fldPassword.bind("enterKey",function(e){
-        onPasswordSubmitted();
-    });
-    fldPassword.keyup(function(e){
-        if(e.keyCode == 13)
-        {
-            $(this).trigger("enterKey");
-        }
-    });
-
-    // Load URL parameters
-    loadParams();
+    // Main init method.
+    initGui();
 
     // Default form validation, not used.
     $("input,textarea").jqBootstrapValidation(
