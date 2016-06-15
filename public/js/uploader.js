@@ -15,6 +15,29 @@ var driveShareDialog;
 var uploadSha1;
 var uploadSha256;
 
+// Translations map
+var translationsMap = {};
+var translationsDefault = {
+	'CLICK_TO_CHANGE': "click to change",
+	'GOOGLE_AUTH_EXPIRED_REFRESH': "GoogleDrive authorization expired. Please, refresh the page",
+	'GENERATING_ENC_KEY': "Generating encryption key at EnigmaBridge",
+	'ENC_COMPUTATION_FAILED': "Encryption key computation failed",
+	'GENERATING_ENC_KEY_IN': "Generating encryption key at EnigmaBridge in ",
+	'UPLOAD_FAILED': "Upload failed: ",
+	'SETTING_UP_SHARING': "Setting up the sharing",
+	'UPLOAD_FINISHED': "Upload finished",
+	'SIGNIN_FAILED': "Google Sign In failed",
+	'DRIVE_NOT_CONNECTED': "Cloud drive is not yet connected",
+	'ERROR_ONLY_ONE_FILE_SUPPORTED': "Only one file is supported (more coming soon)",
+	'ERROR_FILE_TOO_BIG': "The maximum file size is 128 MB (more coming soon)",
+	'STATE_ENCRYPTING': "Encrypting... ",
+	'STATE_UPLOADING': "Uploading... ",
+	'QR_SCAN_TO_EMAIL': "Scan QR to email",
+	'QR_SCAN_TO_TEXT': "Scan QR to text",
+	'QR_SCAN_TO_TWEET': "Scan QR to tweet",
+	'QR_SCAN_TO_DOWNLOAD': "Scan QR to download"
+};
+
 // We have only one upload form.
 var $fldInput;
 var $fldLabel;
@@ -227,7 +250,7 @@ function showFiles(files, $input, $label){
 			$(strongTag).text(fileLbl);
 			$label.html("");
 			$label.append(strongTag);
-			$label.append(" (click to change)");
+			$label.append(" (" + getTranslation('CLICK_TO_CHANGE') + ")");
 		}
 	}
 
@@ -279,13 +302,13 @@ function uploadClicked(){
 
 	} else if (gapiTokenExpired()){
 		resetExpiredToken();
-		onUploadError( "GoogleDrive authorization expired. Please, refresh the page" );
+		onUploadError( getTranslation('GOOGLE_AUTH_EXPIRED_REFRESH') );
 		return false;
 	}
 
 	$form.addClass( 'is-uploading' ).removeClass( 'is-error is-success is-ready' );
 	divShareInfo.hide('slow');
-	onUploadStateChange(true, {val:0.0, msg:"Generating encryption key at EnigmaBridge"});
+	onUploadStateChange(true, {val:0.0, msg: getTranslation('GENERATING_ENC_KEY')});
 
 	if (!isAdvancedUpload){
 		alert("Unsupported browser");
@@ -304,11 +327,11 @@ function uploadClicked(){
 			bodyProgress(false);
 
 			log("Critical error: " + (data.reason ? data.reason : JSON.stringify(data)));
-			onUploadError("Encryption key computation failed");
+			onUploadError(getTranslation('ENC_COMPUTATION_FAILED'));
 		},
 		onRetry: function(data){
 			log("EB operation retry in: " + data.interval + " ms");
-			onUploadStateChange(false, "Generating encryption key at EnigmaBridge in " + formatSeconds(data.interval/1000));
+			onUploadStateChange(false, getTranslation('GENERATING_ENC_KEY_IN') + formatSeconds(data.interval/1000));
 		}
 	});
 
@@ -378,7 +401,7 @@ function onUploadKeyCreated(encScheme){
 		onError: function(data) {
 			//statusFieldSet(fldStatus, "Upload failed", false);
 			log("Critical error: " + JSON.stringify(data));
-			onUploadError("Upload failed: " + data);
+			onUploadError(getTranslation('UPLOAD_FAILED') + data);
 		},
 		onStateChange: function(state){
 			onUploadStateChange(true, {state:state});
@@ -399,7 +422,7 @@ function onFileUploaded(data){
 
 	// Share with general public by default.
 	shareUploadedFile(data);
-	onUploadStateChange(false, "Setting up the sharing");
+	onUploadStateChange(false, getTranslation('SETTING_UP_SHARING'));
 	//statusFieldSet(fldStatus, "Setting up the sharing");
 }
 
@@ -457,7 +480,7 @@ function onFileShared(data){
 
 	log(link);
 	fldLink.val(link);
-	onUploadStateChange(false, "Upload finished");
+	onUploadStateChange(false, getTranslation('UPLOAD_FINISHED'));
 	$form.removeClass( 'is-uploading is-ready').addClass( 'is-success');
 	regenerateQrCode();
 
@@ -507,7 +530,7 @@ function signinCallback(result) {
 }
 
 function signinCallbackFailure(){
-	onUploadError("Google Sign In failed");
+	onUploadError(getTranslation('SIGNIN_FAILED'));
 }
 
 /**
@@ -719,20 +742,20 @@ function onFilesDropped(newFiles){
 	divShareInfo.hide();
 
 	if (!storageLoaded){
-		onUploadError( "Cloud drive is not yet connected" );
+		onUploadError( getTranslation('DRIVE_NOT_CONNECTED') );
 		return;
 
 	} else if (gapiTokenExpired()){
 		resetExpiredToken();
-		onUploadError( "GoogleDrive authorization expired. Please, refresh the page" );
+		onUploadError( getTranslation('GOOGLE_AUTH_EXPIRED_REFRESH') );
 		return;
 
 	} else if (newFiles.length > 1){
-		onUploadError( "Only one file is supported (more coming soon)" );
+		onUploadError( getTranslation('ERROR_ONLY_ONE_FILE_SUPPORTED') );
 		return;
 
 	} else if (newFiles[0].size > 1024*1024*128){
-		onUploadError( "The maximum file size is 128 MB (more coming soon)" );
+		onUploadError( getTranslation('ERROR_FILE_TOO_BIG') );
 		return;
 	}
 
@@ -757,7 +780,7 @@ function onUploadStateChange(progress, data){
 
 		if (data.state !== undefined){
 			if (data.state.state === EnigmaUploader.STATE_PROCESSING){
-				spnUploadPcnt.text(sprintf("Encrypting... "));
+				spnUploadPcnt.text(getTranslation('STATE_ENCRYPTING'));
 				lblSet = true;
 			}
 		}
@@ -768,7 +791,7 @@ function onUploadStateChange(progress, data){
 		}
 
 		if (!lblSet){
-			spnUploadPcnt.text("Uploading... ");
+			spnUploadPcnt.text(getTranslation('STATE_UPLOADING'));
 		}
 
 		if (progressData.lastProgress != Math.round(data.val*1000)) {
@@ -859,19 +882,19 @@ function regenerateQrCode(type){
 	switch(type){
 		case 'email':
 			qrCodeSettings.text = sprintf("MATMSG:TO:set@whom.to;SUB:EnigmaLink;BODY:%s;;", (currentFileLink));
-			callToAction = "Scan QR to email";
+			callToAction = getTranslation('QR_SCAN_TO_EMAIL');
 			break;
 		case 'text':
 			qrCodeSettings.text = sprintf("SMSTO:+44999999999:%s", (currentFileLink));
-			callToAction = "Scan QR to text";
+			callToAction = getTranslation('QR_SCAN_TO_TEXT');
 			break;
 		case 'tweet':
 			qrCodeSettings.text = sprintf("https://twitter.com/intent/tweet?text=%s", encodeURIComponent(currentFileLink));
-			callToAction = "Scan QR to tweet";
+			callToAction = getTranslation('QR_SCAN_TO_TWEET');
 			break;
 		case 'link':
 			qrCodeSettings.text = currentFileLink;
-			callToAction = "Scan QR to download";
+			callToAction = getTranslation('QR_SCAN_TO_DOWNLOAD');
 			break;
 	}
 
@@ -958,10 +981,22 @@ function loadTranslations(){
 			$(xml).find('translation').each(function(){
 				var id = $(this).attr('id');
 				var text = $(this).find(language).text();
+
+				translationsMap[id] = text;
 				$("." + id).html(text);
 			});
 		}
 	});
+}
+
+function getTranslation(key, defaultStr){
+	if (translationsMap && (key in translationsMap)){
+		return translationsMap[key];
+	} else if (translationsDefault && (key in translationsDefault)){
+		return translationsDefault[key];
+	} else {
+		return defaultStr;
+	}
 }
 // ---------------------------------------------------------------------------------------------------------------------
 // onLoad
