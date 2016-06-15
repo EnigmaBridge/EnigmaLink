@@ -126,7 +126,7 @@ console.log("fs_error: safari");
                             reader.onloadend = function() {
 console.log("building data");
                                 var base64Data = reader.result;
-                                target_view.location.href = "data:attachment/file" + base64Data.slice(base64Data.search(/[,;]/));
+                                target_view.location.href = "data:"+blob.type+" + base64Data.slice(base64Data.search(/[,;]/));
                                 filesaver.readyState = filesaver.DONE;
                                 dispatch_all();
                             };
