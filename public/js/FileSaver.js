@@ -34,6 +34,7 @@ console.log("click event dispatch");
                 node.dispatchEvent(event);
             }
             , is_safari = /Version\/[\d\.]+.*Safari/.test(navigator.userAgent)
+            , is_chrome_ios =/CriOS\/[\d]+/.test(navigator.userAgent)
             , webkit_req_fs = view.webkitRequestFileSystem
             , req_fs = view.requestFileSystem || webkit_req_fs || view.mozRequestFileSystem
             , throw_outside = function(ex) {
@@ -81,7 +82,7 @@ console.log("Dispatching");
                 var i = event_types.length;
                 while (i--) {
                     var listener = filesaver["on" + event_types[i]];
-console.log("listener:");
+console.log("listener:" + event_types[i]);
 console.log(listener);
                     if (typeof listener === "function") {
                         try {
@@ -135,7 +136,7 @@ console.log("building data");
                         // don't create more object URLs than needed
                         if (blob_changed || !object_url) {
                             object_url = get_URL().createObjectURL(blob);
-console.log("object url");
+console.log("object url:");
 console.log(object_url);
                         }
                         if (target_view) {
@@ -169,6 +170,11 @@ console.log("done state");
                 if (!name) {
                     name = "download";
                 }
+console.log("name: " + name);
+console.log("is safari: " + is_safari);
+console.log("is chromeios: " + is_chrome_ios);
+console.log("save link: " + can_use_save_link);
+console.log(save_link);
                 if (can_use_save_link) {
 console.log("can use save link!");
                     object_url = get_URL().createObjectURL(blob);
@@ -188,6 +194,7 @@ console.log("save link fired");
                 // http://code.google.com/p/chromium/issues/detail?id=91158
                 // Update: Google errantly closed 91158, I submitted it again:
                 // https://code.google.com/p/chromium/issues/detail?id=389642
+console.log("view.chrome: " + view.chrome);
                 if (view.chrome && type && type !== force_saveable_type) {
 console.log("chrome & not forceable save type");
                     slice = blob.slice || blob.webkitSlice;
