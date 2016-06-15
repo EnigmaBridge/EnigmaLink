@@ -219,11 +219,16 @@ function showFiles(files, $input, $label){
 
 	} else {
 		var fileLbl = files[ 0 ].name;
-		if (jQuery.browser.mobile){
-			fileLbl += " (click to change)";
-		}
+		if (!jQuery.browser.mobile) {
+			$label.text( fileLbl );
 
-		$label.text( fileLbl );
+		} else {
+			var strongTag = document.createElement( "strong" );
+			$(strongTag).text(fileLbl);
+			$label.html("");
+			$label.append(strongTag);
+			$label.append(" (click to change)");
+		}
 	}
 
 	// Set default file name.
