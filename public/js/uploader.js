@@ -886,7 +886,7 @@ function onCopyToClipboardClicked() {
 		}, 0);
 
 		setTimeout(function(){
-			scrollToIfNotVisible(fldLink, false);
+			scrollToTarget(fldLink);
 		}, 1000);
 
 	} else {
