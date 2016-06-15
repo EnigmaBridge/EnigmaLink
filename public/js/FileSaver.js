@@ -120,14 +120,19 @@ console.log("dispatch all");
 console.log("fs_error; target_view: " + (target_view && 1));
 console.log("fs_error; FileReader: " + (typeof FileReader !== "undefined"));
 console.log("fs_error; blobtype: " + blob.type);
-                        if (target_view && (is_safari || is_chrome_ios) && typeof FileReader !== "undefined") {
+                        if ((target_view || is_chrome_ios) && is_safari && typeof FileReader !== "undefined") {
 console.log("fs_error: safari");
                             // Safari doesn't allow downloading of blob urls
                             var reader = new FileReader();
                             reader.onloadend = function() {
 console.log("building data");
                                 var base64Data = reader.result;
-                                target_view.location.href = "data:"+blob.type + base64Data.slice(base64Data.search(/[,;]/));
+                                if (is_chrome_ios){
+                                    var new_tabx = view.open("data:" + blob.type + base64Data.slice(base64Data.search(/[,;]/)), "_blank");
+                                    console.log("new tab opened:");
+                                } else {
+                                    target_view.location.href = "data:" + blob.type + base64Data.slice(base64Data.search(/[,;]/));
+                                }
                                 //target_view.location.href = "data:application/octet-stream" + base64Data.slice(base64Data.search(/[,;]/));
                                 filesaver.readyState = filesaver.DONE;
                                 dispatch_all();
@@ -220,7 +225,7 @@ console.log(blob);
                     name += ".download";
 console.log("we have a new name: " + name);
                 }
-                if (type === force_saveable_type || webkit_req_fs || is_chrome_ios) {
+                if (type === force_saveable_type || webkit_req_fs) {
                     target_view = view;
                 }
                 if (!req_fs) {
