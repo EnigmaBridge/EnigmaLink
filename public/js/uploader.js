@@ -215,7 +215,17 @@ function logFiles(files){
 
 function showFiles(files, $input, $label){
 	logFiles(files);
-	$label.text( files.length > 1 ? ( $input.attr( 'data-multiple-caption' ) || '' ).replace( '{count}', files.length ) : files[ 0 ].name );
+	if (files.length > 1){
+		$label.text(( $input.attr( 'data-multiple-caption' ) || '' ).replace( '{count}', files.length ));
+
+	} else {
+		var fileLbl = files[ 0 ].name;
+		if (jQuery.browser.mobile){
+			fileLbl += " (click to change)";
+		}
+
+		$label.text( fileLbl );
+	}
 
 	// Set default file name.
 	if (files.length == 1) {
