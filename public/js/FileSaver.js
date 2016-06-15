@@ -119,6 +119,7 @@ console.log("dispatch all");
                     , fs_error = function() {
 console.log("fs_error; target_view: " + (target_view && 1));
 console.log("fs_error; FileReader: " + (typeof FileReader !== "undefined"));
+console.log("fs_error; blobtype: " + blob.type);
                         if (target_view && (is_safari || is_chrome_ios) && typeof FileReader !== "undefined") {
 console.log("fs_error: safari");
                             // Safari doesn't allow downloading of blob urls
@@ -148,7 +149,7 @@ console.log("opening object url");
                             target_view.location.href = object_url;
                         } else {
 console.log("opening new tab on object url");
-                            var new_tab = view.open(object_url, "_blank");
+                            var new_tab = undefined;//view.open(object_url, "_blank");
 console.log("new tab opened:");
 console.log(new_tab);
 //                            if (new_tab !== undefined && new_tab.location && new_tab.location.href === "about:blank" && is_chrome_ios){
@@ -206,10 +207,11 @@ console.log("save link fired");
                 // https://code.google.com/p/chromium/issues/detail?id=389642
 console.log("view.chrome: " + view.chrome);
                 if ((view.chrome || is_chrome_ios) && type && type !== force_saveable_type) {
-console.log("chrome & not forceable save type");
+console.log("chrome & not forceable save type: ");
                     slice = blob.slice || blob.webkitSlice;
                     blob = slice.call(blob, 0, blob.size, force_saveable_type);
                     blob_changed = true;
+console.log(blob);
                 }
                 // Since I can't be sure that the guessed media type will trigger a download
                 // in WebKit, I append .download to the filename.
