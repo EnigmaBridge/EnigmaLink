@@ -798,7 +798,7 @@ function onDownloadShareLinkClicked(){
 	}
 
 	var linkBlob = new Blob(["" + link], {"type": "text/plain"});
-	saveAs(linkBlob, "ebshare-" + uploader.fname + ".link.txt");
+	saveAs(linkBlob, "enigmalink-" + uploader.fname + ".link.txt");
 }
 
 /**
@@ -813,7 +813,7 @@ function onDownloadQRCodeLinkClicked(){
 
 	var canvas = children[0];
 	canvas.toBlob(function(blob) {
-		saveAs(blob, ("ebshare-" + uploader.fname + ".qr.png"));
+		saveAs(blob, ("enigmalink-" + uploader.fname + ".qr.png"));
 	}, "image/png");
 }
 
