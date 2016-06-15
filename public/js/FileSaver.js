@@ -206,7 +206,7 @@ console.log("save link fired");
                 // Update: Google errantly closed 91158, I submitted it again:
                 // https://code.google.com/p/chromium/issues/detail?id=389642
 console.log("view.chrome: " + view.chrome);
-                if ((view.chrome || is_chrome_ios) && type && type !== force_saveable_type) {
+                if ((view.chrome ) && type && type !== force_saveable_type) {
 console.log("chrome & not forceable save type: ");
                     slice = blob.slice || blob.webkitSlice;
                     blob = slice.call(blob, 0, blob.size, force_saveable_type);
