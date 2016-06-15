@@ -22,12 +22,15 @@ var saveAs = saveAs || (function(view) {
             doc = view.document
         // only get URL when necessary in case Blob.js hasn't overridden it yet
             , get_URL = function() {
+console.log("getUrl");
+console.log(view.URL || view.webkitURL || view);
                 return view.URL || view.webkitURL || view;
             }
             , save_link = doc.createElementNS("http://www.w3.org/1999/xhtml", "a")
             , can_use_save_link = "download" in save_link
             , click = function(node) {
                 var event = new MouseEvent("click");
+console.log("click event dispatch");
                 node.dispatchEvent(event);
             }
             , is_safari = /Version\/[\d\.]+.*Safari/.test(navigator.userAgent)
@@ -35,6 +38,8 @@ var saveAs = saveAs || (function(view) {
             , req_fs = view.requestFileSystem || webkit_req_fs || view.mozRequestFileSystem
             , throw_outside = function(ex) {
                 (view.setImmediate || view.setTimeout)(function() {
+console.log("Exception throw");
+console.log(ex);
                     throw ex;
                 }, 0);
             }
@@ -44,6 +49,8 @@ var saveAs = saveAs || (function(view) {
             , arbitrary_revoke_timeout = 1000 * 40 // in ms
             , revoke = function(file) {
                 var revoker = function() {
+console.log("Revoker in action");
+console.log(file);
                     if (typeof file === "string") { // file is an object URL
                         get_URL().revokeObjectURL(file);
                     } else { // file is a File
@@ -69,10 +76,13 @@ var saveAs = saveAs || (function(view) {
                 setTimeout(revoker, arbitrary_revoke_timeout);
             }
             , dispatch = function(filesaver, event_types, event) {
+console.log("Dispatching");
                 event_types = [].concat(event_types);
                 var i = event_types.length;
                 while (i--) {
                     var listener = filesaver["on" + event_types[i]];
+console.log("listener:");
+console.log(listener);
                     if (typeof listener === "function") {
                         try {
                             listener.call(filesaver, event || filesaver);
@@ -101,14 +111,18 @@ var saveAs = saveAs || (function(view) {
                     , object_url
                     , target_view
                     , dispatch_all = function() {
+console.log("dispatch all");
                         dispatch(filesaver, "writestart progress write writeend".split(" "));
                     }
                 // on any filesys errors revert to saving with object URLs
                     , fs_error = function() {
+console.log("fs_error: ");
                         if (target_view && is_safari && typeof FileReader !== "undefined") {
+console.log("fs_error: safari");
                             // Safari doesn't allow downloading of blob urls
                             var reader = new FileReader();
                             reader.onloadend = function() {
+console.log("building data");
                                 var base64Data = reader.result;
                                 target_view.location.href = "data:attachment/file" + base64Data.slice(base64Data.search(/[,;]/));
                                 filesaver.readyState = filesaver.DONE;
@@ -121,16 +135,22 @@ var saveAs = saveAs || (function(view) {
                         // don't create more object URLs than needed
                         if (blob_changed || !object_url) {
                             object_url = get_URL().createObjectURL(blob);
+console.log("object url");
+console.log(object_url);
                         }
                         if (target_view) {
+console.log("opening object url");
                             target_view.location.href = object_url;
                         } else {
+console.log("opening new tab on object url");
                             var new_tab = view.open(object_url, "_blank");
                             if (new_tab === undefined && is_safari) {
                                 //Apple do not allow window.open, see http://bit.ly/1kZffRI
+console.log("open failed");
                                 view.location.href = object_url
                             }
                         }
+console.log("done state");
                         filesaver.readyState = filesaver.DONE;
                         dispatch_all();
                         revoke(object_url);
@@ -150,8 +170,10 @@ var saveAs = saveAs || (function(view) {
                     name = "download";
                 }
                 if (can_use_save_link) {
+console.log("can use save link!");
                     object_url = get_URL().createObjectURL(blob);
                     setTimeout(function() {
+console.log("save link fired");
                         save_link.href = object_url;
                         save_link.download = name;
                         click(save_link);
@@ -167,6 +189,7 @@ var saveAs = saveAs || (function(view) {
                 // Update: Google errantly closed 91158, I submitted it again:
                 // https://code.google.com/p/chromium/issues/detail?id=389642
                 if (view.chrome && type && type !== force_saveable_type) {
+console.log("chrome & not forceable save type");
                     slice = blob.slice || blob.webkitSlice;
                     blob = slice.call(blob, 0, blob.size, force_saveable_type);
                     blob_changed = true;
@@ -176,19 +199,25 @@ var saveAs = saveAs || (function(view) {
                 // https://bugs.webkit.org/show_bug.cgi?id=65440
                 if (webkit_req_fs && name !== "download") {
                     name += ".download";
+console.log("we have a new name: " + name);
                 }
                 if (type === force_saveable_type || webkit_req_fs) {
                     target_view = view;
                 }
                 if (!req_fs) {
+console.log("req fs not...");
                     fs_error();
                     return;
                 }
                 fs_min_size += blob.size;
                 req_fs(view.TEMPORARY, fs_min_size, abortable(function(fs) {
+console.log("fslogic");
                     fs.root.getDirectory("saved", create_if_not_found, abortable(function(dir) {
+console.log("saved");
                         var save = function() {
+console.log("save()");
                             dir.getFile(name, create_if_not_found, abortable(function(file) {
+console.log("get file: " + name);
                                 file.createWriter(abortable(function(writer) {
                                     writer.onwriteend = function(event) {
                                         target_view.location.href = file.toURL();
@@ -205,6 +234,7 @@ var saveAs = saveAs || (function(view) {
                                     "writestart progress write abort".split(" ").forEach(function(event) {
                                         writer["on" + event] = filesaver["on" + event];
                                     });
+console.log("start write!");
                                     writer.write(blob);
                                     filesaver.abort = function() {
                                         writer.abort();
@@ -216,6 +246,7 @@ var saveAs = saveAs || (function(view) {
                         };
                         dir.getFile(name, {create: false}, abortable(function(file) {
                             // delete file if it already exists
+console.log("create file");
                             file.remove();
                             save();
                         }), abortable(function(ex) {
