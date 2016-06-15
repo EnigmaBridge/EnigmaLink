@@ -117,8 +117,9 @@ console.log("dispatch all");
                     }
                 // on any filesys errors revert to saving with object URLs
                     , fs_error = function() {
-console.log("fs_error: ");
-                        if (target_view && is_safari && typeof FileReader !== "undefined") {
+console.log("fs_error; target_view: ");
+console.log(target_view);
+                        if (target_view && (is_safari || is_chrome_ios) && typeof FileReader !== "undefined") {
 console.log("fs_error: safari");
                             // Safari doesn't allow downloading of blob urls
                             var reader = new FileReader();
@@ -145,6 +146,8 @@ console.log("opening object url");
                         } else {
 console.log("opening new tab on object url");
                             var new_tab = view.open(object_url, "_blank");
+console.log("new tab opened:");
+console.log(new_tab);
                             if (new_tab === undefined && is_safari) {
                                 //Apple do not allow window.open, see http://bit.ly/1kZffRI
 console.log("open failed");
