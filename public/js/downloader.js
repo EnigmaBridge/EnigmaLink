@@ -538,6 +538,13 @@ function initGui(){
     btnDownload.click(downloadClicked);
     btnPasswordUse.click(onPasswordSubmitted);
     btnGet.click(onGetFileClicked);
+$('#btnGet2').click(function(){
+    var a = document.createElement('a');
+    a.href = "data:image/png;base64," + pngImg;
+    a.download = 'image.png';
+    a.target='blank';
+    a.click();
+});
 
     // Enter press on password field
     fldPassword.bind("enterKey",function(e){
