@@ -886,8 +886,8 @@ function onCopyToClipboardClicked() {
 		}, 0);
 
 		setTimeout(function(){
-			scrollToTarget(fldLink);
-		}, 1000);
+			scrollToElementBottom(fldLink);
+		}, 750);
 
 	} else {
 		copyElementToClipboard(fldLink);
