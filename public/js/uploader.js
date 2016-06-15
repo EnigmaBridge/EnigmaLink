@@ -640,9 +640,10 @@ function gapiTokenExpired(offset){
 function gapiTokenWatcher(){
 	var $form = $(updForm);
 	var isUploading = $form.hasClass( 'is-uploading' );
+	var wasSuccess = $form.hasClass( 'is-success' );
 	log(sprintf("Token watcher check. Uploading: %s, token expires in %s s", isUploading, accessTokenExpiresAt-Date.now()/1000));
 
-	if (!isUploading){
+	if (!isUploading && !wasSuccess){
 		log("Refreshing the page");
 		resetExpiredToken();
 		$form.removeClass( 'is-ready' );
@@ -653,8 +654,8 @@ function gapiTokenWatcher(){
 		document.location.reload();
 
 	} else {
-		log("Download in progress, plan for later");
-		setTimeout(gapiTokenWatcher, 1000*10);
+		log(sprintf("Download in progress = %d, success = %d, plan for later", isUploading, wasSuccess));
+		setTimeout(gapiTokenWatcher, isUploading ? 1000*10 : 1000*60*5);
 	}
 }
 
