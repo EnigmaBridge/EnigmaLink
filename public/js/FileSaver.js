@@ -117,8 +117,8 @@ console.log("dispatch all");
                     }
                 // on any filesys errors revert to saving with object URLs
                     , fs_error = function() {
-console.log("fs_error; target_view: ");
-console.log(target_view);
+console.log("fs_error; target_view: " + (target_view && 1));
+console.log("fs_error; FileReader: " + (typeof FileReader !== "undefined"));
                         if (target_view && (is_safari || is_chrome_ios) && typeof FileReader !== "undefined") {
 console.log("fs_error: safari");
                             // Safari doesn't allow downloading of blob urls
@@ -130,14 +130,16 @@ console.log("building data");
                                 filesaver.readyState = filesaver.DONE;
                                 dispatch_all();
                             };
+console.log("start building dataurl...");
                             reader.readAsDataURL(blob);
                             filesaver.readyState = filesaver.INIT;
                             return;
                         }
+console.log("or not...");
                         // don't create more object URLs than needed
                         if (blob_changed || !object_url) {
                             object_url = get_URL().createObjectURL(blob);
-console.log("object url:");
+console.log("object url: (changed="+blob_changed+")");
 console.log(object_url);
                         }
                         if (target_view) {
