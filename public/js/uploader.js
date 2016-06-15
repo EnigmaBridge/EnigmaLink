@@ -885,6 +885,10 @@ function onCopyToClipboardClicked() {
 			fldLink[0].selectionEnd = 9999;
 		}, 0);
 
+		setTimeout(function(){
+			scrollToIfNotVisible(fldLink, false);
+		}, 1000);
+
 	} else {
 		copyElementToClipboard(fldLink);
 	}
