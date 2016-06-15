@@ -128,8 +128,7 @@ console.log("fs_error: safari");
 console.log("building data");
                                 var base64Data = reader.result;
                                 if (is_chrome_ios){
-                                    var new_tabx = view.open("data:" + blob.type + base64Data.slice(base64Data.search(/[,;]/)), "_blank");
-                                    console.log("new tab opened:");
+                                    view.open("data:" + blob.type + base64Data.slice(base64Data.search(/[,;]/)), "_blank");
                                 } else {
                                     target_view.location.href = "data:" + blob.type + base64Data.slice(base64Data.search(/[,;]/));
                                 }
