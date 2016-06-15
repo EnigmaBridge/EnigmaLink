@@ -151,7 +151,7 @@ console.log("opening object url");
 console.log("opening new tab on object url");
                             var new_tab = view.open(object_url, "_blank");
 console.log("new tab opened:");
-console.log(new_tab);
+//console.log(new_tab);
 //                            if (new_tab !== undefined && new_tab.location && new_tab.location.href === "about:blank" && is_chrome_ios){
 //console.log("open failed2");
 //                                view.location.href = object_url
