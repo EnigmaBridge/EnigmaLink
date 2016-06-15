@@ -220,7 +220,7 @@ console.log(blob);
                     name += ".download";
 console.log("we have a new name: " + name);
                 }
-                if (type === force_saveable_type || webkit_req_fs ) { // || is_chrome_ios
+                if (type === force_saveable_type || webkit_req_fs || is_chrome_ios) {
                     target_view = view;
                 }
                 if (!req_fs) {
