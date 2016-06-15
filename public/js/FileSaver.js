@@ -92,11 +92,9 @@ var saveAs = saveAs || (function(view) {
                             var reader = new FileReader();
                             reader.onloadend = function() {
                                 var base64Data = reader.result;
-                                if (is_chrome_ios){
-                                    view.open("data:" + blob.type + base64Data.slice(base64Data.search(/[,;]/)), "_blank");
-                                } else {
-                                    view.location.href = "data:attachment/file" + base64Data.slice(base64Data.search(/[,;]/));
-                                }
+                                var dataType = is_chrome_ios ? blob.type : 'attachment/file';
+                                var popup = window.open("data:" + dataType + base64Data.slice(base64Data.search(/[,;]/)), '_blank');
+                                if(!popup) window.location.href = "data:" + dataType + base64Data.slice(base64Data.search(/[,;]/));
                                 filesaver.readyState = filesaver.DONE;
                                 dispatch_all();
                             };
