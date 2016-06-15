@@ -91,10 +91,10 @@ var saveAs = saveAs || (function(view) {
                             // Safari doesn't allow downloading of blob urls
                             var reader = new FileReader();
                             reader.onloadend = function() {
-                                var base64Data = reader.result;
-                                var dataType = is_chrome_ios ? blob.type : 'attachment/file';
-                                var popup = window.open("data:" + dataType + base64Data.slice(base64Data.search(/[,;]/)), '_blank');
-                                if(!popup) window.location.href = "data:" + dataType + base64Data.slice(base64Data.search(/[,;]/));
+                                var url = is_chrome_ios ? reader.result : reader.result.replace(/^data:[^;]*;/, 'data:attachment/file;');
+                                var popup = view.open(url, '_blank');
+                                if(!popup) view.location.href = url;
+                                url=undefined; // release reference before dispatching
                                 filesaver.readyState = filesaver.DONE;
                                 dispatch_all();
                             };
