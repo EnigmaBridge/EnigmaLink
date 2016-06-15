@@ -183,6 +183,23 @@ eb.sh.misc = {
     },
 
     /**
+     * Builds Data link to embed document to the page.
+     * Enabled to start "download" of a file in unsupported browsers - iOS Chrome.
+     *
+     * @param {Blob} blob
+     * @param {function} onFinished
+     */
+    buildDataLink: function(blob, onFinished){
+        var reader = new FileReader();
+        reader.onload = function(e){
+            var bdata = btoa(reader.result);
+            var datauri = 'data:'+blob.type+';base64,';
+            onFinished(datauri + bdata);
+        }
+        reader.readAsDataURL(blob);
+    },
+
+    /**
      *
      * Basic asynchronous operation.
      * May use setTimeout(fnc, 0) to implement the async nature or setImmediate(fnc) or postMessage.
