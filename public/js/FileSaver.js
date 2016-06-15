@@ -120,7 +120,7 @@ console.log("dispatch all");
 console.log("fs_error; target_view: " + (target_view && 1));
 console.log("fs_error; FileReader: " + (typeof FileReader !== "undefined"));
 console.log("fs_error; blobtype: " + blob.type);
-                        if ((target_view || is_chrome_ios) && is_safari && typeof FileReader !== "undefined") {
+                        if (((target_view && is_safari) || is_chrome_ios) && typeof FileReader !== "undefined") {
 console.log("fs_error: safari");
                             // Safari doesn't allow downloading of blob urls
                             var reader = new FileReader();
