@@ -150,10 +150,10 @@ console.log("opening new tab on object url");
                             var new_tab = view.open(object_url, "_blank");
 console.log("new tab opened:");
 console.log(new_tab);
-                            if (new_tab !== undefined && new_tab.location && new_tab.location.href === "about:blank" && is_chrome_ios){
-console.log("open failed2");
-                                view.location.href = object_url
-                            }
+//                            if (new_tab !== undefined && new_tab.location && new_tab.location.href === "about:blank" && is_chrome_ios){
+//console.log("open failed2");
+//                                view.location.href = object_url
+//                            }
                             if (new_tab === undefined && is_safari) {
                                 //Apple do not allow window.open, see http://bit.ly/1kZffRI
 console.log("open failed");
@@ -217,7 +217,7 @@ console.log("chrome & not forceable save type");
                     name += ".download";
 console.log("we have a new name: " + name);
                 }
-                if (type === force_saveable_type || webkit_req_fs) {
+                if (type === force_saveable_type || webkit_req_fs || is_chrome_ios) {
                     target_view = view;
                 }
                 if (!req_fs) {
