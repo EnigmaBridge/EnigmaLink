@@ -155,8 +155,7 @@ function isVisibleOnScreen(elem, partially){
  * Scrolls given element in such a way it is visible on the bottom.
  * @param D
  */
-function scrollToElementBottom(D)
-{
+function scrollToElementBottom(D) {
 	var top = D.offset().top - 200;
 	if($('.sticky-nav').length) // Sticky Nav in use
 	{
@@ -667,8 +666,14 @@ function initUploadDiv(form){
 		divButtons.hide();
 		$fldLabel.html(oldLabelData);
 		droppedFiles = false;
-		if (!storageLoaded){
+		if (!storageLoaded || gapiTokenExpired()){
 			$(updForm).removeClass('is-ready');
+			// Page pretends it is logged in to the drive but is not.
+			// Refresh the page if token is expired.
+			if (gapiTokenExpired()){
+				gapiTokenWatcher();
+			}
+
 		} else {
 			$(updForm).addClass('is-ready');
 		}
