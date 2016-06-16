@@ -195,8 +195,18 @@ eb.sh.misc = {
             var bdata = btoa(reader.result);
             var datauri = 'data:'+blob.type+';base64,';
             onFinished(datauri + bdata);
-        }
+        };
         reader.readAsDataURL(blob);
+    },
+
+    /**
+     * Opens datalink on a new tab if possible.
+     *
+     * @param link
+     */
+    openDataLink: function(link){
+        var popup = window.open(link, '_blank');
+        if(!popup) window.location.link = url;
     },
 
     /**
