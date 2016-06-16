@@ -910,7 +910,7 @@ function tweetText(text){
 }
 
 function onEmailLinkClicked(){
-	var link = sprintf("mailto:your@recipient.com?subject=New%20File%20Share&body=%s", encodeURIComponent(currentFileLink));
+	var link = sprintf("mailto:your@recipient.com?subject=EnigmaLink&body=%s", encodeURIComponent(currentFileLink));
 	window.open(link, '_self');
 }
 
