@@ -37,6 +37,13 @@ pre {
 }
 #divFileMessageContent{
     color: rgba(0,0,0,.75);
+    overflow: auto;
+    white-space: pre-wrap;
+    white-space: -moz-pre-wrap;
+    white-space: -o-pre-wrap;
+    word-wrap: break-word;
+    padding-top: 0;
+    padding-bottom: 0;
 }
 .downloadFileInfo{
     font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
