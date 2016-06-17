@@ -25,6 +25,7 @@ var divPasswdNotif;
 var divStatusInfo;
 var divFileInfo;
 var divMessageInfo;
+var divProgressBar;
 var divStatusNotif;
 var divProgressBar;
 var btnGet;
@@ -348,6 +349,7 @@ function onSuccess(){
 
     divFileInfo.show();
     divMessageInfo.show();
+    divProgressBar.hide();
     setFillScreenBlocHeight();
     displayNotifyGlobal("Download successful", false, true);
 
@@ -446,6 +448,7 @@ function onMetaReady(obj, continueCb, abortCb){
 
     divFileInfo.show();
     divMessageInfo.show();
+    divProgressBar.hide();
     setFillScreenBlocHeight();
     setTimeout(continueCb, 0);
 }
@@ -583,6 +586,7 @@ $(function()
     divStatusInfo = $('#divStatusInfo');
     divFileInfo = $('#divFileInfo');
     divMessageInfo = $('#divMessageInfo');
+    divProgressBar = $('#divProgressBar');
     divStatusNotif = $('#divStatusNotif');
     divProgressBar = $('.progress-bar');
     btnGet = $('#btnGet');
