@@ -24,7 +24,7 @@ var translationsDefault = {
 	'ENC_COMPUTATION_FAILED': "Encryption key computation failed",
 	'GENERATING_ENC_KEY_IN': "Generating encryption key at EnigmaBridge in ",
 	'UPLOAD_FAILED': "Upload failed: ",
-	'SETTING_UP_SHARING': "Setting up the sharing",
+	'SETTING_UP_SHARING': "Setting up your link",
 	'UPLOAD_FINISHED': "Upload finished",
 	'SIGNIN_FAILED': "Google Sign In failed",
 	'DRIVE_NOT_CONNECTED': "Cloud drive is not yet connected",
