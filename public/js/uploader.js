@@ -32,10 +32,10 @@ var translationsDefault = {
 	'ERROR_FILE_TOO_BIG': "The maximum file size is 128 MB (more coming soon)",
 	'STATE_ENCRYPTING': "Encrypting... ",
 	'STATE_UPLOADING': "Uploading... ",
-	'QR_SCAN_TO_EMAIL': "Scan QR to email",
-	'QR_SCAN_TO_TEXT': "Scan QR to text",
-	'QR_SCAN_TO_TWEET': "Scan QR to tweet",
-	'QR_SCAN_TO_DOWNLOAD': "Scan QR to download"
+	'QR_SCAN_TO_EMAIL': "This QR will open an email",
+	'QR_SCAN_TO_TEXT': "This QR will open a text/sms",
+	'QR_SCAN_TO_TWEET': "This QR will open a tweet",
+	'QR_SCAN_TO_DOWNLOAD': "This QR will start download"
 };
 
 // We have only one upload form.
