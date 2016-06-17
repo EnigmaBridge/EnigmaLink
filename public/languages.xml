@@ -5,7 +5,7 @@
         <czech>EnigmaLink pro soukromé sdílení</czech>
     </translation>
     <translation id="text1">
-        <english>Select a document and send its link directly.</english>
+        <english>Select a document and send its link or scan its QR code directly.</english>
         <czech>Vyberte dokument a pak už jej jen přímo mailujte, SMSkujte nebo tweetujte.</czech>
     </translation>
     <translation id="text2a">
@@ -50,20 +50,20 @@ prying eyes
 
 
     <translation id="step1">
-        <english>Step 1: Connect your Google Drive</english>
-        <czech>Krok 1. Přihlaste se ke svému Google účtu</czech>
+        <english>When asked, sign in to your Google</english>
+        <czech>Dokument bude uložen ve vašem Google účtu</czech>
     </translation>
     <translation id="step2">
-        <english>Step 2: Select document to link</english>
-        <czech>Krok 2. Vyberte dokument pro sdílení</czech>
+        <english>Step 1: Select document to send</english>
+        <czech>Krok 1. Vyberte dokument pro sdílení</czech>
     </translation>
     <translation id="step3">
-        <english>Step 3: Click "Upload"</english>
-        <czech>Krok 3. Stiskněte "Upload"</czech>
+        <english>Step 2: Click "Upload"</english>
+        <czech>Krok 2. Stiskněte "Upload"</czech>
     </translation>
     <translation id="step4">
-        <english>Step 4: Scan, email, tweet</english>
-        <czech>Krok 4. Skenujte QR kód, mailujte, tweetujte</czech>
+        <english>Step 3: Scan QR, email, tweet, link</english>
+        <czech>Krok 3. Skenujte QR kód, mailujte, tweetujte</czech>
     </translation>
     <translation id="text3a">
         <english>Click here to select a file</english>
@@ -94,13 +94,13 @@ prying eyes
         </czech>
     </translation>
     <translation id="text9">
-        <english>Please, connect your Google Drive
+        <english>Please, sign-in to your Google
         </english>
         <czech>Přihlaste svůj Google Drive
         </czech>
     </translation>
     <translation id="text10">
-        <english>Enigma Bridge gives you control and safety. We ask for permission to create files and read only those files
+        <english>Enigma Bridge gives you control and safety. We ask for permission to create files and read files. Only the files
     we store in your Google Drive (in the "EnigmaLink" folder). We can't see any other files. See details at Google
     security.
 
