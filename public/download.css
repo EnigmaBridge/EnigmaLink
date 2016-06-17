@@ -26,6 +26,12 @@ pre {
     display:none;
     margin-top: 15px;
 }
+
+#divMessageInfo{
+    display:none;
+    margin-top: 15px;
+}
+
 #divStatusWrapper {
     display: none;
 }
