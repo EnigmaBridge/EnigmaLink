@@ -313,6 +313,7 @@ function downloadClicked() {
     divStatusNotif.hide();
     divPasswdNotif.hide();
     divProgressBar2.show();
+    divStatusInfo.show();
     setFillScreenBlocHeight();
     bodyProgress(true);
     scrollToElementBottom(divStatusWrapper);
@@ -351,6 +352,7 @@ function onSuccess(){
     divFileInfo.show();
     divMessageInfo.show();
     divProgressBar2.hide();
+    divStatusInfo.hide();
     setFillScreenBlocHeight();
     displayNotifyGlobal("Download successful", false, true);
 
@@ -450,6 +452,7 @@ function onMetaReady(obj, continueCb, abortCb){
     divFileInfo.show();
     divMessageInfo.show();
     divProgressBar2.hide();
+    divStatusInfo.hide();
     setFillScreenBlocHeight();
     setTimeout(continueCb, 0);
 }
