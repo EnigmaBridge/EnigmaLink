@@ -205,6 +205,12 @@ body
     min-height: 41px;
 }
 
+#signedin {
+    display:none;
+    min-height: 56px;
+    padding-top: 20px;
+}
+
 .box.is-uploading .signinWrapper,
 .box.is-success .signinWrapper,
 .box.is-error .signinWrapper,
