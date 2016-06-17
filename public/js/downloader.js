@@ -349,12 +349,10 @@ function onSuccess(){
     preFileInfo.text(fileInfo);
     showMessageIfAny(true);
 
+    displayNotifyGlobal("Download successful", false, true);
+    setFillScreenBlocHeight();
     divFileInfo.show();
     divMessageInfo.show();
-    divProgressBar2.hide();
-    divStatusInfo.hide();
-    setFillScreenBlocHeight();
-    displayNotifyGlobal("Download successful", false, true);
 
     // For mobile browsers show button to download the file again.
     if (jQuery.browser.mobile) {
@@ -367,6 +365,8 @@ function onSuccess(){
     if (!jQuery.browser.mobile){
         triggerFileDownload();
     }
+    divProgressBar2.hide();
+    divStatusInfo.hide();
 }
 
 function onError(data){
