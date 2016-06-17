@@ -5,7 +5,7 @@
         <czech>EnigmaLink pro soukromé sdílení</czech>
     </translation>
     <translation id="text1">
-        <english>Select a document and email, text or tweet it directly.</english>
+        <english>Select a document and send its link directly.</english>
         <czech>Vyberte dokument a pak už jej jen přímo mailujte, SMSkujte nebo tweetujte.</czech>
     </translation>
     <translation id="text2a">
@@ -100,7 +100,7 @@ prying eyes
         </czech>
     </translation>
     <translation id="text10">
-        <english>Enigma Bridge gives you control and safety. We ask for permission to create files and read only files
+        <english>Enigma Bridge gives you control and safety. We ask for permission to create files and read only those files
     we store in your Google Drive (in the "EnigmaLink" folder). We can't see any other files. See details at Google
     security.
 
