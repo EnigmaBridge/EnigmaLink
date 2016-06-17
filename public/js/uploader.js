@@ -964,7 +964,7 @@ function browserSpecific(){
 }
 
 function initGui(){
-
+	setFillScreenBlocHeight();
 }
 
 function loadTranslations(){
@@ -985,6 +985,7 @@ function loadTranslations(){
 
 				translationsMap[id] = text;
 				$("." + id).html(text);
+				setFillScreenBlocHeight();
 			});
 		}
 	});
