@@ -477,6 +477,8 @@ function onUploadStateChange(progress, data){
             if (data.state.state === EnigmaDownloader.STATE_DONE)
             {
                 divStatusInfo.text(sprintf("Finished"));
+                divStatusInfo.hide();
+                divProgressBar2.hide();
                 data.val = 1.0;
                 lblSet = true;
             }
