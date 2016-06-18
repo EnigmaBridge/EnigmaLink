@@ -80,7 +80,7 @@ function sprintf() {
     var a = arguments, i = 0, format = a[i++];
     return format.replace(sprintf.regex, function(substring, valueIndex, flags, minWidth, _, precision, type) {
 	    if (substring == '%%') return '%';
-
+		if (precision == '') precision = null;
 	    // parse flags
 	    var leftJustify = false, positivePrefix = '', zeroPad = false, prefixBaseX = false;
 	    for (var j = 0; flags && j < flags.length; j++) switch (flags.charAt(j)) {
