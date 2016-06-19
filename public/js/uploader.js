@@ -910,7 +910,7 @@ function tweetText(text){
 }
 
 function onEmailLinkClicked(){
-	var link = sprintf("mailto:your@recipient.com?subject=EnigmaLink&body=%s", encodeURIComponent(currentFileLink));
+	var link = sprintf("mailto:set@send.to?subject=EnigmaLink&body=%s", encodeURIComponent(currentFileLink));
 	window.open(link, '_self');
 }
 
@@ -930,11 +930,11 @@ function onCopyToClipboardClicked() {
 		}, 0);
 
 		setTimeout(function(){
-			scrollToElementBottom(fldLink);
+			scrollToElementBottom(fldLinkID);
 		}, 750);
 
 	} else {
-		copyElementToClipboard(fldLink);
+		copyElementToClipboard(fldLinkID);
 	}
 }
 
@@ -1040,6 +1040,7 @@ $(function()
 	fldPasswordCheck = $('#fldPasswordCheck');
 	btnTextNow = $('#btnTextNow');
 
+    scrollToElementBottom(divUploadInput);
 	// HTML5 support?
 	isAdvancedUpload = function() {
 		var div = document.createElement( 'div' );
