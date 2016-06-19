@@ -930,11 +930,11 @@ function onCopyToClipboardClicked() {
 		}, 0);
 
 		setTimeout(function(){
-			scrollToElementBottom(fldLinkID);
+			scrollToElementBottom(fldLink);
 		}, 750);
 
 	} else {
-		copyElementToClipboard(fldLinkID);
+		copyElementToClipboard(fldLink);
 	}
 }
 
@@ -1044,7 +1044,7 @@ $(function()
         var topX = divUploadLogin.height()+divUploadLogin.offset().top;
         $('html,body').animate({scrollTop:topX}, 'slow');
     }
-    
+
     // HTML5 support?
 	isAdvancedUpload = function() {
 		var div = document.createElement( 'div' );
