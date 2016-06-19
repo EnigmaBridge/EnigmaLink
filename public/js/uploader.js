@@ -41,6 +41,7 @@ var translationsDefault = {
 // We have only one upload form.
 var $fldInput;
 var $fldLabel;
+var $fldFileName;
 var $fldErrorMsg;
 var $fldRestart;
 var svgUpload;
@@ -235,21 +236,25 @@ function logFiles(files){
 	});
 }
 
-function showFiles(files, $input, $label){
+function showFiles(files, $input, $label, $label2){
 	logFiles(files);
 	if (files.length > 1){
 		$label.text(( $input.attr( 'data-multiple-caption' ) || '' ).replace( '{count}', files.length ));
+        $label2.text(( $input.attr( 'data-multiple-caption' ) || '' ).replace( '{count}', files.length ));
 
 	} else {
 		var fileLbl = files[ 0 ].name;
 		if (!jQuery.browser.mobile) {
 			$label.text( fileLbl );
+            $label2.text( fileLbl );
 
 		} else {
 			var strongTag = document.createElement( "strong" );
 			$(strongTag).text(fileLbl);
 			$label.html("");
 			$label.append(strongTag);
+            $label2.html("");
+            $label2.append(strongTag);
 //			$label.append(" (" + getTranslation('CLICK_TO_CHANGE') + ")");
 		}
 	}
@@ -264,6 +269,8 @@ function showFiles(files, $input, $label){
 	// Hide upload icon
 	svgUpload.hide();
 	divButtons.show();
+    //$fldFileName.html(oldLabelData);
+
 }
 
 function formatSeconds(s){
@@ -666,7 +673,8 @@ function gapiTokenWatcher(){
 function initUploadDiv(form){
 	var $form = $(form);
 	$fldInput		 = $form.find( 'input[type="file"]' );
-	$fldLabel		 = $form.find('label[id="fldLinkID"]');
+	$fldLabel		 = $form.find( 'label[id="fldLinkID"]');
+    $fldFileName     = $form.find( 'h3[id=divFileName]');
 	$fldErrorMsg	 = $form.find( '.box__error span' );
 	$fldRestart	 	 = $form.find( '.box__restart' );
 	oldLabelData     = $fldLabel.html();
@@ -765,7 +773,7 @@ function onFilesDropped(newFiles){
 		$form.addClass( 'is-ready' );
 	}
 	droppedFiles = newFiles;
-	showFiles( droppedFiles, $fldInput, $fldLabel );
+	showFiles( droppedFiles, $fldInput, $fldLabel, $fldFileName );
 	setFillScreenBlocHeight();
 }
 
