@@ -97,9 +97,14 @@
                 </div>
             </div>
 
-            <div class="row">
+            <div class="row" id="divBtnDownload">
                 <div class="col-sm-12">
-                    <a class="btn btn-primary btn-rich-electric-blue btn-xl btn-block disabled" id="btnDownload">Click to Download</a>
+                    <h4>You have been sent an encrypted document with EnigmaLink, a private document sharing by Enigma Bridge.</h4>
+                    <a class="btn btn-primary btn-rich-electric-blue btn-xl btn-block disabled" id="btnDownload">Download encrypted document</a>
+                <h4>Download of this document keeps it private to holders of the link (and the password),
+                    hidden from prying eyes, networks or WiFi connections (public or private).
+                    See how it works at <a href="https://www.enigmabridge.com/enigmalink.html" target="_blank">Learn about EnigmaLink</a>.
+                </h4>
                 </div>
             </div>
 
@@ -142,10 +147,7 @@
                     </div>
 
                 </div>
-
-
             </div>
-
             <div id="passwordDiv" class="row">
                 <div class="col-sm-12">
                 <form novalidate>
@@ -161,8 +163,36 @@
                 </div>
             </div>
 
-        </div>
+            <div id="divButtonUpload">
+                <a class="btn btn-primary btn-rich-electric-blue btn-xl btn-block disabled" id="btnUpload">Send New Document</a>
 
+            </div>
+            <h3>EnigmaLink - private sending</h3>
+
+            EnigmaLink sends documents or pictures safely from any device to any device.
+
+            Upload a document to encrypt it onto your Google Drive, then share a link to your document via email, text or twitter.
+
+            Documents are encrypted with a state-of-the-art AES hardware encryption and stored in your own Google Drive account.
+            Neither <a href="https://enigmabridge.com">Enigma Bridge</a> nor any prying eyes can see your documents without
+            the links (or <a href="https://en.wikipedia.org/wiki/QR_code" target="_blank">QR codes</a>) that are generated
+            by your own browser.
+
+            Each document is protected with at least 2 locks:
+            <ul>
+                <li><strong>Strong encryption key 1</strong> - (AES-256) that is part of the link you actually share - this protects against
+                attacks originating from your network (e.g., an insecure WiFi) or from any third party.</li>
+                <li><strong>Strong encryption key 2</strong> - (AES-256) encrypted by the Enigma Bridge cloud HSM service.
+                Once encrypted, this key is stored with the actual file you want to share. Enigma Bridge is a service
+                that uses processers with independent validations of physical security. It means that keys inside
+                those processors can't be extracted.</li>
+                <li><strong>Password (optional)</strong> - your optional password is combined with other keys in such a way
+                that any attempt to guess it have to include a call to the Enigma Bridge service. This also means that
+                an internal counter of operations is incremented and you are able to detect any unexpected requests
+                to decrypt your document. (The counting mechanism is not available through currently implemented EnigmaLink
+                    interfaces. Still, this design very much protects from brute-force attacks.)</li>
+            </ul>
+        </div>
     </div>
     <!-- bloc-0 END -->
 

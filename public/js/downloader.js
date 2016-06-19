@@ -17,6 +17,7 @@ var progressData = {
 
 // Other fields.
 var btnDownload;
+var divBtnDownload;
 var btnPasswordUse;
 var fldPassword;
 var divPassword;
@@ -305,6 +306,7 @@ function downloadClicked() {
 
     setDisabled(btnDownload, true);
     btnDownload.hide('slow');
+    divBtnDownload.hide('slow');
 
     divStatusWrapper.show();
     divStatusInfo.text("Downloading...");
@@ -375,6 +377,7 @@ function onError(data){
     setDisabled(btnPasswordUse, true);
     setDisabled(fldPassword, true);
     btnDownload.show('slow');
+    divBtnDownload.show('slow');
     setFillScreenBlocHeight();
     divStatusInfo.html("Failed");
     log(JSON.stringify(data));
@@ -584,6 +587,7 @@ $(function()
 
     // Init
     btnDownload = $('#btnDownload');
+    divBtnDownload = $('#divBtnDownload');
     btnPasswordUse = $('#btnPasswordUse');
     fldPassword = $('#password');
     divPassword = $('#passwordDiv');
