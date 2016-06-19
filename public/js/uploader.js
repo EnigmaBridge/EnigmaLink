@@ -1040,8 +1040,12 @@ $(function()
 	fldPasswordCheck = $('#fldPasswordCheck');
 	btnTextNow = $('#btnTextNow');
 
-    scrollToElementBottom(divUploadInput);
-	// HTML5 support?
+    if (jQuery.browser.mobile) {
+        var topX = divUploadLogin.height()+divUploadLogin.offset().top;
+        $('html,body').animate({scrollTop:topX}, 'slow');
+    }
+    
+    // HTML5 support?
 	isAdvancedUpload = function() {
 		var div = document.createElement( 'div' );
 		return ( ( 'draggable' in div ) || ( 'ondragstart' in div && 'ondrop' in div ) ) && 'FormData' in window && 'FileReader' in window;
