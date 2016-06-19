@@ -250,7 +250,7 @@ function showFiles(files, $input, $label){
 			$(strongTag).text(fileLbl);
 			$label.html("");
 			$label.append(strongTag);
-			$label.append(" (" + getTranslation('CLICK_TO_CHANGE') + ")");
+//			$label.append(" (" + getTranslation('CLICK_TO_CHANGE') + ")");
 		}
 	}
 
@@ -666,7 +666,7 @@ function gapiTokenWatcher(){
 function initUploadDiv(form){
 	var $form = $(form);
 	$fldInput		 = $form.find( 'input[type="file"]' );
-	$fldLabel		 = $form.find( 'label' );
+	$fldLabel		 = $form.find('label[id="fldLinkID"]');
 	$fldErrorMsg	 = $form.find( '.box__error span' );
 	$fldRestart	 	 = $form.find( '.box__restart' );
 	oldLabelData     = $fldLabel.html();
@@ -1019,6 +1019,7 @@ $(function()
 	divShareInfo = $('#bloc-info');
 	fldLink = $('#fldLink');
 	fldSha256 = $('#fldSha256');
+
 	fldSha1 = $('#fldSha1');
 	divProgressBar = $('.progress-bar');
 	divQrInfo = $('.qrInfo');
@@ -1052,6 +1053,18 @@ $(function()
 	btnUpload.click(function(){
 		uploadClicked();
 	});
+
+/*	fldMsg
+		.focus(function(){
+			if (this.value === "This message will be encrypted and stored with the file"){
+				this.value = '';
+			}
+		})
+		.blur(function(){
+			if (this.value === ''){
+				this.value = "This message will be encrypted and stored with the file";
+			}
+		});*/
 
 	if (chkMask) {
 		var fncMask = function () {

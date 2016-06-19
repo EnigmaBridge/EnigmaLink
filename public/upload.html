@@ -124,9 +124,9 @@
                                class="btn btn-sm  btn-rich-electric-blue btn-skobelff btn-d btn-clean">Read More</a>
                         </div>
                         <div class="col-sm-4">
-                                <a href="https://twitter.com/enigmabridge" class="twitter-follow-button"
+                            <a href="https://twitter.com/enigmabridge" class="twitter-follow-button"
                                data-show-count="false" data-size="large" data-show-screen-name="false">
-                                    Follow @enigmabridge</a>
+                                Follow @enigmabridge</a>
                             <script>!function (d, s, id) {
                                 var js, fjs = d.getElementsByTagName(s)[0], p = /^http:/.test(d.location) ? 'http' : 'https';
                                 if (!d.getElementById(id)) {
@@ -193,17 +193,46 @@
 
                         <div id="divUploadInput" class="box__input">
                             <input type="file" name="files[]" id="file" class="box__file"/>
-                            <label for="file">
-                                <svg id="svgUpload" class="box__icon" xmlns="http://www.w3.org/2000/svg" width="50"
+                            <label for="file" id="svgUpload">
+                                <svg  class="box__icon" xmlns="http://www.w3.org/2000/svg" width="50"
                                      height="43" viewBox="0 0 50 43">
                                     <path d="M48.4 26.5c-.9 0-1.7.7-1.7 1.7v11.6h-43.3v-11.6c0-.9-.7-1.7-1.7-1.7s-1.7.7-1.7 1.7v13.2c0 .9.7 1.7 1.7 1.7h46.7c.9 0 1.7-.7 1.7-1.7v-13.2c0-1-.7-1.7-1.7-1.7zm-24.5 6.1c.3.3.8.5 1.2.5.4 0 .9-.2 1.2-.5l10-11.6c.7-.7.7-1.7 0-2.4s-1.7-.7-2.4 0l-7.1 8.3v-25.3c0-.9-.7-1.7-1.7-1.7s-1.7.7-1.7 1.7v25.3l-7.1-8.3c-.7-.7-1.7-.7-2.4 0s-.7 1.7 0 2.4l10 11.6z"/>
                                 </svg>
                                 <strong><span class="text3a">Click here to select a file</span></strong>
-                                <span class="box__dragndrop"><span class="text3b"> or drop your file here.</span></span></label>
+                                <span class="box__dragndrop"><span class="text3b"> or drop your file here.</span></span>
+                            </label>
                             <div id="divButtons">
-                                <a id="btnUpload" class="btn btn-clean  btn-lg btn-rich-electric-blue">Upload</a>
-                                <a id="btnSettings" class="btn btn-clean  btn-lg btn-rich-electric-blue"
-                                   onclick="scrollToTarget('#bloc-1')">Settings</a>
+                                <a id="btnUpload" class="btn btn-clean btn-block btn-lg btn-rich-electric-blue">Upload</a>
+<!--                                <a id="btnSettings" class="btn btn-clean  btn-lg btn-rich-electric-blue"
+                                   onclick="scrollToTarget('#bloc-1')">Settings</a>-->
+                                <div class="form-group " style="padding-top:50px;">
+                                                <label for="fldMessage" class="text4" style="font-size:12px;font-variant: normal">
+                                                    Add a text message (optional)
+                                                </label><textarea class="form-control" rows="3" cols="50"
+                                                                  id="fldMessage"></textarea>
+                                                <span class="help-block text6" style="font-size:12px;font-variant: normal">It will be encrypted and stored with the file.</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="fldPassword" class="text7" style="font-size:12px;font-variant: normal">
+                                                    Enter a shared password (optional)
+                                                </label>
+                                                <input class="form-control" id="fldPassword" type="text"/>
+
+                                                <span class="help-block text8" style="font-size:12px;font-variant: normal">It is an optional security feature.
+                                                    If used, it is required for decryption and the addressee must know it.</span>
+</div>
+                                            <!--<div class="form-group">-->
+                                            <!--<label>-->
+                                            <!--Repeat the password-->
+                                            <!--</label>-->
+                                            <input class="form-control" id="fldPasswordCheck" type="hidden"/>
+                                            <!--</div>-->
+                                            <!--<div class="form-group">-->
+                                            <!--<label>-->
+                                            <!--Hint for password-->
+                                            <!--</label>-->
+                                            <!--<input class="form-control" id="input_1118" />-->
+                                            <!--</div>-->
                             </div>
                         </div>
 
@@ -219,18 +248,18 @@
                             <div class="row">
                                 <div class="col-sm-12">
                                     <div class="form-group">
-                                        <label for="fldLink">
+                                        <label for="fldLink" id="fldLinkID">
                                             Document link
                                         </label><input class="form-control" id="fldLink"/>
                                     </div>
 
-                                    <div class="form-group" >
+                                    <div class="form-group">
                                         <div class="btn-group">
                                             <div class="btn-group"> <!-- link menu -->
                                                 <button type="button"
                                                         class="btn btn-primary btn-rich-electric-blue dropdown-toggle"
                                                         data-toggle="dropdown">
-                                                    Share Link Here<span class="caret"></span></button>
+                                                    Share Link Above<span class="caret"></span></button>
                                                 <ul class="dropdown-menu" role="menu">
                                                     <li><a href="#" onclick="onEmailLinkClicked()">email now</a></li>
                                                     <li><a href="#" id="btnTextNow" onclick="onTextLinkClicked()">text
@@ -252,11 +281,13 @@
                                                         data-toggle="dropdown">
                                                     Scan QR to Proxy<span class="caret"></span></button>
                                                 <ul class="dropdown-menu" role="menu">
-                                                    <li><a href="#" onclick="onQrRegenerateClicked('email')">to email</a>
+                                                    <li><a href="#" onclick="onQrRegenerateClicked('email')">to
+                                                        email</a>
                                                     </li>
                                                     <li><a href="#" onclick="onQrRegenerateClicked('text')">to text
                                                         (SMS)</a></li>
-                                                    <li><a href="#" onclick="onQrRegenerateClicked('tweet')">to tweet</a>
+                                                    <li><a href="#" onclick="onQrRegenerateClicked('tweet')">to
+                                                        tweet</a>
                                                     </li>
                                                     <li><a href="#" onclick="onQrRegenerateClicked('link')">to open</a>
                                                     </li>
@@ -282,7 +313,10 @@
                                     <div class="form-group">
                                         <div class="btn-group" style="padding-top:40px">
                                             <div class="btn-group">
-                                                <button type="button" class="btn  btn-primary btn-rich-electric-blue box__restart">Start again</button>
+                                                <button type="button"
+                                                        class="btn  btn-primary btn-rich-electric-blue box__restart">
+                                                    Start again
+                                                </button>
                                             </div>
                                             <div class="btn-group"> <!-- seetings menu -->
                                                 <button type="button"
@@ -316,17 +350,17 @@
 
             <div class="row" id="bloc-info">
                 <div class="col-sm-12">
-                    <h2 class="mg-md tc-rich-electric-blue">
-                        Share details
-                    </h2>
+                    <!--                    <h2 class="mg-md tc-rich-electric-blue">
+                                            Share details
+                                        </h2> -->
                     <div class="row tc-outer-space">
                         <div class="col-sm-12">
                             <form novalidate>
-<!--                                <div class="form-group">
-                                    <label for="fldLink">
-                                        Share link
-                                    </label><input class="form-control" id="fldLink"/>
-                                </div>-->
+                                <!--                                <div class="form-group">
+                                                                    <label for="fldLink">
+                                                                        Share link
+                                                                    </label><input class="form-control" id="fldLink"/>
+                                                                </div>-->
                                 <div class="form-group">
                                     <label for="fldSha1">
                                         File SHA1
@@ -349,50 +383,18 @@
     <!-- bloc-0 END -->
 
     <!-- bloc-1 -->
-    <div class="bloc tc-outer-space bgc-white l-bloc" id="bloc-1">
+<!--    <div class="bloc tc-outer-space bgc-white l-bloc" id="bloc-1">
         <div class="container bloc-lg">
             <div class="row">
                 <div class="col-sm-12">
                     <h2 class="mg-md tc-rich-electric-blue">
                         Tweak your upload
                     </h2>
-                    <div class="row">
-                        <div class="col-sm-12">
-                            <form id="form_1298" novalidate>
-                                <div class="form-group">
-                                    <label for="fldMessage" class="text4">
-                                        Add a text message (optional)
-                                    </label><textarea class="form-control" rows="3" cols="50"
-                                                      id="fldMessage"></textarea>
-                                    <span class="help-block text6">It will be encrypted and stored with the file.</span>
-                                </div>
-                                <div class="form-group">
-                                    <label for="fldPassword" class="text7">
-                                        Enter a shared password (optional)
-                                    </label>
-                                    <input class="form-control" id="fldPassword" type="text"/>
-								<span class="help-block text8">It is an optional security feature. If used, it is necessary
-                                    for decryption and the addressee must know it.</span>
-                                </div>
-                                <!--<div class="form-group">-->
-                                <!--<label>-->
-                                <!--Repeat the password-->
-                                <!--</label>-->
-                                <input class="form-control" id="fldPasswordCheck" type="hidden"/>
-                                <!--</div>-->
-                                <!--<div class="form-group">-->
-                                <!--<label>-->
-                                <!--Hint for password-->
-                                <!--</label>-->
-                                <!--<input class="form-control" id="input_1118" />-->
-                                <!--</div>-->
-                            </form>
-                        </div>
-                    </div>
+
                 </div>
             </div>
         </div>
-    </div>
+    </div>-->
     <input type="hidden" class="form-control" name="filename" id="filename" value=""
            placeholder="New filename for the file"/>
     <input type="hidden" name="filenameOrig" id="filenameOrig" value=""/>
