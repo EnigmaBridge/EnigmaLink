@@ -86,8 +86,7 @@ prying eyes
         <czech>Zadejte dodatečné přístupové heslo (volitelné)</czech>
     </translation>
     <translation id="text8">
-        <english>It is an optional security feature. If used, it is necessary for decryption and the addressee must know
-            it.
+        <english>We recommend to use a password when sharing via social networks. If used, the addressee must know it.
         </english>
         <czech>Dodatečné heslo je volitelné bezpečnostní vylepšení. Pokud jej zadáte, bude vyžadováno při dešifrování a
             příjemce souboru jej musí také znát.
