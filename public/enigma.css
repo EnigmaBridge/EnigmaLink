@@ -102,3 +102,7 @@ label + .radio, label + .checkbox {
 .btn-wrap {
     white-space: normal;
 }
+
+.hidden {
+    display:none;
+}

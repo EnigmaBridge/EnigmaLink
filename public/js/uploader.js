@@ -931,20 +931,17 @@ function onTextLinkClicked(){
 
 function onCopyToClipboardClicked() {
 	var os = uaParser.getOS().name.toLowerCase();
-	if (os == "ios"){
-		copyElementToClipboard(fldLink);
+	var browser = uaParser.getBrowser().name.toLowerCase();
+	var is_safari = (browser == 'mobile safari') || (browser == 'safari');
+
+	copyElementToClipboard(fldLink);
+	if (is_safari || os == "ios"){
 		setTimeout(function(){
 			fldLink.select();
 			fldLink[0].selectionStart = 0;
 			fldLink[0].selectionEnd = 9999;
+			fldLink.popover('show');
 		}, 0);
-
-		setTimeout(function(){
-			scrollToElementBottom(fldLink);
-		}, 750);
-
-	} else {
-		copyElementToClipboard(fldLink);
 	}
 }
 
@@ -952,9 +949,11 @@ function browserSpecific(){
 	uaParser = new UAParser();
 	var os = uaParser.getOS().name.toLowerCase();
 	var device = uaParser.getDevice();
+	var browser = uaParser.getBrowser().name.toLowerCase();
+	var is_safari = (browser == 'mobile safari') || (browser == 'safari');
 
 	console.log("OS: " + os);
-	console.log("Device:" + JSON.stringify(device) + ", mobile: " + jQuery.browser.mobile);
+	console.log(sprintf("Device: %s, mobile: %s, browser: %s, safari: %s", JSON.stringify(device), jQuery.browser.mobile, browser, is_safari));
 
 	// Not supported on iOS & desktops.
 	if (!jQuery.browser.mobile || os == "ios"){
@@ -979,6 +978,27 @@ function browserSpecific(){
 		divQrReadersInfo.addClass('android');
 	} else if (/^Windows/.test(os) && jQuery.browser.mobile){
 		divQrReadersInfo.addClass('windowsMob');
+	}
+
+	// Copy to clipboard popover
+	if (is_safari || os == "ios"){
+		fldLink.on('blur', function(){
+			fldLink.popover('hide');
+		});
+		fldLink.keyup(function(e){
+			fldLink.popover('hide');
+		});
+		fldLink.popover({
+			html : true,
+			placement: 'top',
+			trigger: 'manual',
+			content: function() {
+				return os == "ios" ? ($("#divPopoverIOS").html()) : ($("#divPopoverAppleDesktop").html());
+			},
+			title: function() {
+				return $("#divPopoverTitle").html();
+			}
+		});
 	}
 
 	// Dan's scrolling.
