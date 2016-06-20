@@ -525,7 +525,7 @@ function loadParams(){
     console.log(location);
     log(sprintf("URL query: %s", location.search));
     log(sprintf("URL hash: %s", location.hash));
-    linkCfg = eb.sh.misc.buildLinkParams(location.hash);
+    linkCfg = eb.sh.misc.buildLinkParams(location.hash.replace('?ref=producthunt', ''));
 
     log(JSON.stringify(linkCfg));
     if (linkCfg.fid !== null && linkCfg.fid.length > 0 && linkCfg.nonce != null && w.bitLength(linkCfg.nonce) > 0){
