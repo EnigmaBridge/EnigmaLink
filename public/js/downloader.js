@@ -35,6 +35,7 @@ var preFileInfo;
 var divFileMessage;
 var divFileMessageContent;
 
+var uaParser;
 // ---------------------------------------------------------------------------------------------------------------------
 // Functions & handlers
 // ---------------------------------------------------------------------------------------------------------------------
@@ -357,7 +358,7 @@ function onSuccess(){
     divMessageInfo.show();
 
     // For mobile browsers show button to download the file again.
-    if (jQuery.browser.mobile) {
+    if (jQuery.browser.mobile || isSafari()) {
         divGetFile.show();
     }
     setFillScreenBlocHeight();
@@ -549,7 +550,14 @@ function triggerFileDownload(){
     saveAs(blob, dwn.fname);
 }
 
+function isSafari(browser){
+    browser = browser || uaParser.getBrowser().name.toLowerCase();
+    return (browser == 'mobile safari') || (browser == 'safari');
+}
+
 function initGui(){
+    uaParser = new UAParser();
+
     // Button click handling.
     btnDownload.click(downloadClicked);
     btnPasswordUse.click(onPasswordSubmitted);
