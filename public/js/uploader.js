@@ -1067,18 +1067,6 @@ $(function()
 		uploadClicked();
 	});
 
-/*	fldMsg
-		.focus(function(){
-			if (this.value === "This message will be encrypted and stored with the file"){
-				this.value = '';
-			}
-		})
-		.blur(function(){
-			if (this.value === ''){
-				this.value = "This message will be encrypted and stored with the file";
-			}
-		});*/
-
 	if (chkMask) {
 		var fncMask = function () {
 			var checked = isChecked(chkMask);
