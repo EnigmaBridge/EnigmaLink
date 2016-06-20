@@ -1091,18 +1091,4 @@ $(function()
 	fncMask();
 	browserSpecific();
 	initGui();
-
-	// Default form validation, not used.
-	$("input,textarea").jqBootstrapValidation(
-		{
-			preventSubmit: true,
-			submitSuccess: function($form, event)
-			{
-				event.preventDefault(); // prevent default submit behaviour
-			},
-			filter: function() // Handle hidden form elements
-			{
-				return $(this).is(":visible");
-			}
-		});
 });
