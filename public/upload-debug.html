@@ -1,11 +1,26 @@
 <!doctype html>
-<html>
+<html xmlns="http://www.w3.org/1999/html">
 <head>
     <meta charset="utf-8">
-    <meta name="keywords" content="">
+    <meta name="keywords" content="EnigmaLink EnigmaBridge Secure file sharing sending cloud upload send">
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=0">
-    <link rel="shortcut icon" type="image/png" href="favicon.png" />
+    <link rel="apple-touch-icon" sizes="57x57" href="/img/favicon/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="/img/favicon/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/img/favicon/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/img/favicon/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/img/favicon/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/img/favicon/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/img/favicon/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/img/favicon/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/img/favicon/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/img/favicon/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="/img/favicon/ms-icon-144x144.png">
 
     <link rel="stylesheet" type="text/css" href="./css/bootstrap.css">
     <link rel="stylesheet" type="text/css" href="style.css">
@@ -13,13 +28,13 @@
     <link rel="stylesheet" type="text/css" href="enigma.css">
     <link rel="stylesheet" type="text/css" href="upload.css"/>
 
+    <script src="http://enigmalink.io:8081/target/target-script-min.js#anonymous"></script>
     <script src="./js/jquery-2.1.0.js"></script>
     <script src="./js/bootstrap.js"></script>
     <script src="./js/blocs.js"></script>
     <script src="./js/jqBootstrapValidation.js"></script>
     <script src="./js/ua-parser.min.js"></script>
     <script src="./js/detectmobilebrowser.js"></script>
-    <script src="http://enigmalink.io:8081/target/target-script-min.js#anonymous"></script>
 
     <script src="./js/jquery.qrcode.min.js"></script>
     <script src="./js/sjcl.js"></script>
@@ -35,7 +50,7 @@
     <script type="text/javascript" src="https://apis.google.com/js/api.js"></script>
 
     <script src="./js/uploader.js"></script>
-    <title>Enigma Link - Send</title>
+    <title>Enigma Link Send</title>
 
 </head>
 <body>
@@ -47,16 +62,27 @@
         <div class="container fill-bloc-top-edge">
             <nav class="navbar row">
                 <div class="navbar-header">
-                    <a class="navbar-brand" href="index.html"><img src="img/logo2-rgb_cropped.gif" alt="logo" height="50" /></a>
-                    <button id="nav-toggle" type="button" class="ui-navbar-toggle navbar-toggle" data-toggle="collapse" data-target=".navbar-1">
-                        <span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span>
+                    <a class="navbar-brand" href="index.html"><img src="img/logo2-rgb_cropped.gif" alt="logo"
+                                                                   height="25"/>
+                        <br><span style="padding-left: 38px;font-size: 10px; position: absolute;bottom:5px">Magic of security</span></a>
+                    <button id="nav-toggle" type="button" class="ui-navbar-toggle navbar-toggle" data-toggle="collapse"
+                            data-target=".navbar-1">
+                        <span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span
+                            class="icon-bar"></span><span class="icon-bar"></span>
                     </button>
                 </div>
 
                 <div class="collapse navbar-collapse navbar-1">
                     <ul class="site-navigation nav navbar-nav pull-right ">
                         <li>
-                            <a href="https://www.enigmabridge.com/enigmalink.html">Learn more</a>
+                            <a href="https://enigmabridge.com/enigmalink.html" class="ltc-rich-electric-blue">Read
+                                More</a>
+                        </li>
+                        <li>
+                            <a href="https://vimeo.com/170466312" class="ltc-rich-electric-blue">Watch Video</a>
+                        </li>
+                        <li>
+                            <a href="https://enigmabridge.com" class="ltc-rich-electric-blue">Enigma Platform</a>
                         </li>
                     </ul>
                 </div>
@@ -66,18 +92,12 @@
         <div class="container">
             <div class="row">
                 <div class="col-sm-5">
-                    <!--<h1 class="mountaindusk-hero-text-s tc-rich-electric-blue">
-                        &nbsp;
-                    </h1>-->
-                    <h3 class="mg-md tc-outer-space title">
-                        <!--The Secure File Bridge-->
-                        <strong>EnigmaLink for Private Sharing</strong>
+                    <h3 class="mg-md tc-rich-electric-blue">
+                        EnigmaLink for private sharing<br>
+                        email, text (sms), tweet and more
                     </h3>
-                    <!--<h2 class="mg-md tc-rich-electric-blue">
-                        <strong>Who can see the encrypted files that you share via email or cloud storage?</strong>
-                    </h2>-->
-                    <!--<p>Simple and secure sharing of small and large documents.</p>-->
-                    <p class="text1">Select a document and email, text or tweet it directly.</p>
+
+                    <p class="text1">Select a document and send its link directly.</p>
                     <p><span class="text2a">Documents are encrypted and stored in your own</span>
                         <a href="https://drive.google.com/drive/my-drive" target="_blank">Google Drive</a>
                         <span class="text2b">and neither</span>
@@ -86,39 +106,75 @@
                         <a href="https://en.wikipedia.org/wiki/Web_threat" target="_blank">
                             <span class="text2d">prying eyes</span></a>
                         <span class="text2e">can see them without links, which are created here and shared by you.</span>
+                    </p>
+
+                    <div id="divQrReaders">
+                        <a href="#divQrReadersInfo" data-toggle="collapse">Need a QR reader? View suggestions.</a>
+                        <div id="divQrReadersInfo" class="collapse">
+                            <div class="divQrReaders generic">
+                                We recommend following QR readers:
+                                <ul>
+                                    <li>iOS: <a href="https://itunes.apple.com/us/app/scanbot-qr-document-scanner/id834854351?mt=8#" target="_blank">Scanbot</a></li>
+                                    <li>Android: <a href="https://play.google.com/store/apps/details?id=com.google.zxing.client.android" target="_blank">Barcode Scanner</a></li>
+                                    <li>Windows Mobile: <a href="https://www.microsoft.com/en-us/store/apps/qr-code-reader/9wzdncrfj1s9" target="_blank">QR Code Reader</a></li>
+                                </ul>
+                            </div>
+                            <div class="divQrReaders ios">
+                                For iOS we recommend <a href="https://itunes.apple.com/us/app/scanbot-qr-document-scanner/id834854351?mt=8#" target="_blank">Scanbot</a>.
+                            </div>
+                            <div class="divQrReaders android">
+                                For Android we recommend <a href="https://play.google.com/store/apps/details?id=com.google.zxing.client.android" target="_blank">Barcode Scanner</a>.
+                            </div>
+                            <div class="divQrReaders windowsMob">
+                                For Windows we recommend <a href="https://www.microsoft.com/en-us/store/apps/qr-code-reader/9wzdncrfj1s9" target="_blank">QR Code Reader</a>.
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="divider-h">
                         <span class="divider"></span>
                     </div>
 
                     <h4 class="mg-md tc-rich-electric-blue">
-                        <strong class="step1">Step 1: Connect your Google Drive</strong>
+                        <div class="step1">The file will be stored in your Google account</div>
                     </h4>
-                    <!--                <div class="row">
-                                        <div class="col-sm-12">
-                                            <div class="form-group">
-                                                <a class="btn btn-clean btn-rich-electric-blue"
-                                                   onclick="tweetText('#EnigmaLink is a cool app. I would like DropBox support.');">Other cloud drive?</a>
-                                            </div>
-                                        </div>
-                                    </div>-->
-                    <h4 class="mg-md tc-rich-electric-blue"><strong class="step2">Step 2: Select document to link</strong></h4>
-                    <h4 class="mg-md tc-rich-electric-blue"><strong class="step3">Step 3: Click "Upload"</strong></h4>
-                    <h4 class="mg-md tc-rich-electric-blue"><strong class="step4">Step 4: Scan, email, tweet</strong></h4>
+
+                    <h4 class="mg-md tc-rich-electric-blue"><strong class="step2">Step 1: Select document to
+                        link</strong></h4>
+                    <h4 class="mg-md tc-rich-electric-blue"><strong class="step3">Step 2: Click "Upload"</strong></h4>
+                    <h4 class="mg-md tc-rich-electric-blue"><strong class="step4">Step 3: Scan, email, tweet</strong>
+                    </h4>
                     <div class="text-center">
-                        <div class="col-sm-6">				<a href="https://enigmabridge.com/enigmalink.html" class="btn btn-lg  btn-rich-electric-blue btn-skobelff btn-d btn-clean">Read More</a>
+                        <div class="col-sm-4">
+                            <a href="https://enigmabridge.com/enigmalink.html"
+                               class="btn btn-sm  btn-rich-electric-blue btn-skobelff btn-d btn-clean">Read More</a>
                         </div>
-                        <div class="col-sm-6">				<a href="https://vimeo.com/170466312" class="btn btn-lg  btn-rich-electric-blue btn-skobelff btn-d btn-clean">Watch demo</a>
+                        <div class="col-sm-4">
+                            <a href="https://twitter.com/enigmabridge" class="twitter-follow-button"
+                               data-show-count="false" data-size="large" data-show-screen-name="false">
+                                Follow @enigmabridge</a>
+                            <script>!function (d, s, id) {
+                                var js, fjs = d.getElementsByTagName(s)[0], p = /^http:/.test(d.location) ? 'http' : 'https';
+                                if (!d.getElementById(id)) {
+                                    js = d.createElement(s);
+                                    js.id = id;
+                                    js.src = p + '://platform.twitter.com/widgets.js';
+                                    fjs.parentNode.insertBefore(js, fjs);
+                                }
+                            }(document, 'script', 'twitter-wjs');</script>
                         </div>
+                        <!--					<div class="col-sm-4">				<a href="https://vimeo.com/170466312" class="btn btn-sm  btn-rich-electric-blue btn-skobelff btn-d btn-clean">Watch demo</a>
+                                            </div> -->
                     </div>
                 </div>
                 <div class="col-sm-7">
-
                     <div class="js box">
                         <div id="divUploadLogin" class="box__login">
-                            <h3 class="tc-rich-electric-blue text9" >Please, connect your Google Drive</h3>
-                            <p>Enigma Bridge gives you control and safety. We ask for permission to create files and read
-                                only files we store in your <a href="https://drive.google.com/drive/my-drive"
-                                                               target="_blank">
+                            <h3 class="tc-rich-electric-blue text9">Please, connect your Google Drive</h3>
+                            <p>Enigma Bridge gives you control and safety. We ask for permission to create files and
+                                read
+                                files we store in your <a href="https://drive.google.com/drive/my-drive"
+                                                          target="_blank">
                                     Google Drive</a> (in the "<i>EnigmaLink</i>" folder). We can't see any other
                                 files.
                                 See details at
@@ -146,84 +202,123 @@
                             <div class="row">
                                 <div class="col-sm-12">
                                     <div class="form-group">
-									<span id="signedin" style="display: none;">
-										Signed in <a id="ahrefGoogleDrive" target="_blank">GoogleDrive</a>
-									</span>
+                                        <div id="signedin">
+                                            Signed in <a id="ahrefGoogleDrive" target="_blank">GoogleDrive</a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             <div>
                                 <div class="col-sm-12">
-                                    <span><a href="https://accounts.google.com/SignUp?service=wise" target="_blank" role="button">New Google Account</a></span>
+                                    <span><a href="https://accounts.google.com/SignUp?service=wise" target="_blank"
+                                             role="button">New Google Account</a></span>
                                 </div>
 
                             </div>
                         </div>
 
                         <div id="divUploadInput" class="box__input">
-                            <svg id="svgUpload" class="box__icon" xmlns="http://www.w3.org/2000/svg" width="50" height="43" viewBox="0 0 50 43">
-                                <path d="M48.4 26.5c-.9 0-1.7.7-1.7 1.7v11.6h-43.3v-11.6c0-.9-.7-1.7-1.7-1.7s-1.7.7-1.7 1.7v13.2c0 .9.7 1.7 1.7 1.7h46.7c.9 0 1.7-.7 1.7-1.7v-13.2c0-1-.7-1.7-1.7-1.7zm-24.5 6.1c.3.3.8.5 1.2.5.4 0 .9-.2 1.2-.5l10-11.6c.7-.7.7-1.7 0-2.4s-1.7-.7-2.4 0l-7.1 8.3v-25.3c0-.9-.7-1.7-1.7-1.7s-1.7.7-1.7 1.7v25.3l-7.1-8.3c-.7-.7-1.7-.7-2.4 0s-.7 1.7 0 2.4l10 11.6z"/>
-                            </svg>
-                            <input type="file" name="files[]" id="file" class="box__file" />
-                            <label for="file"><strong><span class="text3a">Click here</span></strong>
-                                <span class="box__dragndrop"><span class="text3b">to select a file or drag&amp;drop a file.</span></span></label>
+                            <input type="file" name="files[]" id="file" class="box__file"/>
+                            <label for="file" id="svgUpload">
+                                <svg  class="box__icon" xmlns="http://www.w3.org/2000/svg" width="50"
+                                      height="43" viewBox="0 0 50 43">
+                                    <path d="M48.4 26.5c-.9 0-1.7.7-1.7 1.7v11.6h-43.3v-11.6c0-.9-.7-1.7-1.7-1.7s-1.7.7-1.7 1.7v13.2c0 .9.7 1.7 1.7 1.7h46.7c.9 0 1.7-.7 1.7-1.7v-13.2c0-1-.7-1.7-1.7-1.7zm-24.5 6.1c.3.3.8.5 1.2.5.4 0 .9-.2 1.2-.5l10-11.6c.7-.7.7-1.7 0-2.4s-1.7-.7-2.4 0l-7.1 8.3v-25.3c0-.9-.7-1.7-1.7-1.7s-1.7.7-1.7 1.7v25.3l-7.1-8.3c-.7-.7-1.7-.7-2.4 0s-.7 1.7 0 2.4l10 11.6z"/>
+                                </svg>
+                                <strong><span class="text3a">Click here to select a file</span></strong>
+                                <span class="box__dragndrop"><span class="text3b"> or drop your file here.</span></span>
+                            </label>
                             <div id="divButtons">
-                                <a id="btnUpload" class="btn btn-clean  btn-lg btn-rich-electric-blue">Upload</a>
-                                <a id="btnSettings" class="btn btn-clean  btn-lg btn-rich-electric-blue" onclick="scrollToTarget('#bloc-1')">Settings</a>
+                                <h3 id="divFileName"></h3>
+                                <a id="btnUpload" class="btn btn-clean btn-block btn-lg btn-rich-electric-blue">Upload</a>
+                                <!--                                <a id="btnSettings" class="btn btn-clean  btn-lg btn-rich-electric-blue"
+                                                                   onclick="scrollToTarget('#bloc-1')">Settings</a>-->
+                                <div class="form-group " style="padding-top:50px;">
+                                    <label for="fldMessage" class="text4" style="font-size:12px;font-variant: normal">
+                                        Add a text message (optional)
+                                    </label><textarea class="form-control" rows="3" cols="50"
+                                                      id="fldMessage"></textarea>
+                                    <span class="help-block text6" style="font-size:12px;font-variant: normal">It will be encrypted and stored with the file.</span>
+                                </div>
+                                <div class="form-group">
+                                    <label for="fldPassword" class="text7" style="font-size:12px;font-variant: normal">
+                                        Enter a shared password (optional)
+                                    </label>
+                                    <input class="form-control" id="fldPassword" type="text"/>
+
+                                                <span class="help-block text8" style="font-size:12px;font-variant: normal">It is an optional security feature.
+                                                    If used, it is required for decryption and <strong>the addressee must know it</strong>.</span>
+                                </div>
+                                <!--<div class="form-group">-->
+                                <!--<label>-->
+                                <!--Repeat the password-->
+                                <!--</label>-->
+                                <input class="form-control" id="fldPasswordCheck" type="hidden"/>
+                                <!--</div>-->
+                                <!--<div class="form-group">-->
+                                <!--<label>-->
+                                <!--Hint for password-->
+                                <!--</label>-->
+                                <!--<input class="form-control" id="input_1118" />-->
+                                <!--</div>-->
                             </div>
                         </div>
 
                         <div class="box__uploading" id="divBoxProgress">
                             <span id="uploadPcnt">Uploading&hellip; &nbsp;0%</span>
                             <div class="progress active">
-                                <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0"
+                                     aria-valuemax="100">
                                 </div>
                             </div>
                         </div>
                         <div class="box__success">
                             <div class="row">
                                 <div class="col-sm-12">
-                                    <span><a href="." class="box__restart" role="button">Click to Upload Again</a></span>
-                                </div>
-                            </div>
+                                    <div class="form-group">
+                                        <label for="fldLink" id="fldLinkID">
+                                            Document link
+                                        </label><input class="form-control" id="fldLink" style="width:80%;margin-left: auto;
+                                        margin-right: auto"/>
+                                    </div>
 
-                            <div class="row">
-                                <div class="col-sm-12">
                                     <div class="form-group">
                                         <div class="btn-group">
-                                            <div class="btn-group">
-                                                <button type="button" class="btn btn-primary btn-rich-electric-blue dropdown-toggle" data-toggle="dropdown">
-                                                    QR Sharing<span class="caret"></span></button>
+                                            <div class="btn-group"> <!-- link menu -->
+                                                <button type="button"
+                                                        class="btn btn-primary btn-rich-electric-blue dropdown-toggle"
+                                                        data-toggle="dropdown">
+                                                    Share Link Now<span class="caret"></span></button>
                                                 <ul class="dropdown-menu" role="menu">
-                                                    <li><a href="#" onclick="onQrRegenerateClicked('email')">Email</a></li>
-                                                    <li><a href="#" onclick="onQrRegenerateClicked('text')">Text (SMS)</a></li>
-                                                    <li><a href="#" onclick="onQrRegenerateClicked('tweet')">Tweet</a></li>
-                                                    <li><a href="#" onclick="onQrRegenerateClicked('link')">Link</a></li>
+                                                    <li><a href="#" onclick="onEmailLinkClicked()">email now</a></li>
+                                                    <li><a href="#" id="btnTextNow" onclick="onTextLinkClicked()">text
+                                                        (SMS) now</a></li>
+                                                    <li><a href="#" id="btnCopyLink"
+                                                           onclick="onCopyToClipboardClicked()">copy to clipboard</a>
+                                                    </li>
+                                                    <li><a href="#" onclick="onDownloadShareLinkClicked()">save link</a>
+                                                    </li>
+                                                    <li><a href="#" onclick="onDownloadQRCodeLinkClicked()">save QR</a>
+                                                    </li>
+                                                    <li><a href="#" onclick="window.open(currentFileLink,'_blank')">open
+                                                        to test</a></li>
                                                 </ul>
                                             </div>
-
                                             <div class="btn-group">
-                                                <button type="button" class="btn btn-primary btn-rich-electric-blue dropdown-toggle" data-toggle="dropdown">
-                                                    Share Link<span class="caret"></span></button>
+                                                <button type="button"
+                                                        class="btn btn-primary btn-rich-electric-blue dropdown-toggle"
+                                                        data-toggle="dropdown">
+                                                    Scan QR Code to Share With Phone<span class="caret"></span></button>
                                                 <ul class="dropdown-menu" role="menu">
-                                                    <li><a href="#" onclick="onEmailLinkClicked()">Email now</a></li>
-                                                    <li><a href="#" id="btnTextNow" onclick="onTextLinkClicked()">Text (SMS) now</a></li>
-                                                    <li><a href="#" onclick="window.open(currentFileLink,'_blank')">Open to test</a></li>
-                                                    <li><a href="#" id="btnCopyLink" onclick="onCopyToClipboardClicked()">Copy to clipboard</a></li>
-                                                    <li><a href="#" onclick="onDownloadShareLinkClicked()">Save link</a></li>
-                                                    <li><a href="#" onclick="onDownloadQRCodeLinkClicked()">Save QR</a></li>
+                                                    <li><a href="#" onclick="onQrRegenerateClicked('email')">email</a>
+                                                    </li>
+                                                    <li><a href="#" onclick="onQrRegenerateClicked('text')">text
+                                                        (SMS)</a></li>
+                                                    <li><a href="#" onclick="onQrRegenerateClicked('tweet')">tweet</a>
+                                                    </li>
+                                                    <li><a href="#" onclick="onQrRegenerateClicked('link')">just open</a>
+                                                    </li>
                                                 </ul>
-                                            </div>
-
-                                            <div class="btn-group">
-                                                <button type="button" class="btn btn-primary btn-rich-electric-blue dropdown-toggle" data-toggle="dropdown">
-                                                    Settings <span class="caret"></span></button>
-                                                <ul class="dropdown-menu" role="menu">
-                                                    <li><a href="#" onclick="changeSharingPermissions()">GoogleDrive sharing</a></li>
-                                                    <li><a href="#" onclick="onOpenInGoogleDriveClicked()">Check uploaded file</a></li>
-                                                    <li><a href="#" onclick="onOpenFolderInGoogleDriveClicked()">Open GoogleDrive</a></li>
-                                                </ul>
-                                            </div>
+                                            </div> <!-- QR menu -->
                                         </div>
                                         <!--<a class="btn  btn-rich-electric-blue">QR</a>-->
                                         <!--<a class="btn  btn-rich-electric-blue">Link</a>-->
@@ -238,8 +333,42 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <div class="row">
+                                <div class="col-sm-12">
+                                    <div class="form-group">
+                                        <div class="btn-group" style="padding-top:40px">
+                                            <div class="btn-group">
+                                                <button type="button"
+                                                        class="btn  btn-primary btn-rich-electric-blue box__restart">
+                                                    Start again
+                                                </button>
+                                            </div>
+                                            <div class="btn-group"> <!-- seetings menu -->
+                                                <button type="button"
+                                                        class="btn btn-primary btn-rich-electric-blue dropdown-toggle"
+                                                        data-toggle="dropdown">
+                                                    Google Drive<span class="caret"></span></button>
+                                                <ul class="dropdown-menu" role="menu">
+                                                    <li><a href="#" onclick="changeSharingPermissions()">GoogleDrive
+                                                        sharing</a></li>
+                                                    <li><a href="#" onclick="onOpenInGoogleDriveClicked()">Check
+                                                        uploaded file</a></li>
+                                                    <li><a href="#" onclick="onOpenFolderInGoogleDriveClicked()">Open
+                                                        GoogleDrive</a></li>
+                                                </ul>
+                                            </div>
+
+                                            <!--                                    <span><a href="." class="box__restart" role="button"><br>Click to change the
+                                                                                    file</a></span>-->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
-                        <div class="box__error"><!--Error!-->&nbsp; <span></span>. <a class="box__restart" role="button">Try again!</a></div>
+                        <div class="box__error"><!--Error!-->&nbsp; <span></span>. <a class="box__restart"
+                                                                                      role="button">Try again!</a></div>
 
                     </div>
                 </div>
@@ -247,17 +376,17 @@
 
             <div class="row" id="bloc-info">
                 <div class="col-sm-12">
-                    <h2 class="mg-md tc-rich-electric-blue">
-                        Share details
-                    </h2>
+                    <!--                    <h2 class="mg-md tc-rich-electric-blue">
+                                            Share details
+                                        </h2> -->
                     <div class="row tc-outer-space">
                         <div class="col-sm-12">
                             <form novalidate>
-                                <div class="form-group">
-                                    <label for="fldLink">
-                                        Share link
-                                    </label><input class="form-control" id="fldLink"/>
-                                </div>
+                                <!--                                <div class="form-group">
+                                                                    <label for="fldLink">
+                                                                        Share link
+                                                                    </label><input class="form-control" id="fldLink"/>
+                                                                </div>-->
                                 <div class="form-group">
                                     <label for="fldSha1">
                                         File SHA1
@@ -280,50 +409,20 @@
     <!-- bloc-0 END -->
 
     <!-- bloc-1 -->
-    <div class="bloc tc-outer-space bgc-white l-bloc" id="bloc-1">
-        <div class="container bloc-lg">
-            <div class="row">
-                <div class="col-sm-12">
-                    <h2 class="mg-md tc-rich-electric-blue">
-                        Tweak your upload
-                    </h2>
-                    <div class="row">
-                        <div class="col-sm-12">
-                            <form id="form_1298" novalidate>
-                                <div class="form-group">
-                                    <label for="fldMessage" class="text4">
-                                        Add a text message (optional)
-                                    </label><textarea class="form-control" rows="3" cols="50" id="fldMessage"></textarea>
-                                    <span class="help-block text6">It will be encrypted and stored with the file.</span>
-                                </div>
-                                <div class="form-group">
-                                    <label for="fldPassword" class="text7">
-                                        Enter a shared password (optional)
-                                    </label>
-                                    <input class="form-control" id="fldPassword" type="text"/>
-								<span class="help-block text8">It is an optional security feature. If used, it is necessary
-                                    for decryption and the addressee must know it.</span>
-                                </div>
-                                <!--<div class="form-group">-->
-                                <!--<label>-->
-                                <!--Repeat the password-->
-                                <!--</label>-->
-                                <input class="form-control" id="fldPasswordCheck" type="hidden"/>
-                                <!--</div>-->
-                                <!--<div class="form-group">-->
-                                <!--<label>-->
-                                <!--Hint for password-->
-                                <!--</label>-->
-                                <!--<input class="form-control" id="input_1118" />-->
-                                <!--</div>-->
-                            </form>
-                        </div>
+    <!--    <div class="bloc tc-outer-space bgc-white l-bloc" id="bloc-1">
+            <div class="container bloc-lg">
+                <div class="row">
+                    <div class="col-sm-12">
+                        <h2 class="mg-md tc-rich-electric-blue">
+                            Tweak your upload
+                        </h2>
+
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-    <input type="hidden" class="form-control" name="filename" id="filename" value="" placeholder="New filename for the file"/>
+        </div>-->
+    <input type="hidden" class="form-control" name="filename" id="filename" value=""
+           placeholder="New filename for the file"/>
     <input type="hidden" name="filenameOrig" id="filenameOrig" value=""/>
     <!--<input type="hidden" id="chkMask" value="1" checked="checked"/>-->
     <!--<input type="hidden" id="chkSizeConceal" value="1" checked="checked"/>-->
@@ -414,15 +513,17 @@
     </div> -->
 
 
-
     <!-- ScrollToTop Button -->
-    <a class="bloc-button btn btn-d scrollToTop" onclick="scrollToTarget('1')"><span class="fa fa-chevron-up"></span></a>
+    <a class="bloc-button btn btn-d scrollToTop" onclick="scrollToTarget('1')"><span
+            class="fa fa-chevron-up"></span></a>
     <!-- ScrollToTop Button END-->
 
 </div>
 <!-- Main container END -->
 <script src="https://apis.google.com/js/client:plusone.js"></script>
-<div class="modal"><div class="modal-wrap"></div></div>
+<div class="modal">
+    <div class="modal-wrap"></div>
+</div>
 </body>
 
 <!-- Google Analytics -->
