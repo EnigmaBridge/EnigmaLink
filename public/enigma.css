@@ -106,3 +106,7 @@ label + .radio, label + .checkbox {
 .hidden {
     display:none;
 }
+
+.hidden-weak {
+    display:none;
+}

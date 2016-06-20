@@ -203,15 +203,15 @@ function formatSeconds(s){
 function displayNotify(elem, text, isError, shouldScroll){
     elem.text(text);
     if (isError){
-        elem.removeClass('notifSuccess');
-        elem.addClass('notifFail');
+        //elem.removeClass('notifSuccess');
+        //elem.addClass('notifFail');
 
         elem.addClass('alert-danger');
         elem.removeClass('alert-success');
         elem.removeClass('alert-warning');
     } else {
-        elem.removeClass('notifFail');
-        elem.addClass('notifSuccess');
+        //elem.removeClass('notifFail');
+        //elem.addClass('notifSuccess');
 
         elem.removeClass('alert-danger');
         elem.removeClass('alert-warning');
