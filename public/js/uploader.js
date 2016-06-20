@@ -980,6 +980,13 @@ function browserSpecific(){
 	} else if (/^Windows/.test(os) && jQuery.browser.mobile){
 		divQrReadersInfo.addClass('windowsMob');
 	}
+
+	// Dan's scrolling.
+	setFillScreenBlocHeight();
+	if (jQuery.browser.mobile) {
+		var topX = divUploadLogin.height()+divUploadLogin.offset().top;
+		$('html,body').animate({scrollTop:topX}, 'slow');
+	}
 }
 
 function initGui(){
@@ -1058,11 +1065,6 @@ $(function()
 	fldPassword = $('#fldPassword');
 	fldPasswordCheck = $('#fldPasswordCheck');
 	btnTextNow = $('#btnTextNow');
-
-    if (jQuery.browser.mobile) {
-        var topX = divUploadLogin.height()+divUploadLogin.offset().top;
-        $('html,body').animate({scrollTop:topX}, 'slow');
-    }
 	divQrReaders = $('#divQrReaders');
 	divQrReadersInfo = $('#divQrReadersInfo');
 
