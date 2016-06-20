@@ -16,6 +16,7 @@ var uploadSha1;
 var uploadSha256;
 
 // Translations map
+var translationsEnabled = false;
 var translationsMap = {};
 var translationsDefault = {
 	'CLICK_TO_CHANGE': "click to change",
@@ -1033,6 +1034,11 @@ function loadTranslations(){
 	} else {
 		language = "english";
 	}
+	
+	if (!translationsEnabled){
+		return;
+	}
+
 	$.ajax({
 		url: 'languages.xml',
 		success: function(xml) {
