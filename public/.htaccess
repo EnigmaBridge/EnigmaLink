@@ -2,5 +2,9 @@ RewriteEngine on
 RewriteRule ^$ /upload.html
 RewriteRule ^index\.html$ /upload.html
 RewriteRule ^d$ /download.html
+
+#Product Hunt redirect
+Redirect /ph https://enigmalink.io/d#u=fw&c=FWhyyHNOMuF9TkhVe8BIbA&f=0B8RUMrk78PeINnJTcVB2WEFYVUU&n=YC4WWaE5NNRHgLtV2P4krA
+
 #Redirect /index.html /upload.html
 #Redirect /d /download.html
