@@ -362,8 +362,8 @@ function onSuccess(){
     var isBrowserProblematic = os=='ios' || isSafari();
     var isMimePotentiallyProblematic = !(
            mimeDown == 'application/pdf'
-        || /^image\\/.test(mimeDown)
-        || /^plain\\/.test(mimeDown));
+        || /^image\//.test(mimeDown)
+        || /^plain\//.test(mimeDown));
 
     setDisabled(btnDownload, false);
 
