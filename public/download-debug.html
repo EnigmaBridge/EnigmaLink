@@ -2,10 +2,25 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="keywords" content="">
+    <meta name="keywords" content="EnigmaLink EnigmaBridge Secure file sharing cloud download send file">
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=0">
-    <link rel="shortcut icon" type="image/png" href="favicon.png" />
+    <link rel="apple-touch-icon" sizes="57x57" href="/img/favicon/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="/img/favicon/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/img/favicon/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/img/favicon/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/img/favicon/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/img/favicon/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/img/favicon/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/img/favicon/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/img/favicon/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/img/favicon/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="/img/favicon/ms-icon-144x144.png">
 
     <link rel="stylesheet" type="text/css" href="./css/bootstrap.css">
     <link rel="stylesheet" type="text/css" href="style.css">
@@ -47,15 +62,26 @@
         <div class="container fill-bloc-top-edge">
             <nav class="navbar row">
                 <div class="navbar-header">
-                    <a class="navbar-brand" href="index.html"><img src="img/logo2-rgb_cropped.gif" alt="logo" height="50" /></a>
-                    <button id="nav-toggle" type="button" class="ui-navbar-toggle navbar-toggle" data-toggle="collapse" data-target=".navbar-1">
-                        <span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span>
+                    <a class="navbar-brand" href="index.html"><img src="img/logo2-rgb_cropped.gif" alt="logo"
+                                                                   height="25"/>
+                        <br><span style="padding-left: 38px;font-size: 10px; position: absolute;bottom:5px">Magic of security</span></a>
+                    <button id="nav-toggle" type="button" class="ui-navbar-toggle navbar-toggle" data-toggle="collapse"
+                            data-target=".navbar-1">
+                        <span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span
+                            class="icon-bar"></span><span class="icon-bar"></span>
                     </button>
                 </div>
                 <div class="collapse navbar-collapse navbar-1">
                     <ul class="site-navigation nav navbar-nav pull-right ">
                         <li>
-                            <a href="https://enigmabridge.com/enigmalink.html">Learn More</a>
+                            <a href="https://enigmabridge.com/enigmalink.html" class="ltc-rich-electric-blue">Read
+                                More</a>
+                        </li>
+                        <li>
+                            <a href="https://vimeo.com/170466312" class="ltc-rich-electric-blue">Watch Video</a>
+                        </li>
+                        <li>
+                            <a href="https://enigmabridge.com" class="ltc-rich-electric-blue">Enigma Platform</a>
                         </li>
                     </ul>
                 </div>
@@ -65,10 +91,10 @@
             <div class="row">
                 <div class="col-sm-12">
                     <h2 class="mountaindusk-hero-text-s tc-rich-electric-blue">
-                        EnigmaLink for Private Sharing
+                        EnigmaLink for private sharing
                     </h2>
                     <h3 class="mg-md tc-rich-electric-blue">
-                        <strong>Email, text (SMS), Twitter and more.</strong>
+                        <strong>Send files by email, text/sms, tweet and more</strong>
                     </h3>
                     <div class="divider-h">
                         <span class="divider"></span>
@@ -76,9 +102,19 @@
                 </div>
             </div>
 
-            <div class="row">
+            <div class="row" id="divBtnDownload">
                 <div class="col-sm-12">
-                    <a class="btn btn-primary btn-rich-electric-blue btn-xl btn-block disabled" id="btnDownload">Click to Download</a>
+                    <h4>You have been sent an encrypted document with EnigmaLink, a service provided by
+                        <a href="https://enigmabridge.com">Enigma Bridge</a>.</h4>
+                    <br>
+                    <a class="btn btn-primary btn-rich-electric-blue btn-xl btn-block btn-wrap disabled" id="btnDownload">Download now</a>
+                    <br>
+                    <h5><a href="https://www.enigmabridge.com/enigmalink.html" target="_blank">EnigmaLink</a> keeps
+                        documents private to holders of the link (and the password),
+                        hidden from prying eyes, networks or WiFi connections (public or private).
+                        See how it works at <a href="https://www.enigmabridge.com/enigmalink.html" target="_blank">Learn
+                            about EnigmaLink</a>.
+                    </h5>
                 </div>
             </div>
 
@@ -88,30 +124,106 @@
                         <h3><span id="divStatusInfo"></span></h3>
                     </div>
                 </div>
-                <div class="row">
+                <div id="divProgressBar" class="row">
                     <div class="col-sm-12">
                         <div class="progress active">
-                            <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0"
+                                 aria-valuemax="100">
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div id="divFileInfo" class="form-group">
-                    <div class="panel panel-default">
-                        <div class="panel-heading">File details</div>
-                        <div class="panel-body downloadFileInfo" id="preFileInfo"></div>
-                    </div>
-		</div>
-		<div id="divMessageInfo">
+                <div id="divStatusNotif" class="alert"></div>
+
+                <div id="divStatusFileTooBig" class="alert alert-warning fade in hidden-weak">
+                    <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
+                    <strong>Warning:</strong> The file may be too big to download on your device.
+                </div>
+
+                <div id="divStatusFileDownloadProblem" class="alert alert-warning fade in hidden-weak">
+                    <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
+                    <strong>Warning:</strong> Your browser might have issues with saving this file correctly.
+                </div>
+
+                <div id="divMessageInfo" class="form-group">
                     <div id="divFileMessage">
                         <div class="panel panel-info">
-                            <div class="panel-heading">Message from user:</div>
+                            <div class="panel-heading">Message from sender</div>
                             <div class="panel-body" id="divFileMessageContent"></div>
                         </div>
                     </div>
                 </div>
-                <div id="divStatusNotif" class="notif"></div>
+                <div class="row divGetFile">
+                    <div class="col-sm-12">
+                        <a class="btn btn-primary btn-rich-electric-blue btn-xl btn-block btn-wrap" id="btnGet">Open the file</a>
+                    </div>
+                </div>
+
+                <div id="divFileInfo" class="form-group">
+
+                    <div class="panel panel-default">
+                        <div class="panel-heading">File details</div>
+                        <div class="panel-body downloadFileInfo" id="preFileInfo"></div>
+                    </div>
+
+                    <div id="divButtonUpload">
+                        <a class="btn btn-primary btn-rich-electric-blue btn-xl btn-block btn-wrap" id="btnUpload"
+                           href="https://enigmalink.io">Send New Document</a>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <h3>EnigmaLink - link documents instantly</h3>
+
+                            <blockquote>
+                                <p>After upload, I get a link I can send to my friends. It is the only thing my friend
+                                    needs to download the file. No logging in anywhere, no client applications.
+                                    Everything with one button press.</p>
+                                <p> Also, enigmalink.io shows a QR code after upload so I can also very easily transfer
+                                    files between my mobile devices or from my desktop to a smartphone.
+                                </p>
+                            </blockquote>
+
+
+                            <p>EnigmaLink links identify the file and also contain one of encryption keys for the file.
+                                If I want more security, I can set an optional password protection.</p>
+
+                            <p>The best thing is Enigmalink.io does not collect any data about uploads and downloads.
+                                Period. The design does not allow it - something about "#" in links.</p>
+
+
+                            <h3>EnigmaLink - security</h3>
+
+                            <p>Documents are encrypted with a state-of-the-art AES hardware encryption and stored in
+                                your own Google Drive account.</p>
+                            <p> Neither <a href="https://enigmabridge.com">Enigma Bridge</a> nor any prying eyes can see
+                                your documents without
+                                the links (or <a href="https://en.wikipedia.org/wiki/QR_code" target="_blank">QR
+                                    codes</a>) that are generated
+                                by your own browser.</p>
+
+                            <p> Each document is protected with at least two digital locks:</p>
+                            <ul>
+                                <li><strong>Strong yellow key</strong> - (AES-256) that is part of the link you
+                                    received.
+                                </li>
+                                <li><strong>Strong blue key</strong> - (AES-256) encrypted by the Enigma Bridge cloud
+                                    HSM-based service.
+                                    Enigma Bridge is a service using secure processors with high physical security.
+                                    It means that no keys can be extracted.
+                                </li>
+                                <li><strong>Password (optional)</strong> - your optional password. It can only be
+                                    verified
+                                    by the EnigmaBridge service to prevent password attacks.
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-sm-6">
+                            <img src="img/enigma_download.png" alt="logo" width="90%" style="padding-top: 50px"/>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="passwordDiv" class="row">
@@ -119,56 +231,57 @@
                     <form novalidate>
                         <div class="form-group tc-outer-space">
                             <label for="password">Password</label>
-                            <input class="form-control" type="text" name="password" id="password" value="" placeholder="Decryption password"/>
+                            <input class="form-control" type="text" name="password" id="password" value=""
+                                   placeholder="Decryption password"/>
                             <span class="help-block">Sender used a secret password, you need it to download the file.</span>
 
-                            <input class="btn btn-primary btn-rich-electric-blue" type="button" id="btnPasswordUse" value="Use password"/>
-                            <div id="divPasswdNotif" class="notif"></div>
+                            <input class="btn btn-primary btn-rich-electric-blue" type="button" id="btnPasswordUse"
+                                   value="Use password"/>
+                            <div id="divPasswdNotif" class="alert"></div>
                         </div>
                     </form>
                 </div>
             </div>
-
-            <div class="row divGetFile">
-                <div class="col-sm-12">
-                    <a class="btn btn-primary btn-rich-electric-blue btn-xl btn-block" id="btnGet">Get the file</a>
-                </div>
-            </div>
-
         </div>
-
     </div>
     <!-- bloc-0 END -->
 
-    <!-- bloc-3 -->
-    <div class="bloc tc-outer-space bgc-white l-bloc" id="bloc-3">
-        <div class="container bloc-lg">
-            <div class="row">
-                <div class="col-sm-12">
-                    <!--                    <h2 class="mg-md tc-rich-electric-blue">
-                                            Give us feedback
-                                        </h2>-->
-                    <div class="row">
-                        <div class="col-sm-12">
-                            <iframe id="iFeedback" src="https://docs.google.com/forms/d/1Gs3Wvlo7DDEZBDJGIgm6mV-p6C-Wqu7D57v2kwVO9eE/viewform?embedded=true" width="100%" height="450" frameborder="0" marginheight="0" marginwidth="0">Loading...</iframe>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!--&lt;!&ndash; bloc-3 &ndash;&gt;-->
+    <!--<div class="bloc tc-outer-space bgc-white l-bloc" id="bloc-3">-->
+    <!--<div class="container bloc-lg">-->
+    <!--<div class="row">-->
+    <!--<div class="col-sm-12">-->
+    <!--&lt;!&ndash;                    <h2 class="mg-md tc-rich-electric-blue">-->
+    <!--Give us feedback-->
+    <!--</h2>&ndash;&gt;-->
+    <!--<div class="row">-->
+    <!--<div class="col-sm-12">-->
+    <!--<iframe id="iFeedback"-->
+    <!--src="https://docs.google.com/forms/d/1Gs3Wvlo7DDEZBDJGIgm6mV-p6C-Wqu7D57v2kwVO9eE/viewform?embedded=true"-->
+    <!--width="100%" height="450" frameborder="0" marginheight="0" marginwidth="0">-->
+    <!--Loading...-->
+    <!--</iframe>-->
+    <!--</div>-->
+    <!--</div>-->
+    <!--</div>-->
+    <!--</div>-->
+    <!--</div>-->
+    <!--</div>-->
     <!--<iframe src="https://docs.google.com/forms/d/1Gs3Wvlo7DDEZBDJGIgm6mV-p6C-Wqu7D57v2kwVO9eE/viewform?embedded=true" width="760" height="450" frameborder="0" marginheight="0" marginwidth="0">Loading...</iframe>-->
     <!--<iframe src="https://docs.google.com/forms/d/1Gs3Wvlo7DDEZBDJGIgm6mV-p6C-Wqu7D57v2kwVO9eE/viewform?embedded=true" width="760" height="500" frameborder="0" marginheight="0" marginwidth="0">Loading...</iframe>-->
     <!-- bloc-3 END -->
 
     <!-- ScrollToTop Button -->
-    <a class="bloc-button btn btn-d scrollToTop" onclick="scrollToTarget('1')"><span class="fa fa-chevron-up"></span></a>
+    <a class="bloc-button btn btn-d scrollToTop" onclick="scrollToTarget('1')"><span
+            class="fa fa-chevron-up"></span></a>
     <!-- ScrollToTop Button END-->
 
 </div>
 <!-- Main container END -->
 <script src="https://apis.google.com/js/client:plusone.js"></script>
-<div class="modal"><div class="modal-wrap"></div></div>
+<div class="modal">
+    <div class="modal-wrap"></div>
+</div>
 </body>
 
 <!-- Google Analytics -->
