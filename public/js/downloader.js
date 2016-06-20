@@ -34,6 +34,8 @@ var divGetFile;
 var preFileInfo;
 var divFileMessage;
 var divFileMessageContent;
+var divStatusFileTooBig;
+var divStatusFileDownloadProblem;
 
 var uaParser;
 // ---------------------------------------------------------------------------------------------------------------------
@@ -347,6 +349,14 @@ function onSuccess(){
         sjcl.codec.hex.fromBits(dwn.sha256)
     );
 
+    var os = uaParser.getOS().name.toLowerCase();
+    var mimeDown = dwn.mimetype.toLowerCase();
+    var isBrowserProblematic = os=='ios' || isSafari();
+    var isMimePotentiallyProblematic = !(
+           mimeDown == 'application/pdf'
+        || /^image\\/.test(mimeDown)
+        || /^plain\\/.test(mimeDown));
+
     setDisabled(btnDownload, false);
 
     preFileInfo.text(fileInfo);
@@ -356,6 +366,16 @@ function onSuccess(){
     setFillScreenBlocHeight();
     divFileInfo.show();
     divMessageInfo.show();
+
+    // File type too weird for safari / iOS?
+    if (isBrowserProblematic && isMimePotentiallyProblematic){
+        divStatusFileDownloadProblem.show();
+    }
+
+    // File too big for mobile browsers, 8MB threshold
+    if (jQuery.browser.mobile && dwn.fsize ? 1024*1024*8){
+        divStatusFileTooBig.show();
+    }
 
     // For mobile browsers show button to download the file again.
     if (jQuery.browser.mobile || isSafari()) {
@@ -612,6 +632,8 @@ $(function()
     preFileInfo = $('#preFileInfo');
     divFileMessage = $('#divFileMessage');
     divFileMessageContent = $('#divFileMessageContent');
+    divStatusFileTooBig = $('#divStatusFileTooBig');
+    divStatusFileDownloadProblem = $('#divStatusFileDownloadProblem');
 
     // Main init method.
     initGui();
