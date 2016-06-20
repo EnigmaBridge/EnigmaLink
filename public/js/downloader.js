@@ -483,7 +483,6 @@ function onMetaReady(obj, continueCb, abortCb){
 
     divFileInfo.show();
     divMessageInfo.show();
-    divProgressBarWrapper.hide();
     divStatusInfo.hide();
     setFillScreenBlocHeight();
     setTimeout(continueCb, 0);
