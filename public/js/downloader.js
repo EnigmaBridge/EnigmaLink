@@ -206,15 +206,16 @@ function displayNotify(elem, text, isError, shouldScroll){
         elem.removeClass('notifSuccess');
         elem.addClass('notifFail');
 
-        elem.removeClass('alert-danger');
-        elem.addClass('alert-success');
-
+        elem.addClass('alert-danger');
+        elem.removeClass('alert-success');
+        elem.removeClass('alert-warning');
     } else {
         elem.removeClass('notifFail');
         elem.addClass('notifSuccess');
 
-        elem.addClass('alert-danger');
-        elem.removeClass('alert-success');
+        elem.removeClass('alert-danger');
+        elem.removeClass('alert-warning');
+        elem.addClass('alert-success');
     }
     elem.show('slow');
     if (shouldScroll){
