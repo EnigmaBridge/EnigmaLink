@@ -377,12 +377,12 @@ function onSuccess(){
 
     // File type too weird for safari / iOS?
     if (isBrowserProblematic && isMimePotentiallyProblematic){
-        divStatusFileDownloadProblem.show();
+        divStatusFileDownloadProblem.show('slow');
     }
 
     // File too big for mobile browsers, 8MB threshold
     if (jQuery.browser.mobile && dwn.fsize >= 1024*1024*8){
-        divStatusFileTooBig.show();
+        divStatusFileTooBig.show('slow');
     }
 
     // For mobile browsers show button to download the file again.
