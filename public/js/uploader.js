@@ -57,6 +57,8 @@ var fldSha1;
 var divProgressBar;
 var divQrInfo;
 var ahrefGoogleDrive;
+var divQrReaders;
+var divQrReadersInfo;
 
 // Google Drive access token.
 var accessToken = null;
@@ -969,6 +971,15 @@ function browserSpecific(){
 	fldSha256.on('input', function() {
 		$(this).val(uploadSha256);
 	});
+
+	// QR code readers recommendation.
+	if (os == 'ios'){
+		divQrReadersInfo.addClass('ios');
+	} else if (os == 'android'){
+		divQrReadersInfo.addClass('android');
+	} else if (/^Windows/.test(os) && jQuery.browser.mobile){
+		divQrReadersInfo.addClass('windowsMob');
+	}
 }
 
 function initGui(){
@@ -1052,6 +1063,8 @@ $(function()
         var topX = divUploadLogin.height()+divUploadLogin.offset().top;
         $('html,body').animate({scrollTop:topX}, 'slow');
     }
+	divQrReaders = $('#divQrReaders');
+	divQrReadersInfo = $('#divQrReadersInfo');
 
     // HTML5 support?
 	isAdvancedUpload = function() {

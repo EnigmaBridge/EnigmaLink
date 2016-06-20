@@ -226,3 +226,20 @@ body
 .box.is-ready .signinWrapper iframe {
     visibility: hidden !important;
 }
+
+#divQrReadersInfo .ios,
+#divQrReadersInfo .android,
+#divQrReadersInfo .windowsMob,
+#divQrReadersInfo.ios .generic,
+#divQrReadersInfo.android .generic,
+#divQrReadersInfo.windowsMob .generic
+{
+    display: none;
+}
+
+#divQrReadersInfo .generic,
+#divQrReadersInfo.ios .ios,
+#divQrReadersInfo.android .android,
+#divQrReadersInfo.windowsMob .windowsMob {
+    display: block;
+}
