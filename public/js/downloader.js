@@ -358,12 +358,8 @@ function onSuccess(){
     );
 
     var os = uaParser.getOS().name.toLowerCase();
-    var mimeDown = dwn.mimetype.toLowerCase();
     var isBrowserProblematic = os=='ios' || isSafari();
-    var isMimePotentiallyProblematic = !(
-           mimeDown == 'application/pdf'
-        || /^image\//.test(mimeDown)
-        || /^plain\//.test(mimeDown));
+    var isMimePotentiallyProblematic = !isSafariCapableOpening(dwn.mimetype);
 
     setDisabled(btnDownload, false);
 
@@ -573,13 +569,27 @@ function onGetFileClicked(){
 }
 
 function triggerFileDownload(){
-    var blob = new Blob( dwn.blobs, { type: dwn.mimetype } );
+    var mimeToUse = dwn.mimetype;
+    if (isSafari() && !isSafariCapableOpening(mimeToUse)){
+        mimeToUse = 'application/octet-stream';
+    }
+
+    var blob = new Blob( dwn.blobs, { type: mimeToUse } );
     saveAs(blob, dwn.fname);
 }
 
 function isSafari(browser){
     browser = browser || uaParser.getBrowser().name.toLowerCase();
     return (browser == 'mobile safari') || (browser == 'safari');
+}
+
+function isSafariCapableOpening(mime){
+    var mimeDown = mime.toLowerCase();
+    return (mimeDown == 'application/pdf'
+        || /^image\//.test(mimeDown)
+        || /^plain\//.test(mimeDown)
+        || /^text\//.test(mimeDown)
+    );
 }
 
 function initGui(){
