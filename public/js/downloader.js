@@ -205,9 +205,16 @@ function displayNotify(elem, text, isError, shouldScroll){
     if (isError){
         elem.removeClass('notifSuccess');
         elem.addClass('notifFail');
+
+        elem.removeClass('alert-danger');
+        elem.addClass('alert-success');
+
     } else {
         elem.removeClass('notifFail');
         elem.addClass('notifSuccess');
+
+        elem.addClass('alert-danger');
+        elem.removeClass('alert-success');
     }
     elem.show('slow');
     if (shouldScroll){
