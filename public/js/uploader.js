@@ -984,7 +984,7 @@ function browserSpecific(){
 	// Dan's scrolling.
 	setFillScreenBlocHeight();
 	if (jQuery.browser.mobile) {
-		var topX = divUploadLogin.height()+divUploadLogin.offset().top;
+		var topX = divUploadLogin.offset().top;
 		$('html,body').animate({scrollTop:topX}, 'slow');
 	}
 }
