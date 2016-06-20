@@ -373,7 +373,7 @@ function onSuccess(){
     }
 
     // File too big for mobile browsers, 8MB threshold
-    if (jQuery.browser.mobile && dwn.fsize ? 1024*1024*8){
+    if (jQuery.browser.mobile && dwn.fsize >= 1024*1024*8){
         divStatusFileTooBig.show();
     }
 
