@@ -963,6 +963,9 @@ function browserSpecific(){
 	// If field is changed by user, change it back.
 	fldLink.on('input', function() {
 		$(this).val(currentFileLink);
+		if (is_safari || os == "ios"){
+			fldLink.popover('hide');
+		}
 	});
 	fldSha1.on('input', function() {
 		$(this).val(uploadSha1);
@@ -980,17 +983,25 @@ function browserSpecific(){
 		divQrReadersInfo.addClass('windowsMob');
 	}
 
-	// Copy to clipboard popover
+	// Copy to clipboard popover logic.
 	if (is_safari || os == "ios"){
+		if (os == "ios") {
+			fldLink.on('click', function () {
+				fldLink.popover('hide');
+			});
+		}
+
 		fldLink.on('blur', function(){
 			fldLink.popover('hide');
 		});
+
 		fldLink.keyup(function(e){
 			fldLink.popover('hide');
 		});
+
 		fldLink.popover({
 			html : true,
-			placement: 'top',
+			placement: 'bottom',
 			trigger: 'manual',
 			content: function() {
 				return os == "ios" ? ($("#divPopoverIOS").html()) : ($("#divPopoverAppleDesktop").html());
