@@ -219,6 +219,11 @@ body
     margin-right: auto;
 }
 
+.box .medium-font{
+    font-size: 12px;
+    font-variant: normal;
+}
+
 .box.is-uploading .signinWrapper,
 .box.is-success .signinWrapper,
 .box.is-error .signinWrapper,
