@@ -2154,6 +2154,7 @@ EnigmaUploader.prototype.upload = function() {
         }
     }.bind(this);
     xhr.onerror = this.onUploadError_.bind(this);
+    xhr.ontimeout = this.onUploadError_.bind(this);
 
     this.retryHandler.reset();
     log("Starting session with metadata: " + JSON.stringify(this.metadata));
@@ -2875,6 +2876,7 @@ EnigmaUploader.prototype.sendFile_ = function() {
         }
         xhr.onload = this.onContentUploadSuccess_.bind(this);
         xhr.onerror = this.onContentUploadError_.bind(this);
+        xhr.ontimeout = this.onContentUploadError_.bind(this);
         log(sprintf("Uploading %s - %s / %s, len: %s, bufferSize: %s",
             this.offset, end-1, this.totalSize, end-this.offset, finalBuffer.byteLength));
 
@@ -2902,6 +2904,7 @@ EnigmaUploader.prototype.resume_ = function() {
     //}
     xhr.onload = this.onContentUploadSuccess_.bind(this);
     xhr.onerror = this.onContentUploadError_.bind(this);
+    xhr.ontimeout = this.onContentUploadError_.bind(this);
 
     this.changeState_(EnigmaUploader.STATE_UPLOADING);
     xhr.send();
@@ -2951,7 +2954,7 @@ EnigmaUploader.prototype.onContentUploadSuccess_ = function(e) {
  * @param {object} e XHR event
  */
 EnigmaUploader.prototype.onContentUploadError_ = function(e) {
-    if (e.target.status && (e.target.status < 500 && e.target.status != 403)) {
+    if (e && e.type != 'timeout' && e.target.status && (e.target.status < 500 && e.target.status != 403)) {
         this.onError_(e.target.response);
 
     } else if (this.retryHandler.limitReached()){
@@ -2971,7 +2974,7 @@ EnigmaUploader.prototype.onContentUploadError_ = function(e) {
  * @param {object} e XHR event
  */
 EnigmaUploader.prototype.onUploadError_ = function(e) {
-    if (e.target.status && (e.target.status < 500 && e.target.status != 403)) {
+    if (e && e.type != 'timeout' && e.target.status && (e.target.status < 500 && e.target.status != 403)) {
         this.onError_(e.target.response);
 
     } else if (this.retryHandler.limitReached()){
