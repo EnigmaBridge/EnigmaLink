@@ -412,7 +412,8 @@ function onError(data){
     log(JSON.stringify(data));
     displayNotifyGlobal("Error: " + (data && data.reason ? data.reason : JSON.stringify(data))
         + ". The link may be invalid, expired or the file may be deleted or corrupted.", true, true);
-    setFillScreenBlocHeight();
+
+    setTimeout(setFillScreenBlocHeight, 1000);
 }
 
 function onStateChanged(data){
