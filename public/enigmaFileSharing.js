@@ -3118,6 +3118,7 @@ EnigmaSharingUpload.getMaximumAdaptiveChunkSize = function(totalSize){
  * @param {Number} [options.chunkSize] chunk size for download. First chunk must contain meta block. 256kB or 512kB is ideal.
  * @param {Number} [options.chunkSizeMax] Maximum chunk size.
  * @param {boolean} [options.chunkSizeAdaptive] True if the chunk size should be chosen in the adaptive manner.
+ * @param {boolean} [options.rangeNotAllowed] If true Range header is probably not allowed, forcing to fallback to another option.
  * @param {string} [options.url] direct URL for file to download.
  * @param {string} [options.proxyRedirUrl] proxy link for the file to download.
  * @param {EnigmaShareScheme} options.encScheme access token for google drive
@@ -3161,6 +3162,7 @@ var EnigmaDownloader = function(options){
     this.chunkSizePrefs.max = Math.min(options.chunkSizeMax || 1024 * 1024 * 8, 1024 * 1024 * 8); // Larger may cause problems with RAM & Performance.
     this.chunkSizePrefs.maxAchieved = this.chunkSize;
     this.chunkSizePrefs.adaptive = options.chunkSizeAdaptive || false;
+    this.chunkSizePrefs.rangeNotAllowed = options.rangeNotAllowed || false;
 
     // Encryption related fields.
     this.encScheme = options.encScheme;             // EnigmaShareScheme for computing file encryption key.

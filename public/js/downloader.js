@@ -275,6 +275,7 @@ function downloadClicked() {
         encScheme: encScheme,
         chunkSizeAdaptive: true,
         chunkSizeMax: jQuery.browser.mobile ? 1024*1024 : 1024*1024*4, // 4MB chunk size
+        rangeNotAllowed: isRangeCorsProblemPossible(),
         onProgress: function(oEvent, aux){
             if (oEvent && oEvent.lengthComputable && oEvent.loaded && aux && aux.offset && aux.total) {
                 var totalPercent = (aux.offset+oEvent.loaded) / aux.total;
@@ -581,6 +582,15 @@ function triggerFileDownload(){
 function isSafari(browser){
     browser = browser || uaParser.getBrowser().name.toLowerCase();
     return (browser == 'mobile safari') || (browser == 'safari');
+}
+
+function isIE(browser){
+    browser = browser || uaParser.getBrowser().name.toLowerCase();
+    return (browser == 'edge') || (browser == 'ie') || (browser == 'ie mobile');
+}
+
+function isRangeCorsProblemPossible(browser){
+    return isIE(browser);
 }
 
 function isSafariCapableOpening(mime){
