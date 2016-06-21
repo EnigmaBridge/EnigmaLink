@@ -3118,7 +3118,7 @@ EnigmaSharingUpload.getMaximumAdaptiveChunkSize = function(totalSize){
  * @param {Number} [options.chunkSize] chunk size for download. First chunk must contain meta block. 256kB or 512kB is ideal.
  * @param {Number} [options.chunkSizeMax] Maximum chunk size.
  * @param {boolean} [options.chunkSizeAdaptive] True if the chunk size should be chosen in the adaptive manner.
- * @param {boolean} [options.rangeNotAllowed] If true Range header is probably not allowed, forcing to fallback to another option.
+ * @param {boolean} [options.rangeNotAllowed] If true Range header is probably not allowed on GoogleDrive, forcing to fallback to another option.
  * @param {string} [options.url] direct URL for file to download.
  * @param {string} [options.proxyRedirUrl] proxy link for the file to download.
  * @param {EnigmaShareScheme} options.encScheme access token for google drive
@@ -3312,7 +3312,15 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
     var rangeHeader = "bytes=" + this.offset + "-" + (this.offset + this.chunkSizePrefs.cur - 1);
 
     xhr.open("GET", this.url, true);
-    xhr.setRequestHeader('Range', rangeHeader);
+    if (this.chunkSizePrefs.rangeNotAllowed) {
+        this.chunkSizePrefs.adaptive = false;
+        this.chunkSize = this.totalSize;
+
+    } else {
+        this.chunkSize = this.chunkSizePrefs.cur;
+        xhr.setRequestHeader('Range', rangeHeader);
+    }
+
     xhr.onload = function(e) {
         if (e.target.status == 416){
             log("Content range not satisfiable, end of the transfer.");
@@ -3369,8 +3377,6 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
             total:this.totalSize
         })
     );
-
-    this.chunkSize = this.chunkSizePrefs.cur;
 
     log(sprintf("Downloading file range: %s, total size: %s", rangeHeader, this.totalSize));
     xhr.responseType = "arraybuffer";
