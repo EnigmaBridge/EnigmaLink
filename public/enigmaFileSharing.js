@@ -4280,6 +4280,8 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
             if (this.gdrive.rangeNotAllowed){
                 if (this.totalSize < this.downloadAllAtOnceLimit){
                     this.chunkSizePrefs.rangeNotAllowed = true;
+                    this.url = json.url;
+
                     log(sprintf("Range not allowed, file size within 1 download limit %s kB < %s kB.",
                         this.totalSize/1024, this.downloadAllAtOnceLimit/1024));
 
