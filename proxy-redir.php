@@ -43,7 +43,7 @@ define('MODE_REDIRECT', 2);
 define('MODE_PROXY', 4);
 
 $id = getReq('id');
-$mode = getReq('mode', MODE_META);
+$mode = intval(getReq('mode', MODE_META));
 $fetchLen = getReq('fetchLen', 1);
 $fetchChunk = getReq('fetchChunk', -1);
 
