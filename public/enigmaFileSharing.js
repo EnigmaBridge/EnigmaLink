@@ -3907,6 +3907,7 @@ EnigmaDownloader.prototype.hashDataAsync_ = function(fileData) {
 EnigmaDownloader.prototype.processOuterBlock_ = function(){
     var bufLen, cpos = 0, ctag = -1, lenToTagFinish = 0, toConsume = 0, w = sjcl.bitArray;
     bufLen = w.bitLength(this.plain.buff)/8;
+    var canSliceOfData = false;
     log(sprintf("To parse outerBlock: %s B", bufLen));
 
     if (bufLen < 0){
@@ -3916,6 +3917,20 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
     // Parser is fed with the downloaded data buffer.
     // This parser is stateful, processes data in a streaming mode, keeps state across multiple requests.
     do {
+        // Previous tag can be closed?
+        if (this.tpo.tlen == this.tpo.clen){
+            this.tpo.ctag = -1;
+            canSliceOfData = true;
+        }
+
+        // Tag finished, slice of unused memory, improves memory effectiveness.
+        if (canSliceOfData && cpos >= 2048) {
+            this.plain.buff = w.bitSlice(this.plain.buff, cpos*8);
+            bufLen -= cpos;
+            cpos = 0;
+            canSliceOfData = false;
+        }
+
         // End of the buffer?
         if (cpos == bufLen){
             log("End of the cache buffer");
@@ -3927,11 +3942,6 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
                 'reason':'Parsing error',
                 'exception': new eb.exception.invalid("Invalid plain buffer state")});
             return;
-        }
-
-        // Previous tag can be closed?
-        if (this.tpo.tlen == this.tpo.clen){
-            this.tpo.ctag = -1;
         }
 
         // Process the buffer. We may be left in the state from the previous processing - unfinished tag processing.
@@ -3986,12 +3996,16 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
 
             // Current tag parsed? tlen==clen? -> reset tag.
             this.tpo.clen += toConsume;
+            // Improve memory efficiency - clean memory used for enc data.
+            canSliceOfData = true;
             continue;
         }
 
         // Process tag with defined length which can be processed only when the whole buffer is loaded.
         // Add toConsume bytes to the cdata buffer.
         this.tpo.cdata = eb.sh.misc.concatSelf(this.tpo.cdata, w.bitSlice(this.plain.buff, cpos*8, (cpos+toConsume)*8));
+        // Improve memory efficiency - clean memory used for enc data.
+        canSliceOfData = true;
 
         cpos += toConsume;
         this.tpo.clen += toConsume;
