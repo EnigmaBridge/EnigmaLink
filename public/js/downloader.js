@@ -412,6 +412,7 @@ function onError(data){
     log(JSON.stringify(data));
     displayNotifyGlobal("Error: " + (data && data.reason ? data.reason : JSON.stringify(data))
         + ". The link may be invalid, expired or the file may be deleted or corrupted.", true, true);
+    setFillScreenBlocHeight();
 }
 
 function onStateChanged(data){
@@ -439,12 +440,14 @@ function onPasswordRequired(required){
         divPassword.hide('slow');
         divStatusInfo.text("File downloaded");
     }
+    setFillScreenBlocHeight();
 }
 
 function onPasswordFail(){
     bodyProgress(false);
     setDisabled(btnPasswordUse, false);
     displayNotify(divPasswdNotif, "Invalid password", true, true);
+    setFillScreenBlocHeight();
 }
 
 function onPasswordOk(){
@@ -455,6 +458,7 @@ function onPasswordOk(){
     setDisabled(btnPasswordUse, true);
     setDisabled(fldPassword, true);
     displayNotify(divPasswdNotif, "Password is correct", false, false);
+    setFillScreenBlocHeight();
 }
 
 function onPasswordSubmitted(){
