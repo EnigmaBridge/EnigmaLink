@@ -3129,6 +3129,11 @@ var EnigmaDownloader = function(options){
     var noop = function() {};
 
     this.token = options.token;
+    this.url = options.url;
+    this.proxyRedirUrl = options.proxyRedirUrl;
+
+    this.chunkSize = options.chunkSize || 262144*2; // All security relevant data should be present in the first chunk.
+    this.retryHandler = new RetryHandler($.extend({maxAttempts: 8}, options.retry || {}));
 
     this.onComplete = options.onComplete || noop;
     this.onProgress = options.onProgress || noop;
@@ -3139,13 +3144,15 @@ var EnigmaDownloader = function(options){
     this.onStateChange = options.onStateChange || noop;
     this.onMetaReady = options.onMetaReady;
 
-    this.chunkSize = options.chunkSize || 262144*2; // All security relevant data should be present in the first chunk.
+    // Download state.
     this.offset = 0;
     this.downloaded = false;        // If file was downloaded entirely.
     this.encWrapDetected = false;   // Encryption tag encountered already? If yes, data goes through GCM layer.
     this.encWrapLength = undefined; // Length of encwrap block size.
     this.encWrapLengthProcessed = 0; // Length of encwrap processed block size.
     this.endTagDetected = false;    // True if TAG_ENC was detected in parsing.
+    this.downloadStarted = false;
+    this.curState = EnigmaDownloader.STATE_INIT;
 
     // Adaptive chunk setting.
     this.chunkSizePrefs = {};
@@ -3154,13 +3161,6 @@ var EnigmaDownloader = function(options){
     this.chunkSizePrefs.max = Math.min(options.chunkSizeMax || 1024 * 1024 * 8, 1024 * 1024 * 8); // Larger may cause problems with RAM & Performance.
     this.chunkSizePrefs.maxAchieved = this.chunkSize;
     this.chunkSizePrefs.adaptive = options.chunkSizeAdaptive || false;
-
-    this.retryHandler = new RetryHandler($.extend({maxAttempts: 8}, options.retry || {}));
-    this.curState = EnigmaDownloader.STATE_INIT;
-    this.downloadStarted = false;
-
-    this.url = options.url;
-    this.proxyRedirUrl = options.proxyRedirUrl;
 
     // Encryption related fields.
     this.encScheme = options.encScheme;             // EnigmaShareScheme for computing file encryption key.
