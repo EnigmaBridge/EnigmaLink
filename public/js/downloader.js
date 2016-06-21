@@ -277,7 +277,7 @@ function downloadClicked() {
         chunkSizeMax: jQuery.browser.mobile ? 1024*1024 : 1024*1024*4, // 4MB chunk size
         //downloadAllAtOnceLimit: jQuery.browser.mobile ? 1024*1024 : 1024*1024*4,
         //rangeNotAllowed: isRangeCorsProblemPossible(),
-        downloadAllAtOnceLimit: 1024*1024*2,
+        downloadAllAtOnceLimit: 1024*1024,
         rangeNotAllowed: false,
         onProgress: function(oEvent, aux){
             if (oEvent && oEvent.lengthComputable && oEvent.loaded && aux && aux.offset && aux.total) {
