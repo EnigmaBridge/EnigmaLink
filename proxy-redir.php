@@ -104,8 +104,17 @@ if ($status == 200){
     $status = $header['status'];
 }
 
+if ($status==404){
+    header($_SERVER["SERVER_PROTOCOL"]." 404 Not found", true, 404);
+    $json->status = 'error';
+    $json->error = 'Not found';
+    $json->responseStatus = $status;
+    $json->requestUrl = $url;
+    die(json_encode($json));
+}
+
 if ($status!=302){
-    header($_SERVER["SERVER_PROTOCOL"]." 500 Unsupported", true, 500);
+    header($_SERVER["SERVER_PROTOCOL"]." 500 Unsupported state", true, 500);
     $json->status = 'error';
     $json->error = 'Unsupported';
     $json->responseStatus = $status;
@@ -240,7 +249,7 @@ function tryConfirmLink($fileId, $headerInput, $json){
 
     // No confirm link found, nothing to do...
     if (empty($confirmCode)){
-        header($_SERVER["SERVER_PROTOCOL"]." 500 Unsupported", true, 500);
+        header($_SERVER["SERVER_PROTOCOL"]." 500 Unsupported confirmation", true, 500);
         $json->status = 'error';
         $json->error = 'Unsupported';
         $json->errorDetail = 'Confirmation link not found';
