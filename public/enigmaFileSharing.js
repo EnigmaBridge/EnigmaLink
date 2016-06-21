@@ -3353,6 +3353,7 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
             this.processDownloadBuffer_();
 
         } else {
+            log("On load finished, unknown state");
             this.onContentDownloadError_(e);
         }
     }.bind(this);
