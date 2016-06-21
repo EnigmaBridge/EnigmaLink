@@ -4365,15 +4365,15 @@ EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
             // It may be CORS error. If tried several times, try to switch CORS method.
             // May be 'Range' error. If it is a new error on cloud storage (CORS_ONECHUNK)
             // switch to proxy mode.
-            if (this.retryHandler.numAttempts() > 2) {
+            if (this.retryHandler.numAttempts() >= 2) { // 3 previously failed attempts
                 this.switchFromCloudCors_(this.corsStrategy == EnigmaDownloader.CORS_ONECHUNK);
                 this.retryHandler.reset(); // happens only once.
             }
         }
     }
 
-    log(sprintf("Chunk download error %s, isTimeout: %s, isError: %s, isFatal: %s, errTxt: %s, corsStrategy: %s, newStrategy: %s",
-        statusCode, isTimeout, isError, isFatal, errorTxt, oldCors, this.corsStrategy));
+    log(sprintf("Chunk download error, #fails: %s, status: %s, isTimeout: %s, isError: %s, isFatal: %s, errTxt: %s, corsStrategy: %s, newStrategy: %s",
+        this.retryHandler.numAttempts(), statusCode, isTimeout, isError, isFatal, errorTxt, oldCors, this.corsStrategy));
 
     if (isFatal){
         this.changeState_(EnigmaDownloader.STATE_ERROR);
