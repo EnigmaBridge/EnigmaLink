@@ -38,8 +38,12 @@
 //    Alternate-Protocol: 443:quic
 //    Alt-Svc: quic=":443"; ma=2592000; v="33,32,31,30,29,28,27,26,25"
 
+define('MODE_META', 1);
+define('MODE_REDIRECT', 2);
+define('MODE_PROXY', 4);
+
 $id = getReq('id');
-$mode = getReq('mode', 1);
+$mode = getReq('mode', MODE_META);
 $fetchLen = getReq('fetchLen', 1);
 $fetchChunk = getReq('fetchChunk', -1);
 
@@ -69,6 +73,9 @@ header('Access-Control-Allow-Credentials: false');
 header('Access-Control-Allow-Methods: GET,OPTIONS');
 header('Access-Control-Allow-Headers: Accept, Accept-Language, Authorization, Cache-Control, Content-Disposition, Content-Encoding, Content-Language, Content-Length, Content-MD5, Content-Range, Content-Type, Date, GData-Version, Host, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Origin, OriginToken, Pragma, Range, Slug, Transfer-Encoding, Want-Digest, X-ClientDetails, X-GData-Client, X-GData-Key, X-Goog-AuthUser, X-Goog-PageId, X-Goog-Encode-Response-If-Executable, X-Goog-Correlation-Id, X-Goog-Request-Info, X-Goog-Experiments, x-goog-iam-authority-selector, x-goog-iam-authorization-token, X-Goog-Spatula, X-Goog-Upload-Command, X-Goog-Upload-Content-Disposition, X-Goog-Upload-Content-Length, X-Goog-Upload-Content-Type, X-Goog-Upload-File-Name, X-Goog-Upload-Offset, X-Goog-Upload-Protocol, X-Goog-Visitor-Id, X-HTTP-Method-Override, X-JavaScript-User-Agent, X-Pan-Versionid, X-Origin, X-Referer, X-Upload-Content-Length, X-Upload-Content-Type, X-Use-HTTP-Status-Code-Override, X-Ios-Bundle-Identifier, X-Android-Package, X-YouTube-VVT, X-YouTube-Page-CL, X-YouTube-Page-Timestamp, ' . $ourHeaders);
 header('Access-Control-Expose-Headers: Content-Encoding, Content-Language, Content-Length, Content-MD5, Content-Range, Content-Type, Date, GData-Version, Host, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Origin, OriginToken, Pragma, Range, Slug, Transfer-Encoding, Want-Digest, ' . $ourHeaders);
+if ($mode == MODE_PROXY){
+    header('Accept-Ranges: bytes');
+}
 
 // Google Drive direct download link.
 $url = getDirectUrl($id);
@@ -105,9 +112,9 @@ if ($status!=302){
     die(json_encode($json));
 }
 
-if ($mode == 2) {
+if ($mode == MODE_REDIRECT) {
     header('Location: ' . $header['Location'][0], true, 302);
-} else {
+} else if ($mode == MODE_META) {
     header("HTTP/1.1 200 OK");
 }
 
@@ -119,30 +126,69 @@ if (isset($header['Set-Cookie'])) {
 }
 
 // Get length - if applicable
-if ($fetchLen == 1){
-    $json->size = getFileSizeRange($json->url, $ch);
+// Get length is skipped in the proxy mode, would pose additional overhead, not needed as request is done anyway.
+if ($mode != MODE_PROXY) {
+    if ($fetchLen == 1) {
+        $json->size = getFileSizeRange($json->url, $ch);
 
-} else if ($fetchLen == 2){
-    $json->size = getFileSizeHead($json->url, $ch);
+    } else if ($fetchLen == 2) {
+        $json->size = getFileSizeHead($json->url, $ch);
+    }
 }
 
 // Cookies, location
 setHeaderIfAny($header, 'Set-Cookie', 'X-Cookies');
 header('X-Redir: ' . $json->url);
-if ($fetchLen>0){
+if ($mode != MODE_PROXY && $fetchLen > 0){
     header('X-Total-Length: ' . $json->size);
 }
 
 //$json->headers = print_r($header, true);
-if ($fetchChunk < 0) {
+if ($fetchChunk < 0 && $mode != MODE_PROXY) {
     // No chunk proxy download - output JSON.
     $json->elapsed = microtime(true) - $tstart;
     die(json_encode($json));
 }
 
-// Output downloaded chunk.
-getFileChunk($json->url, 0, $fetchChunk);
-$json->elapsed = microtime(true) - $tstart;
+// Output downloaded chunk - first one.
+if ($mode != MODE_PROXY) {
+    getFileChunk($json->url, 0, $fetchChunk);
+    $json->elapsed = microtime(true) - $tstart;
+
+} else {
+    // Proxy mode, fetch requested chunk.
+    $rangeHdr = get_request_header('RANGE');
+    if ( empty($rangeHdr) ){
+        header($_SERVER["SERVER_PROTOCOL"]." 400 Range not present", true, 400);
+        $json->status = 'error';
+        $json->error = 'Unsupported';
+        $json->errorDetail = 'Range header not present';
+        die(json_encode($json));
+    }
+
+    // find the requested range
+    // this might be too simplistic, apparently the client can request
+    // multiple ranges, which can become pretty complex, so ignore it for now
+    if (!preg_match('/bytes=(\d+)-(\d+)?/', $_SERVER['HTTP_RANGE'], $matches)){
+        header($_SERVER["SERVER_PROTOCOL"]." 400 Range parse error", true, 400);
+        $json->status = 'error';
+        $json->error = 'Unsupported';
+        $json->errorDetail = 'Cannot parse Range headers';
+        die(json_encode($json));
+    }
+
+    $rangeStart = intval($matches[1]);
+    $rangeStop = intval($matches[2]);
+    if (($rangeStop - $rangeStart) > 1024*1024*8+5){
+        header($_SERVER["SERVER_PROTOCOL"]." 400 Range too big", true, 400);
+        $json->status = 'error';
+        $json->error = 'Unsupported';
+        $json->errorDetail = 'Maximum allowed chunk size is 8MB';
+        die(json_encode($json));
+    }
+
+    getFileChunk($json->url, $rangeStart, $rangeStop);
+}
 
 // ---------------------------------------------------------------------------------------------------------------------
 // TODO: Streaming proxy read with: CURLOPT_WRITEFUNCTION,
@@ -254,7 +300,7 @@ function getFileChunk($file, $start, $end){
  * @return int
  */
 function headerFnc($ch, $hdr){
-    global $json;
+    global $json, $mode;
     $header = parseHeaders($hdr);
     if (isset($header['Content-Range'])){
         $json->size = intval(explode("/", $header['Content-Range'][0], 2)[1]);
@@ -264,6 +310,22 @@ function headerFnc($ch, $hdr){
     setHeaderIfAny($header, 'Content-Disposition');
     setHeaderIfAny($header, 'Content-Encoding');
     setHeaderIfAny($header, 'Content-Type');
+    setHeaderIfAny($header, 'Content-Length');
+    setHeaderIfAny($header, 'Content-Range');
+
+    // Proxy status mode
+    $status = $header['status'];
+    if ($mode == MODE_PROXY && $status){
+        if ($status == 200) {
+            header('HTTP/1.1 200 Success', true, 200);
+        } else if ($status == 206){
+            header('HTTP/1.1 206 Partial Content', true, 206);
+        } else if ($status == 416){
+            header('HTTP/1.1 416 Not Satisfiable', true, 416);
+        } else {
+            header('HTTP/1.1 '.$status.' Success', true, $status);
+        }
+    }
 
     return strlen($hdr);
 }
@@ -408,4 +470,29 @@ function parseHeaders($headers, $header = null)
     return $output;
 }
 
+/**
+ * Get the value of a header in the current request context
+ * http://stackoverflow.com/questions/157318/resumable-downloads-when-using-php-to-send-the-file
+ *
+ * @param string $name Name of the header
+ * @return string|null Returns null when the header was not sent or cannot be retrieved
+ */
+function get_request_header($name)
+{
+    $name = strtoupper($name);
+
+    // IIS/Some Apache versions and configurations
+    if (isset($_SERVER['HTTP_' . $name])) {
+        return trim($_SERVER['HTTP_' . $name]);
+    }
+
+    // Various other SAPIs
+    foreach (apache_request_headers() as $name => $value) {
+        if (strtoupper($name) === $name) {
+            return trim($value);
+        }
+    }
+
+    return null;
+}
 
