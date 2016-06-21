@@ -3138,7 +3138,8 @@ var EnigmaDownloader = function(options){
     this.proxyRedirUrl = options.proxyRedirUrl;
 
     this.chunkSize = options.chunkSize || 262144*2; // All security relevant data should be present in the first chunk.
-    this.retryHandler = new RetryHandler($.extend({maxAttempts: 8}, options.retry || {}));
+    this.downloadAllAtOnceLimit = options.downloadAllAtOnceLimit || 1024 * 1024 * 4; // 4MB by default. max.
+    this.retryHandler = new RetryHandler($.extend({maxAttempts: 8, maxInterval: 30*1000}, options.retry || {}));
 
     this.onComplete = options.onComplete || noop;
     this.onProgress = options.onProgress || noop;
@@ -3158,7 +3159,7 @@ var EnigmaDownloader = function(options){
     this.endTagDetected = false;    // True if TAG_ENC was detected in parsing.
     this.downloadStarted = false;
     this.curState = EnigmaDownloader.STATE_INIT;
-    this.downloadAllAtOnceLimit = options.downloadAllAtOnceLimit || 1024 * 1024 * 4; // 4MB by default. max.
+    this.corsStrategy = EnigmaDownloader.CORS_DIRECT;
 
     // GoogleDrive
     this.gdrive = {};
@@ -3258,6 +3259,9 @@ EnigmaDownloader.STATE_DONE = 7;
 EnigmaDownloader.STATE_CANCELLED = 8;
 EnigmaDownloader.STATE_ERROR = 9;
 EnigmaDownloader.STATE_BACKOFF = 10;
+EnigmaDownloader.CORS_DIRECT = 1;  // Use cloud storage directly.
+EnigmaDownloader.CORS_ONECHUNK = 2; // Download file in one chunk.
+EnigmaDownloader.CORS_PROXY = 3; // Use EL proxy to chunk download.
 
 /**
  * Initiate the upload.
@@ -3378,6 +3382,7 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
         }
     }.bind(this);
     xhr.onerror = this.onContentDownloadError_.bind(this);
+    xhr.ontimeout = this.onContentDownloadError_.bind(this);
 
     // Progress monitoring
     xhr.addEventListener('progress',
@@ -4278,33 +4283,26 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
                 this.totalSize = json.size;
             }
 
+            this.url = json.url;
+
             // If Range header is not allowed for GoogleDrive, the file download process has to adapt.
             // If total size is relatively small (<4 MB), download all at once.
             if (this.gdrive.rangeNotAllowed){
-                if (this.totalSize < this.downloadAllAtOnceLimit){
-                    this.chunkSizePrefs.rangeNotAllowed = true;
-                    this.url = json.url;
-
-                    log(sprintf("Range not allowed, file size within 1 download limit %s kB < %s kB.",
-                        this.totalSize/1024, this.downloadAllAtOnceLimit/1024));
-
-                } else {
-                    this.chunkSizePrefs.rangeNotAllowed = false;
-                    this.url = this.proxyRedirUrl + '&mode=4';
-                    log(sprintf("Range not allowed, file too big to download in one chunk. Url: %s", this.url));
-                }
-            } else {
-                this.url = json.url;
+                this.switchFromCloudCors_();
             }
 
             this.retryHandler.reset();
             this.fetchFile_();
 
         } else {
-            this.onDownloadError_({'e': e, 'reason':'Could not fetch the file information', 'code':EnigmaDownloader.ERROR_CODE_PROXY_FAILED});
+            this.onDownloadError_(
+                {'e': e, 'reason':'Could not fetch the file information', 'code':EnigmaDownloader.ERROR_CODE_PROXY_FAILED},
+                e.target.status == 400 || e.target.status == 404 || e.target.status == 500
+            );
         }
     }.bind(this);
     xhr.onerror = this.onDownloadError_.bind(this);
+    xhr.ontimeout = this.onDownloadError_.bind(this);
 
     this.changeState_(EnigmaDownloader.STATE_PROXY_FETCH);
     log(sprintf("Fetching direct link using redir proxy: %s", this.proxyRedirUrl));
@@ -4322,6 +4320,26 @@ EnigmaDownloader.prototype.resume_ = function() {
 };
 
 /**
+ * Function called when CORS request with Range header was not successful on the cloud storage - e.g., Google Drive.
+ * @param {boolean} [forceProxy=false] Force proxy CORS method.
+ * @private
+ */
+EnigmaDownloader.prototype.switchFromCloudCors_ = function(forceProxy){
+    if (!forceProxy && this.totalSize < this.downloadAllAtOnceLimit){
+        this.corsStrategy = EnigmaDownloader.CORS_ONECHUNK;
+        this.chunkSizePrefs.rangeNotAllowed = true;
+        log(sprintf("Range not allowed, file size within 1 download limit %s kB < %s kB.",
+            this.totalSize/1024, this.downloadAllAtOnceLimit/1024));
+
+    } else {
+        this.corsStrategy = EnigmaDownloader.CORS_PROXY;
+        this.chunkSizePrefs.rangeNotAllowed = false;
+        this.url = this.proxyRedirUrl + '&mode=4';
+        log(sprintf("Range not allowed, file too big to download in one chunk. Url: %s", this.url));
+    }
+};
+
+/**
  * Handles errors for chunk download. Either retries or aborts depending
  * on the error.
  *
@@ -4329,10 +4347,38 @@ EnigmaDownloader.prototype.resume_ = function() {
  * @param {object} e XHR event
  */
 EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
-    log(sprintf("Chunk download error %s", e && e.target && e.target.status ? e.target.status : -1));
-    if (e && e.target && e.target.status && e.target.status < 400) {
+    var statusCode = e && e.target && e.target.status ? e.target.status : 0;
+    var isTimeout  = e && e.type && e.type == 'timeout';
+    var isError    = e && e.type && e.type == 'error';
+    var errorTxt   = isTimeout ? 'timeout' : (e.target.response ? e.target.response : 'error');
+    var oldCors    = this.corsStrategy;
+
+    // Can error be recovered by trying backoff?
+    var isFatal = false;
+    isFatal |= this.retryHandler.limitReached();
+    isFatal |= !isTimeout && statusCode > 0 && statusCode < 400;
+
+    // If error, try different CORS fetch strategy.
+    // Otherwise just let retry handler to take care of that.
+    if (!isFatal && isError){
+        if (this.corsStrategy == EnigmaDownloader.CORS_DIRECT || this.corsStrategy == EnigmaDownloader.CORS_ONECHUNK) {
+            // It may be CORS error. If tried several times, try to switch CORS method.
+            // May be 'Range' error. If it is a new error on cloud storage (CORS_ONECHUNK)
+            // switch to proxy mode.
+            if (this.retryHandler.numAttempts() > 2) {
+                this.switchFromCloudCors_(this.corsStrategy == EnigmaDownloader.CORS_ONECHUNK);
+                this.retryHandler.reset(); // happens only once.
+            }
+        }
+    }
+
+    log(sprintf("Chunk download error %s, isTimeout: %s, isError: %s, isFatal: %s, errTxt: %s, corsStrategy: %s, newStrategy: %s",
+        statusCode, isTimeout, isError, isFatal, errorTxt, oldCors, this.corsStrategy));
+
+    if (isFatal){
         this.changeState_(EnigmaDownloader.STATE_ERROR);
-        this.onError(e.target.response);
+        this.onError(errorTxt);
+
     } else {
         this.chunkAdaptiveStep_(false);
         this.changeState_(EnigmaDownloader.STATE_BACKOFF);
