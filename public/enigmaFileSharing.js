@@ -4285,7 +4285,7 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
 
                 } else {
                     this.chunkSizePrefs.rangeNotAllowed = false;
-                    this.url = this.proxyRedirUrl + '&mode=3';
+                    this.url = this.proxyRedirUrl + '&mode=4';
                     log(sprintf("Range not allowed, file too big to download in one chunk. Url: %s", this.url));
                 }
             } else {
