@@ -4292,7 +4292,7 @@ EnigmaDownloader.prototype.resume_ = function() {
  * @param {object} e XHR event
  */
 EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
-    log("Chunk download error");
+    log(sprintf("Chunk download error %s", e && e.target && e.target.status ? e.target.status : -1));
     if (e && e.target && e.target.status && e.target.status < 400) {
         this.changeState_(EnigmaDownloader.STATE_ERROR);
         this.onError(e.target.response);
