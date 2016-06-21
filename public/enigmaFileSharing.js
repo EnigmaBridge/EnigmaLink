@@ -1916,7 +1916,7 @@ eb.sh.pngParser.prototype = {
                 log("End of the png buffer");
                 break;
             } else if (cpos > bufLen){
-                throw new eb.exception.invalid("Invalid decrypted buffer state");
+                throw new eb.exception.invalid("Invalid parsing buffer state");
             }
 
             // Process new tag.
@@ -3855,7 +3855,9 @@ EnigmaDownloader.prototype.processDecryptedBlock_ = function(){
     } while(true);
 
     // Slice off the processed part of the buffer.
-    this.dec.buff = w.bitSlice(this.dec.buff, cpos*8);
+    if (cpos > 0) {
+        this.dec.buff = w.bitSlice(this.dec.buff, cpos * 8);
+    }
 };
 
 /**
@@ -4004,7 +4006,9 @@ EnigmaDownloader.prototype.processOuterBlock_ = function(){
     } while(!this.endTagDetected);
 
     // Slice off the processed part of the buffer.
-    this.plain.buff = w.bitSlice(this.plain.buff, cpos*8);
+    if (cpos > 0) {
+        this.plain.buff = w.bitSlice(this.plain.buff, cpos * 8);
+    }
 };
 
 /**
