@@ -4,9 +4,13 @@
         <english>EnigmaLink for Private Sharing</english>
         <czech>EnigmaLink pro soukromé sdílení</czech>
     </translation>
-    <translation id="text1">
-        <english>Select a document and send its link or scan its QR code directly.</english>
-        <czech>Vyberte dokument a pak už jej jen přímo mailujte, SMSkujte nebo tweetujte.</czech>
+    <translation id="text1a">
+        <english>Select a document and send its link directly, protected with</english>
+        <czech>Vyberte dokument a pak už jej jen přímo mailujte, SMSkujte nebo tweetujte,</czech>
+    </translation>
+    <translation id="text1b">
+        <english>end-to-end encryption</english>
+        <czech>bezpečně</czech>
     </translation>
     <translation id="text2a">
         <english>
