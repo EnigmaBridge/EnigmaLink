@@ -4311,7 +4311,7 @@ EnigmaDownloader.prototype.onContentDownloadError_ = function(e) {
  *
  * @private
  * @param {object} data aux data
- * @param {boolean} fatal true if error cannot be recovered from
+ * @param {boolean} [fatal=false] true if error cannot be recovered from
  */
 EnigmaDownloader.prototype.onDownloadError_ = function(data, fatal) {
     if (this.retryHandler.limitReached() || fatal){
