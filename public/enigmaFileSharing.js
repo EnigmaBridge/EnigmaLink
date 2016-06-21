@@ -1900,7 +1900,7 @@ eb.sh.pngParser.prototype = {
 
         // Parser is fed with the input data buffer.
         // This parser is stateful, processes data in a streaming mode, keeps state across multiple requests.
-        for(;!this.iendDetected;) {
+        for(;!this.iendDetected && bufLen > 0;) {
             // Previous tag can be closed?
             if (this.tps.tlen == this.tps.clen && w.bitLength(this.tps.crc) == 32){
                 // IEND tag? then terminate the parsing.
@@ -1909,6 +1909,14 @@ eb.sh.pngParser.prototype = {
                     break;
                 }
                 this.tps.ctag = -1;
+
+                // Tag finished, slice of unused memory, improves effectiveness.
+                if (cpos >= 1024) {
+                    cached.buff = w.bitSlice(cached.buff, cpos * 8);
+                    cached.offset += cpos;
+                    bufLen -= cpos;
+                    cpos = 0;
+                }
             }
 
             // End of the buffer?
@@ -1965,7 +1973,11 @@ eb.sh.pngParser.prototype = {
         }
 
         // Slice off the processed part of the buffer.
-        if (cpos > 0) {
+        if (this.iendDetected){
+            cached.buff = [];
+            cached.offset += cpos;
+
+        } else if (cpos > 0) {
             cached.buff = w.bitSlice(cached.buff, cpos * 8);
             cached.offset += cpos;
         }
