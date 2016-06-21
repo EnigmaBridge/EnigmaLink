@@ -3119,6 +3119,7 @@ EnigmaSharingUpload.getMaximumAdaptiveChunkSize = function(totalSize){
  * @param {Number} [options.chunkSizeMax] Maximum chunk size.
  * @param {boolean} [options.chunkSizeAdaptive] True if the chunk size should be chosen in the adaptive manner.
  * @param {boolean} [options.rangeNotAllowed] If true Range header is probably not allowed on GoogleDrive, forcing to fallback to another option.
+ * @param {boolean} [options.downloadAllAtOnceLimit] Limit in bytes to when file is downloaded in one chunk, if range is not allowed. Otherwise EL proxy is used.
  * @param {string} [options.url] direct URL for file to download.
  * @param {string} [options.proxyRedirUrl] proxy link for the file to download.
  * @param {EnigmaShareScheme} options.encScheme access token for google drive
@@ -3154,6 +3155,11 @@ var EnigmaDownloader = function(options){
     this.endTagDetected = false;    // True if TAG_ENC was detected in parsing.
     this.downloadStarted = false;
     this.curState = EnigmaDownloader.STATE_INIT;
+    this.downloadAllAtOnceLimit = options.downloadAllAtOnceLimit || 1024 * 1024 * 4; // 4MB by default. max.
+
+    // GoogleDrive
+    this.gdrive = {};
+    this.gdrive.rangeNotAllowed = options.rangeNotAllowed || false;
 
     // Adaptive chunk setting.
     this.chunkSizePrefs = {};
@@ -3162,7 +3168,7 @@ var EnigmaDownloader = function(options){
     this.chunkSizePrefs.max = Math.min(options.chunkSizeMax || 1024 * 1024 * 8, 1024 * 1024 * 8); // Larger may cause problems with RAM & Performance.
     this.chunkSizePrefs.maxAchieved = this.chunkSize;
     this.chunkSizePrefs.adaptive = options.chunkSizeAdaptive || false;
-    this.chunkSizePrefs.rangeNotAllowed = options.rangeNotAllowed || false;
+    this.chunkSizePrefs.rangeNotAllowed = options.rangeNotAllowed || false; // Initial value, may got changed in the processing.
 
     // Encryption related fields.
     this.encScheme = options.encScheme;             // EnigmaShareScheme for computing file encryption key.
@@ -4267,6 +4273,21 @@ EnigmaDownloader.prototype.fetchProxyRedir_ = function() {
             // This is mainly for UX while downloading large files so user can see download progress.
             if (json.size && json.size > 0){
                 this.totalSize = json.size;
+            }
+
+            // If Range header is not allowed for GoogleDrive, the file download process has to adapt.
+            // If total size is relatively small (<4 MB), download all at once.
+            if (this.gdrive.rangeNotAllowed){
+                if (this.totalSize < this.downloadAllAtOnceLimit){
+                    this.chunkSizePrefs.rangeNotAllowed = true;
+                    log(sprintf("Range not allowed, file size within 1 download limit %s kB < %s kB.",
+                        this.totalSize/1024, this.downloadAllAtOnceLimit/1024));
+
+                } else {
+                    log(sprintf("Range not allowed, file too big to download in one chunk."));
+                    this.chunkSizePrefs.rangeNotAllowed = false;
+                    this.url = this.proxyRedirUrl + '&mode=3';
+                }
             }
 
             this.retryHandler.reset();
