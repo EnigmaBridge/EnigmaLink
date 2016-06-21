@@ -3315,6 +3315,7 @@ EnigmaDownloader.prototype.fetchFile_ = function() {
     if (this.chunkSizePrefs.rangeNotAllowed) {
         this.chunkSizePrefs.adaptive = false;
         this.chunkSize = this.totalSize;
+        rangeHeader = "[notAllowed]";
 
     } else {
         this.chunkSize = this.chunkSizePrefs.cur;
