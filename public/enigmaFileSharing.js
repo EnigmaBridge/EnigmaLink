@@ -1909,14 +1909,14 @@ eb.sh.pngParser.prototype = {
                     break;
                 }
                 this.tps.ctag = -1;
+            }
 
-                // Tag finished, slice of unused memory, improves effectiveness.
-                if (cpos >= 1024) {
-                    cached.buff = w.bitSlice(cached.buff, cpos * 8);
-                    cached.offset += cpos;
-                    bufLen -= cpos;
-                    cpos = 0;
-                }
+            // Slice of unused memory, improves effectiveness.
+            if (cpos >= 1024) {
+                cached.buff = w.bitSlice(cached.buff, cpos * 8);
+                cached.offset += cpos;
+                bufLen -= cpos;
+                cpos = 0;
             }
 
             // End of the buffer?
