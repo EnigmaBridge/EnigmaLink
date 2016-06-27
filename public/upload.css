@@ -254,3 +254,7 @@ body
 #divQrReadersInfo.windowsMob .windowsMob {
     display: block;
 }
+
+#divTokenExpired {
+    display: none;
+}

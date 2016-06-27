@@ -660,6 +660,9 @@ function gapiTokenWatcher(){
 		resetExpiredToken();
 		$form.removeClass( 'is-ready' );
 
+		$('#signedin').hide();
+		$('#divTokenExpired').show();
+
 		// Refresh the page here to get a new token.
 		// TODO: For token refresh, try signIn() again
 		// https://developers.google.com/identity/sign-in/web/reference
