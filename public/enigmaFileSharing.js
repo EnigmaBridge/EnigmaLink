@@ -4466,3 +4466,16 @@ EnigmaDownloader.prototype.onError_ = function(data){
         this.onError(data);
     }).bind(this));
 };
+
+function simpleWebLog(page){
+    $.ajax({
+        url: page,
+        cache: false
+    })
+    .done(function( html ) {
+        log("Logged: " + page)
+    })
+    .fail(function(x){
+        log("Fail to Log: " + page)
+    });
+}

@@ -498,6 +498,7 @@ function onFileShared(data){
 	setFillScreenBlocHeight();
 	eb.sh.misc.async(setFillScreenBlocHeight);
 
+	simpleWebLog('evtUploaded.html');
 	//statusFieldSet(fldStatus, "Upload finished", true);
 	//setDisabled(btnUpload, false);
 }
@@ -527,6 +528,7 @@ function signinCallback(result) {
 	accessTokenExpiresAt = jsonGetNumber(result.expires_at);
 	$('.signinWrapper').hide();
 	$('#signedin').show();
+	simpleWebLog('evtDrive.html');
 	log(sprintf("Google Drive auth successful, token: %s", accessToken));
 
 	// Token watcher
@@ -777,6 +779,7 @@ function onFilesDropped(newFiles){
 	}
 	droppedFiles = newFiles;
 	showFiles( droppedFiles, $fldInput, $fldLabel, $fldFileName );
+	simpleWebLog('evtFile.html');
 	setFillScreenBlocHeight();
 }
 
