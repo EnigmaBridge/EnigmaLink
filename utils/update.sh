@@ -21,4 +21,6 @@ if [ -n "${CACHEDIR}" ]; then
 	chown apache:apache  "${CACHEDIR}/cache.flush"
 fi
 
+curl --request PURGE 'https://enigmalink.io/*'
+
 cd "${CDIR}"
