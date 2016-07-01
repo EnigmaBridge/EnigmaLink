@@ -4825,6 +4825,15 @@ eb.comm.createUO.consts = {
     }
 };
 
+eb.comm.createUO.utils = {
+    getUoType: function(fnc, clientGenAppKey, clientGenComKey){
+        var outype  = fnc
+        outype |= isChecked(chkEbAppGen) ? 1<<21 : 0;
+        outype |= isChecked(chkEbComGen) ? 1<<20 : 0;
+        return uotype;
+    }
+};
+
 /**
  * getUOTemplate response.
  * @extends eb.comm.response
