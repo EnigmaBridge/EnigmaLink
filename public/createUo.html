@@ -49,6 +49,7 @@
         var fldMacKey;
         var fldUoType;
         var chkEbAppGen;
+        var chkEbComGen;
         var chkCoreOne;
     </script>
 </head>
@@ -93,7 +94,11 @@
                 </select>
             </label>
             <label><input type="checkbox" id="chkEbAppGen" value="1">
-                EB generates the App key
+                Use App key from form
+            </label>
+
+            <label><input type="checkbox" id="chkEbComGen" value="1">
+                Use Comm keys from form
             </label>
 
             <label><input type="checkbox" id="chkCoreOne" value="1">
@@ -232,9 +237,10 @@
             var request = new eb.comm.createUO.getUOTemplateRequest();
             request.configure(settings);
             request.logger = append_message;
+            var uotype = eb.comm.createUO.utils.getUoType(parseInt(fldUoType.val(),16), isChecked(chkEbAppGen), isChecked(chkEbComGen));
 
             var requestData = {
-                "type": ""+parseInt(fldUoType.val(),16), //eb.comm.createUO.consts.uoType.PLAINAES,        //<32bit integer>,
+                "type": sprintf("%x", uotype), //eb.comm.createUO.consts.uoType.PLAINAES,        //<32bit integer>,
                 "environment": eb.comm.createUO.consts.environment.DEV, // shows whether the UO should be for production (live), test (pre-production testing), or dev (development)
                 "maxtps": eb.comm.createUO.consts.maxtps.UNLIMITED, // maximum guaranteed TPS
                 "core": isChecked(chkCoreOne) ? eb.comm.createUO.consts.core._1 : eb.comm.createUO.consts.core.EMPTY, // how many cards have UO loaded permanently
@@ -248,9 +254,9 @@
                 "resource": eb.comm.createUO.consts.resource.GLOBAL,
                 "credit": 32766, // <1-32767>, a limit a seed card can provide to the EB service
                 "generation": {
-                    "commkey": eb.comm.createUO.consts.genKey.LOCAL,
-                    "billingkey": eb.comm.createUO.consts.genKey.LOCAL,
-                    "appkey": isChecked(chkEbAppGen) ? eb.comm.createUO.consts.genKey.SERVER : eb.comm.createUO.consts.genKey.LOCAL
+                    "commkey": isChecked(chkEbComGen) ? eb.comm.createUO.consts.genKey.CLIENT : eb.comm.createUO.consts.genKey.LEGACY_RANDOM,
+                    "billingkey": eb.comm.createUO.consts.genKey.LEGACY_RANDOM,
+                    "appkey": isChecked(chkEbAppGen) ? eb.comm.createUO.consts.genKey.CLIENT : eb.comm.createUO.consts.genKey.LEGACY_RANDOM
                 }
             };
 
@@ -417,6 +423,7 @@
             fldMacKey = $('#fldMacKey');
             fldUoType = $('#fldUoType');
             chkEbAppGen = $('#chkEbAppGen');
+            chkEbComGen = $('#chkEbComGen');
             chkCoreOne = $('#chkCoreOne');
 
             // Button click handling.
