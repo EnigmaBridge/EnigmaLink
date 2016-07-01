@@ -4827,7 +4827,7 @@ eb.comm.createUO.consts = {
 
 eb.comm.createUO.utils = {
     getUoType: function(fnc, clientGenAppKey, clientGenComKey){
-        var uotype  = fnc
+        var uotype  = fnc;
         uotype |= isChecked(chkEbAppGen) ? 1<<21 : 0;
         uotype |= isChecked(chkEbComGen) ? 1<<20 : 0;
         return uotype;
