@@ -4815,11 +4815,13 @@ eb.comm.createUO.consts = {
     },
 
     genKey: {
-        LOCAL: 0,
-        SERVER: 1,
+        LEGACY_RANDOM: 0,
+        CLIENT: 1,
         COMP1: 2,
         COMP2: 3,
-        COMP3: 4
+        COMP3: 4,
+        SERVER_RANDOM: 5,
+        SERVER_DERIVED: 6
     }
 };
 
@@ -4890,9 +4892,9 @@ eb.comm.createUO.getUOTemplateRequest.inheritsFrom(eb.comm.apiRequest, {
         "resource": eb.comm.createUO.consts.resource.GLOBAL,
         "credit": 256, // <1-32767>, a limit a seed card can provide to the EB service
         "generation": {
-            "commkey": eb.comm.createUO.consts.genKey.SERVER,
-            "billingkey": eb.comm.createUO.consts.genKey.SERVER,
-            "appkey": eb.comm.createUO.consts.genKey.SERVER
+            "commkey": eb.comm.createUO.consts.genKey.SERVER_RANDOM,
+            "billingkey": eb.comm.createUO.consts.genKey.SERVER_RANDOM,
+            "appkey": eb.comm.createUO.consts.genKey.SERVER_RANDOM
         }
     },
 
