@@ -51,6 +51,13 @@
         var chkEbAppGen;
         var chkEbComGen;
         var chkCoreOne;
+
+        eb.comm.createUO.utils.getUoType = function(fnc, clientGenAppKey, clientGenComKey){
+                var uotype  = fnc;
+                uotype |= isChecked(chkEbAppGen) ? 1<<21 : 0;
+                uotype |= isChecked(chkEbComGen) ? 1<<20 : 0;
+                return uotype;
+        };
     </script>
 </head>
 <body>
